@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   pcl_ros
 )
+find_package(SuperquadricLib 0.1.0.0 EXACT REQUIRED)
+
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -151,6 +153,7 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
+  SuperquadricLib::SuperquadricLibModel
 )
 
 #############
