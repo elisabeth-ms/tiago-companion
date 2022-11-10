@@ -45,9 +45,10 @@ namespace grasp_objects{
         estim_.SetNumericValue("threshold_section2", thresholdSection2_);
 
         pointCloudSubscriber_ = nodeHandle_.subscribe(pointCloudTopicName, 10, &GraspObjects::pointCloudCallback, this);
-        outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud",5);
 
+        outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud",5);
         outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud",5);
+        superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 5);
     }
 
     void GraspObjects::supervoxelOversegmentation(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &inputPointCloud, pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud)
@@ -83,7 +84,7 @@ namespace grasp_objects{
 
         // LCCPSegmentation Stuff
         float concavity_tolerance_threshold = 20;
-        float smoothness_threshold = 0.2;
+        float smoothness_threshold = 0.4;
         std::uint32_t min_segment_size = 10;
         bool use_extended_convexity = false;
         bool use_sanity_criterion = true;
@@ -282,7 +283,9 @@ namespace grasp_objects{
         superquadricObjects_.clear();
         if (lccp_labeled_cloud->points.size() != 0)
         {
-
+            
+            sharon_msgs::SuperquadricMultiArray superquadricsMsg;
+            superquadricsMsg.header.stamp = ros::Time::now();
             updateDetectedObjectsPointCloud(lccp_labeled_cloud);
 
             std::vector<std::vector<double>> graspingPoses;
@@ -294,6 +297,19 @@ namespace grasp_objects{
                 ROS_INFO("pointCloud points: %d", point_cloud.n_points);
                 std::vector<SuperqModel::Superquadric> superqs;
                 getSuperquadricFromPointCloud(point_cloud, superqs);
+                sharon_msgs::Superquadric superquadric;
+                auto params = superqs[0].getSuperqParams();
+                superquadric.a1 = params[0];
+                superquadric.a2 = params[1];
+                superquadric.a3 = params[2];
+                superquadric.e1 = params[3];
+                superquadric.e2 = params[4];
+                superquadric.x = params[5];
+                superquadric.y = params[6];
+                superquadric.z = params[7];
+                superquadric.roll = params[8];
+                superquadric.pitch = params[9];
+                superquadric.yaw = params[10];
 
                 pcl::PointCloud<pcl::PointXYZRGBA>::Ptr auxCloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
 
@@ -307,6 +323,7 @@ namespace grasp_objects{
                 objectSuperquadric.cloud = *auxCloudSuperquadric;
 
                 superquadricObjects_.push_back(objectSuperquadric);
+                superquadricsMsg.superquadrics.push_back(superquadric);
 
             }
             // Convert to ROS data type
@@ -317,6 +334,7 @@ namespace grasp_objects{
             pcl_conversions::moveFromPCL(*cloudAux, pcOutSupeqs);
             pcOutSupeqs.header.frame_id = "/base_footprint";
             outPointCloudSuperqsPublisher_.publish(pcOutSupeqs);
+            superquadricsPublisher_.publish(superquadricsMsg);
         }
 
     }
@@ -327,7 +345,7 @@ namespace grasp_objects{
         double step = 0.005;
         auto params = superqs[0].getSuperqParams();
 
-        std::cout << "a0: " << params[0] << " a1: " << params[1] << " a2: " << params[3] << std::endl;
+        std::cout << "a0: " << params[0] << " a1: " << params[1] << " a2: " << params[2] << std::endl;
 
         for (double x = 0; x <= params[0]; x += step)
         {

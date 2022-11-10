@@ -13,6 +13,7 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/segmentation/lccp_segmentation.h>
 #include <SuperquadricLibModel/superquadricEstimator.h>
+#include <sharon_msgs/SuperquadricMultiArray.h>
 
 #define DEFAULT_MIN_NPOINTS 100
 
@@ -66,6 +67,7 @@ namespace grasp_objects{
         ros::Subscriber pointCloudSubscriber_;
         ros::Publisher outPointCloudPublisher_;
         ros::Publisher outPointCloudSuperqsPublisher_;
+        ros::Publisher superquadricsPublisher_;
         tf::TransformListener listener_;
         tf::StampedTransform transform_;
         float epsAnglePlaneSegmentation_;
@@ -88,6 +90,7 @@ namespace grasp_objects{
 
         std::vector<Object> detectedObjects_;
         std::vector<ObjectSuperquadric> superquadricObjects_;
+
 
 
 

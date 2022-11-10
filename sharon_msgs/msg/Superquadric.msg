@@ -1,0 +1,11 @@
+float32 a1
+float32 a2
+float32 a3
+float32 e1
+float32 e2
+float32 x
+float32 y
+float32 z
+float32 roll
+float32 pitch
+float32 yaw
