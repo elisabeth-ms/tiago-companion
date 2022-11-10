@@ -15,6 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   pcl_ros
   sharon_msgs
+  kdl_conversions
+  nav_msgs
 )
 find_package(SuperquadricLib 0.1.0.0 EXACT REQUIRED)
 
@@ -111,7 +113,7 @@ find_package(SuperquadricLib 0.1.0.0 EXACT REQUIRED)
 catkin_package(
    INCLUDE_DIRS include
 #  LIBRARIES grasp_objects
-  CATKIN_DEPENDS roscpp rospy std_msgs sharon_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs sharon_msgs kdl_conversions nav_msgs
 #  DEPENDS system_lib
 )
 

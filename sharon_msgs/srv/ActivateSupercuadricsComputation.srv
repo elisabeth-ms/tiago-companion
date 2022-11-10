@@ -1,0 +1,4 @@
+# Activate/Deactivate computation of superquadrics
+bool activate
+---
+bool success

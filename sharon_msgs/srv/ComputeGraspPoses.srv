@@ -1,0 +1,5 @@
+# Compute grasping poses of an object identified by the id number
+int32 id
+---
+bool success
+geometry_msgs/PoseStamped[] poses
