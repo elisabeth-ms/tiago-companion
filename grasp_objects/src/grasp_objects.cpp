@@ -51,7 +51,7 @@ namespace grasp_objects
         outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud", 5);
         outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 5);
         superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 5);
-        graspPosesPublisher_ = nodeHandle_.advertise<nav_msgs::Path>("/grasp_objects/poses", 5);
+        graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 5);
 
         serviceActivateSuperquadricsComputation_ = nodeHandle_.advertiseService("/grasp_objects/activate_superquadrics_computation", &GraspObjects::activateSuperquadricsComputation, this);
         serviceComputeGraspPoses_ = nodeHandle_.advertiseService("/grasp_objects/compute_grasp_poses", &GraspObjects::computeGraspPoses, this);
@@ -60,12 +60,13 @@ namespace grasp_objects
     bool GraspObjects::computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request &req, sharon_msgs::ComputeGraspPoses::Response &res)
     {
         ROS_INFO("[GraspObjects] computeGraspPoses().");
-        nav_msgs::Path graspObjectPoses;
+        geometry_msgs::PoseArray graspingPoses;
+
         int idx = -1;
         ROS_INFO("superquadricObjects_.size(): %d", superquadricObjects_.size());
         for (int i = 0; i < superquadricObjects_.size(); i++)
         {
-            ROS_INFO("superquadricObjects_[%d].label: %d, id: %d",i, superquadricObjects_[i].label, req.id);
+            ROS_INFO("superquadricObjects_[%d].label: %d, id: %d", i, superquadricObjects_[i].label, req.id);
             if (superquadricObjects_[i].label == req.id)
             {
                 idx = i;
@@ -78,550 +79,546 @@ namespace grasp_objects
         }
         else
         {
-            std::vector<geometry_msgs::PoseStamped> graspingPoses;
             computeGraspingPosesObject(superquadricObjects_[idx].superqs, graspingPoses);
             res.poses = graspingPoses;
-            graspObjectPoses.header.frame_id = "/base_footprint";
-            graspObjectPoses.header.stamp = ros::Time::now();
-            graspObjectPoses.poses = graspingPoses;
             res.success = true;
         }
 
-        graspPosesPublisher_.publish(graspObjectPoses);
+        graspPosesPublisher_.publish(graspingPoses);
 
-        
         return true;
-
     }
 
-
-void GraspObjects::computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, std::vector<geometry_msgs::PoseStamped> &graspingPoses)
-{
-
-    auto params = superqs[0].getSuperqParams();
-
-    Eigen::AngleAxisf rollAngle(params[8], Eigen::Vector3f::UnitZ());
-    Eigen::AngleAxisf yawAngle(params[9], Eigen::Vector3f::UnitY());
-    Eigen::AngleAxisf pitchAngle(params[10], Eigen::Vector3f::UnitZ());
-
-    Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
-
-    KDL::Rotation rot_aux = KDL::Rotation::Quaternion(q.x(), q.y(), q.z(), q.w());
-    KDL::Frame frame_object_wrt_world(rot_aux);
-    frame_object_wrt_world.p[0] = params[5];
-    frame_object_wrt_world.p[1] = params[6];
-    frame_object_wrt_world.p[2] = params[7];
-
-    KDL::Frame frame_grasping_wrt_world;
-    std::cout << "axes length: " << 2 * params[0] << " " << 2 * params[1] << ": " << 2 * params[2] << std::endl;
-
-    float step = 0.01;
-    if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP)
+    void GraspObjects::computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses)
     {
-        KDL::Vector zobject;
-        KDL::Vector yobject;
-        KDL::Vector xobject;
-        KDL::Rotation rot;
-        KDL::Frame frameTCP, frame_grasping_wrt_object;
-        std::vector<double> tcpX;
-        for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
+
+        graspingPoses.header.frame_id = "/base_footprint";
+        graspingPoses.header.stamp = ros::Time::now();
+
+        auto params = superqs[0].getSuperqParams();
+
+        Eigen::AngleAxisf rollAngle(params[8], Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf yawAngle(params[9], Eigen::Vector3f::UnitY());
+        Eigen::AngleAxisf pitchAngle(params[10], Eigen::Vector3f::UnitZ());
+
+        Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
+
+        KDL::Rotation rot_aux = KDL::Rotation::Quaternion(q.x(), q.y(), q.z(), q.w());
+        KDL::Frame frame_object_wrt_world(rot_aux);
+        frame_object_wrt_world.p[0] = params[5];
+        frame_object_wrt_world.p[1] = params[6];
+        frame_object_wrt_world.p[2] = params[7];
+
+        KDL::Frame frame_grasping_wrt_world;
+        std::cout << "axes length: " << 2 * params[0] << " " << 2 * params[1] << ": " << 2 * params[2] << std::endl;
+
+        float step = 0.01;
+        if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP)
         {
-            xobject = KDL::Vector(xaxes, 0, 0);
-            for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
+            KDL::Vector zobject;
+            KDL::Vector yobject;
+            KDL::Vector xobject;
+            KDL::Rotation rot;
+            KDL::Frame frameTCP, frame_grasping_wrt_object;
+            std::vector<double> tcpX;
+
+            for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
             {
-                for (float yaxes = -1.0; yaxes <= -1.0; yaxes += 2)
+                zobject = KDL::Vector(0, yaxes, 0);
+                for (float x = 0; x <= params[0] / 2.0; x += step)
+                {
+                    float xaxes = -1.0;
+                    yobject = KDL::Vector(xaxes, 0.0, 0.0);
+                    xobject = yobject * zobject;
+                    rot = KDL::Rotation(xobject, yobject, zobject);
+                    frameTCP = KDL::Frame(rot);
+                    frameTCP = KDL::Frame(KDL::Rotation::RotZ(M_PI / 2.0)) * frameTCP;
+                    frameTCP = KDL::Frame(KDL::Rotation::RotX(M_PI / 2.0)) * frameTCP;
+                    frame_grasping_wrt_object = frameTCP;
+                    for (int sign = 1.0; sign >= -1; sign -= 2.0)
+                    {
+                        frame_grasping_wrt_object.p[0] = sign*x;
+                        frame_grasping_wrt_object.p[1] = -yaxes * params[1];
+                        frame_grasping_wrt_object.p[2] = 0;
+                        frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+                        // Check if is trying to grasp from the bottom of the objet
+                        KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                        KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
+                        KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
+
+                        KDL::Vector axesz(0, 0, 1);
+                        float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
+                        // printf("angle: %f\n", angle * M_1_PI / 180.0);
+
+                       
+                            geometry_msgs::Pose pose;
+                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+                            graspingPoses.poses.push_back(pose);
+                        
+                    }
+                }
+            }
+
+            float yaxes = -1.0;
+
+            for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
+            {
+                xobject = KDL::Vector(xaxes, 0, 0);
+                for (float y = 0; y <= params[1] / 2.0; y += step)
+                // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
                 {
                     yobject = KDL::Vector(0, yaxes, 0.0);
                     zobject = xobject * yobject;
                     rot = KDL::Rotation(xobject, yobject, zobject);
                     frameTCP = KDL::Frame(rot);
-                    frameTCP= KDL::Frame(KDL::Rotation::RotX(-M_PI/2.0))*frameTCP;
+                    frameTCP = KDL::Frame(KDL::Rotation::RotX(-M_PI / 2.0)) * frameTCP;
 
-                    frame_grasping_wrt_object = frameTCP;
-                    frame_grasping_wrt_object.p[0] = -xaxes * params[0];
-                    frame_grasping_wrt_object.p[1] = y;
-                    frame_grasping_wrt_object.p[2] = 0;
-                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
-                    // Check if is trying to grasp from the bottom of the objet
-                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
-                    KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
-                    KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
-
-                    KDL::Vector axesz(0, 0, 1);
-                    float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
-                    // printf("angle: %f\n", angle * M_1_PI / 180.0);
-                    if (abs(angle) > 10 * M_1_PI / 180.0)
+                    for (int sign = 1; sign >= -1; sign -= 2)
                     {
+                        frame_grasping_wrt_object = frameTCP;
+                        frame_grasping_wrt_object.p[0] = -xaxes * params[0];
+                        frame_grasping_wrt_object.p[1] = sign * y;
+                        frame_grasping_wrt_object.p[2] = 0;
+                        frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+                        // Check if is trying to grasp from the bottom of the objet
+                        KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                        KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
+                        KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
 
-                        geometry_msgs::PoseStamped pose;
-                        pose.header.frame_id = "/base_footprint";
-                        pose.header.stamp = ros::Time::now();
-                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose.pose);
-                        // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                        graspingPoses.push_back(pose);
-                    }
-                }
-            }
-        }
+                        KDL::Vector axesz(0, 0, 1);
+                        float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
+                        printf("angle: %f\n", angle * 180.0 / M_PI);
 
-        for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
-        {
-            zobject = KDL::Vector(0, yaxes, 0);
-            for (float x = -params[0] / 2.0; x <= params[0] / 2.0; x += step)
-            {
-                for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
-                {
-                    yobject = KDL::Vector(xaxes, 0.0, 0.0);
-                    xobject = yobject * zobject;
-                    rot = KDL::Rotation(xobject, yobject, zobject);
-                    frameTCP = KDL::Frame(rot);
-                    // frameTCP= KDL::Frame(KDL::Rotation::RotX(-M_PI/2.0))*frameTCP;
-                    frame_grasping_wrt_object = frameTCP;
-                    frame_grasping_wrt_object.p[0] = x;
-                    frame_grasping_wrt_object.p[1] = -yaxes * params[1];
-                    frame_grasping_wrt_object.p[2] = 0;
-                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
-                    // Check if is trying to grasp from the bottom of the objet
-                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
-                    KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
-                    KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
 
-                    KDL::Vector axesz(0, 0, 1);
-                    float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
-                    // printf("angle: %f\n", angle * M_1_PI / 180.0);
-
-                    if (abs(angle) > 10 * M_1_PI / 180.0)
-                    {
-                        geometry_msgs::PoseStamped pose;
-                        pose.header.frame_id = "/base_footprint";
-                        pose.header.stamp = ros::Time::now();
-                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose.pose);
-                        // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                        graspingPoses.push_back(pose);
+                            geometry_msgs::Pose pose;
+                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+                            graspingPoses.poses.push_back(pose);
+                        
                     }
                 }
             }
         }
     }
-}
 
-bool GraspObjects::activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request &req, sharon_msgs::ActivateSupercuadricsComputation::Response &res)
-{
-
-    mtxActivate_.lock();
-    activate_ = req.activate;
-    ROS_INFO("[GraspObjects] Activate superquadrics Computation: %d", activate_);
-    res.success = true;
-    mtxActivate_.unlock();
-    return true;
-}
-
-void GraspObjects::supervoxelOversegmentation(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &inputPointCloud, pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud)
-{
-
-    // ------------------------------- Compute normals of the the input cloud ------------------------------------------------- //
-
-    // Create the normal estimation class, and pass the input dataset to it
-    pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
-    ne.setInputCloud(inputPointCloud);
-
-    // Create an empty kdtree representation, and pass it to the normal estimation object.
-    // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>());
-    ne.setSearchMethod(tree);
-    // Output datasets
-    pcl::PointCloud<pcl::Normal>::Ptr input_normals_ptr(new pcl::PointCloud<pcl::Normal>);
-
-    // Use all neighbors in a sphere of radius 3cm (TODO: Pass as parameter)
-    ne.setRadiusSearch(0.035);
-    // Compute the features
-    ne.compute(*input_normals_ptr);
-
-    // TODO: Change to ROS params
-    float voxel_resolution = 0.05f;
-    float seed_resolution = 0.02f;
-    float color_importance = 0.0f;
-    float spatial_importance = 2.0f;
-    float normal_importance = 2.0f;
-    bool use_single_cam_transform = false;
-    bool use_supervoxel_refinement = false;
-
-    // LCCPSegmentation Stuff
-    float concavity_tolerance_threshold = 20;
-    float smoothness_threshold = 0.4;
-    std::uint32_t min_segment_size = 10;
-    bool use_extended_convexity = false;
-    bool use_sanity_criterion = true;
-
-    unsigned int k_factor = 0;
-    if (use_extended_convexity)
-        k_factor = 1;
-
-    pcl::SupervoxelClustering<pcl::PointXYZRGB> super(voxel_resolution, seed_resolution);
-    super.setUseSingleCameraTransform(use_single_cam_transform);
-    super.setInputCloud(inputPointCloud);
-    super.setNormalCloud(input_normals_ptr);
-    super.setColorImportance(color_importance);
-    super.setSpatialImportance(spatial_importance);
-    super.setNormalImportance(normal_importance);
-    std::map<std::uint32_t, pcl::Supervoxel<pcl::PointXYZRGB>::Ptr> supervoxel_clusters;
-
-    if (use_supervoxel_refinement)
-    {
-        // PCL_INFO ("Refining supervoxels\n");
-        super.refineSupervoxels(2, supervoxel_clusters);
-    }
-
-    // PCL_INFO ("Extracting supervoxels\n");
-    super.extract(supervoxel_clusters);
-
-    std::stringstream temp;
-    temp << "  Nr. Supervoxels: " << supervoxel_clusters.size() << "\n";
-    PCL_INFO(temp.str().c_str());
-    // PCL_INFO ("Getting supervoxel adjacency\n");
-    std::multimap<std::uint32_t, std::uint32_t> supervoxel_adjacency;
-    super.getSupervoxelAdjacency(supervoxel_adjacency);
-
-    pcl::PointCloud<pcl::PointXYZL>::Ptr sv_labeled_cloud = super.getLabeledCloud();
-
-    /// Get the cloud of supervoxel centroid with normals and the colored cloud with supervoxel coloring (this is used for visulization)
-    pcl::PointCloud<pcl::PointNormal>::Ptr sv_centroid_normal_cloud = pcl::SupervoxelClustering<pcl::PointXYZRGB>::makeSupervoxelNormalCloud(supervoxel_clusters);
-
-    // pcl::io::savePCDFile ("svcloud.pcd", *sv_centroid_normal_cloud, true);
-
-    PCL_INFO("Starting Segmentation\n");
-
-    pcl::LCCPSegmentation<pcl::PointXYZRGB> lccp;
-    lccp.reset();
-    lccp.setConcavityToleranceThreshold(concavity_tolerance_threshold);
-    lccp.setSanityCheck(use_sanity_criterion);
-    lccp.setSmoothnessCheck(true, voxel_resolution, seed_resolution, smoothness_threshold);
-    lccp.setKFactor(k_factor);
-    lccp.setInputSupervoxels(supervoxel_clusters, supervoxel_adjacency);
-    lccp.setMinSegmentSize(min_segment_size);
-    lccp.segment();
-    SuperVoxelAdjacencyList sv_adjacency_list;
-    lccp.getSVAdjacencyList(sv_adjacency_list); // Needed for visualization
-
-    // lccp.getSegmentAdjacencyMap(supervoxel_adjacency);
-
-    // PCL_INFO ("Interpolation voxel cloud -> input cloud and relabeling\n");
-
-    // PCL_INFO ("Get labeled cloud done\n");
-
-    lccp_labeled_cloud = sv_labeled_cloud->makeShared();
-    // PCL_INFO ("makeShared\n");
-
-    lccp.relabelCloud(*lccp_labeled_cloud);
-
-    // PCL_INFO ("relabel\n");
-}
-
-void GraspObjects::updateDetectedObjectsPointCloud(const pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud)
-{
-    detectedObjects_.clear();
-    for (int i = 0; i < lccp_labeled_cloud->points.size(); ++i)
+    bool GraspObjects::activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request &req, sharon_msgs::ActivateSupercuadricsComputation::Response &res)
     {
 
-        uint32_t idx = lccp_labeled_cloud->points[i].label;
-
-        // in this way we enlarges the vector everytime we encounter a greater label. So we don't need to pass all
-        //  labeeld point cloud to see what is the greater label, and then to resize the vector.
-        if (idx >= detectedObjects_.size()) // keep in mind that there is also the label 0!
-        {
-            detectedObjects_.resize(idx + 1);
-        }
-        // if (detected_objects[idx].object_cloud.empty())
-        // {
-        //     detected_objects[idx].r = rand() % 256;
-        //     detected_objects[idx].g = rand() % 256;
-        //     detected_objects[idx].b = rand() % 256;
-        // }
-        pcl::PointXYZRGB tmp_point_rgb;
-        tmp_point_rgb.x = lccp_labeled_cloud->points[i].x;
-        tmp_point_rgb.y = lccp_labeled_cloud->points[i].y;
-        tmp_point_rgb.z = lccp_labeled_cloud->points[i].z;
-        tmp_point_rgb.r = rand() % 256;
-        tmp_point_rgb.g = rand() % 256;
-        tmp_point_rgb.b = rand() % 256;
-
-        detectedObjects_[idx].object_cloud.points.push_back(tmp_point_rgb);
-        detectedObjects_[idx].label = (int)idx;
-    }
-
-    // remove segments with too few points
-    // it will removes te ones with few points or the ones with no points (these are created because of the labels of lccp)
-    int size = detectedObjects_.size();
-    ROS_INFO("[GraspObjects] size: %d", detectedObjects_.size());
-
-    int i = 0;
-    while (i < size)
-    {
-        if (detectedObjects_[i].object_cloud.size() < this->th_points_)
-        {
-            detectedObjects_.erase(detectedObjects_.begin() + i);
-            size = detectedObjects_.size();
-        }
-        else
-        {
-            detectedObjects_[i].object_cloud.width = detectedObjects_[i].object_cloud.size();
-            detectedObjects_[i].object_cloud.height = 1;
-            i++;
-        }
-    }
-    ROS_INFO("[GraspObjects] size: %d", detectedObjects_.size());
-}
-
-void GraspObjects::pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &pointCloud_msg)
-{
-    bool activate;
-    mtxActivate_.lock();
-    activate = activate_;
-    mtxActivate_.unlock();
-    if (activate)
-    {
-        sensor_msgs::PointCloud2 pcOut;
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-        tf::StampedTransform transform;
-
-        listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transform);
-
-        pcl_ros::transformPointCloud(std::string("/base_footprint"), transform, *pointCloud_msg, pcOut);
-
-        pcl::PCLPointCloud2 *cloudFiltered = new pcl::PCLPointCloud2;
-        pcl::PCLPointCloud2ConstPtr cloudFilteredPtr(cloudFiltered);
-        // Convert to PCL data type
-        pcl_conversions::toPCL(pcOut, *cloudFiltered);
-
-        // Perform the actual filtering
-        pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
-        sor.setInputCloud(cloudFilteredPtr);
-        sor.setLeafSize(0.005f, 0.005f, 0.005f);
-        sor.filter(*cloudFiltered);
-
-        // Create the filtering object
-        pcl::PassThrough<pcl::PCLPointCloud2> pass;
-        pass.setInputCloud(cloudFilteredPtr);
-        pass.setFilterFieldName("z");
-        pass.setFilterLimits(0.2, 1.5);
-        // pass.setFilterLimitsNegative (true);
-        pass.filter(*cloudFiltered);
-
-        pcl::fromPCLPointCloud2(*cloudFiltered, *cloud_without_table);
-
-        // Coefficients and inliners objects for tge ransac plannar model
-        pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
-        pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
-        // Create the segmentation object
-        pcl::SACSegmentation<pcl::PointXYZRGB> seg;
-        // Optional
-        seg.setOptimizeCoefficients(true);
-        // Mandatory
-        seg.setModelType(pcl::SACMODEL_PARALLEL_PLANE);
-        seg.setMethodType(pcl::SAC_RANSAC);
-        seg.setMaxIterations(2000);
-        seg.setDistanceThreshold(distanceThresholdPlaneSegmentation_);
-        seg.setAxis(Eigen::Vector3f::UnitX());
-        seg.setEpsAngle(epsAnglePlaneSegmentation_);
-
-        seg.setInputCloud(cloud_without_table);
-        seg.segment(*inliers, *coefficients);
-        // Create the filtering object
-        pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-
-        extract.setInputCloud(cloud_without_table);
-        extract.setIndices(inliers);
-        extract.setNegative(true); // Extract the inliers
-        extract.filter(*cloud_without_table);
-
-        pcl::PointCloud<pcl::PointXYZL>::Ptr lccp_labeled_cloud;
-        supervoxelOversegmentation(cloud_without_table, lccp_labeled_cloud);
-
-        // Convert to ROS data type
-        pcl::toPCLPointCloud2(*lccp_labeled_cloud, *cloudFiltered);
-        pcl_conversions::moveFromPCL(*cloudFiltered, pcOut);
-        pcOut.header.frame_id = "/base_footprint";
-        outPointCloudPublisher_.publish(pcOut);
-
-        pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
-        superquadricObjects_.clear();
-        if (lccp_labeled_cloud->points.size() != 0)
-        {
-
-            sharon_msgs::SuperquadricMultiArray superquadricsMsg;
-            superquadricsMsg.header.stamp = ros::Time::now();
-            updateDetectedObjectsPointCloud(lccp_labeled_cloud);
-
-            std::vector<std::vector<double>> graspingPoses;
-
-            for (unsigned int idx = 0; idx < detectedObjects_.size(); idx++)
-            {
-                SuperqModel::PointCloud point_cloud;
-                pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
-                ROS_INFO("pointCloud points: %d", point_cloud.n_points);
-                std::vector<SuperqModel::Superquadric> superqs;
-                getSuperquadricFromPointCloud(point_cloud, superqs);
-                sharon_msgs::Superquadric superquadric;
-                auto params = superqs[0].getSuperqParams();
-                superquadric.id = detectedObjects_[idx].label;
-                superquadric.a1 = params[0];
-                superquadric.a2 = params[1];
-                superquadric.a3 = params[2];
-                superquadric.e1 = params[3];
-                superquadric.e2 = params[4];
-                superquadric.x = params[5];
-                superquadric.y = params[6];
-                superquadric.z = params[7];
-                superquadric.roll = params[8];
-                superquadric.pitch = params[9];
-                superquadric.yaw = params[10];
-
-                pcl::PointCloud<pcl::PointXYZRGBA>::Ptr auxCloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
-
-                // This is only for visulazition of the superquadrics
-                createPointCloudFromSuperquadric(superqs, auxCloudSuperquadric, idx);
-                *cloudSuperquadric += *auxCloudSuperquadric;
-
-                ObjectSuperquadric objectSuperquadric;
-                objectSuperquadric.label = detectedObjects_[idx].label;
-                objectSuperquadric.superqs = superqs;
-                objectSuperquadric.cloud = *auxCloudSuperquadric;
-
-                superquadricObjects_.push_back(objectSuperquadric);
-                superquadricsMsg.superquadrics.push_back(superquadric);
-            }
-            // Convert to ROS data type
-            sensor_msgs::PointCloud2 pcOutSupeqs;
-            pcl::PCLPointCloud2 *cloudAux = new pcl::PCLPointCloud2;
-
-            pcl::toPCLPointCloud2(*cloudSuperquadric, *cloudAux);
-            pcl_conversions::moveFromPCL(*cloudAux, pcOutSupeqs);
-            pcOutSupeqs.header.frame_id = "/base_footprint";
-            outPointCloudSuperqsPublisher_.publish(pcOutSupeqs);
-            superquadricsPublisher_.publish(superquadricsMsg);
-        }
-    }
-}
-
-void GraspObjects::createPointCloudFromSuperquadric(const std::vector<SuperqModel::Superquadric> &superqs, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloudSuperquadric, int indexDetectedObjects)
-{
-    double step = 0.005;
-    auto params = superqs[0].getSuperqParams();
-
-    std::cout << "a0: " << params[0] << " a1: " << params[1] << " a2: " << params[2] << std::endl;
-
-    for (double x = 0; x <= params[0]; x += step)
-    {
-        for (double y = 0; y <= params[1]; y += step)
-        {
-            for (double z = 0; z <= params[2]; z += step)
-            {
-                double f = pow(abs(pow(abs(x / params[0]), 2.0 / params[4]) + pow(abs(y / params[1]), 2.0 / params[4])), params[4] / params[3]) + pow(abs(z / params[2]), 2.0 / params[3]);
-                if (f <= 1.0)
-                {
-                    pcl::PointXYZRGBA p;
-
-                    p.x = x;
-                    p.y = y;
-                    p.z = z;
-                    p.r = detectedObjects_[indexDetectedObjects].object_cloud.points[0].r;
-                    p.g = detectedObjects_[indexDetectedObjects].object_cloud.points[0].g;
-                    p.b = detectedObjects_[indexDetectedObjects].object_cloud.points[0].b;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-
-                    p.z = -z;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-
-                    p.x = -x;
-                    p.y = y;
-                    p.z = z;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-                    p.z = -z;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-
-                    p.x = x;
-                    p.y = -y;
-                    p.z = z;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-                    p.z = -z;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-
-                    p.x = -x;
-                    p.y = -y;
-                    p.z = z;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-
-                    p.z = -z;
-                    cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
-                }
-            }
-        }
-    }
-
-    Eigen::AngleAxisf rollAngle(params[8], Eigen::Vector3f::UnitZ());
-    Eigen::AngleAxisf yawAngle(params[9], Eigen::Vector3f::UnitY());
-    Eigen::AngleAxisf pitchAngle(params[10], Eigen::Vector3f::UnitZ());
-
-    Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
-    Eigen::Matrix3f rotationMatrix = q.matrix();
-
-    Eigen::Vector3f v(params[5], params[6], params[7]);
-    Eigen::Matrix4f transform = Eigen::Affine3f(Eigen::Translation3f(v)).matrix();
-
-    transform.block<3, 3>(0, 0) = rotationMatrix;
-    pcl::transformPointCloud(*cloudSuperquadric, *cloudSuperquadric, transform);
-}
-
-bool GraspObjects::pclPointCloudToSuperqPointCloud(const pcl::PointCloud<pcl::PointXYZRGB> &object_cloud, SuperqModel::PointCloud &point_cloud)
-{
-    std::vector<std::vector<unsigned char>> acquired_colors;
-
-    // yarp::sig::Vector point(3);
-    std::vector<unsigned char> c;
-    c.resize(3);
-    std::deque<Eigen::Vector3d> eigen_points;
-
-    for (size_t idx = 0; idx < object_cloud.size(); idx++)
-    {
-        Eigen::Vector3d point(object_cloud[idx].x, object_cloud[idx].y, object_cloud[idx].z);
-
-        c[0] = object_cloud[idx].r;
-        c[1] = object_cloud[idx].g;
-        c[2] = object_cloud[idx].b;
-
-        eigen_points.push_back(point);
-        acquired_colors.push_back(c);
-    }
-
-    // for (size_t i = 0; i < acquired_points.size(); i++)
-    // {
-    //     eigen_points.push_back(yarp::eigen::toEigen(acquired_points[i]));
-    // }
-
-    if (eigen_points.size() >= minimumPoints_)
-    {
-        point_cloud.setPoints(eigen_points);
-        point_cloud.setColors(acquired_colors);
+        mtxActivate_.lock();
+        activate_ = req.activate;
+        ROS_INFO("[GraspObjects] Activate superquadrics Computation: %d", activate_);
+        res.success = true;
+        mtxActivate_.unlock();
         return true;
     }
-    else
-        return false;
-}
 
-void GraspObjects::getSuperquadricFromPointCloud(SuperqModel::PointCloud point_cloud, std::vector<SuperqModel::Superquadric> &superqs)
-{
-
-    /*  ------------------------------  */
-    /*  ------> Compute superq <------  */
-    /*  ------------------------------  */
-
-    ROS_INFO("[grasp_objects]: compute superq");
-    if (single_superq_ || object_class_ != "default")
+    void GraspObjects::supervoxelOversegmentation(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &inputPointCloud, pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud)
     {
-        ROS_INFO("!!!!!");
-        estim_.SetStringValue("object_class", object_class_);
-        superqs = estim_.computeSuperq(point_cloud);
+
+        // ------------------------------- Compute normals of the the input cloud ------------------------------------------------- //
+
+        // Create the normal estimation class, and pass the input dataset to it
+        pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> ne;
+        ne.setInputCloud(inputPointCloud);
+
+        // Create an empty kdtree representation, and pass it to the normal estimation object.
+        // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+        pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>());
+        ne.setSearchMethod(tree);
+        // Output datasets
+        pcl::PointCloud<pcl::Normal>::Ptr input_normals_ptr(new pcl::PointCloud<pcl::Normal>);
+
+        // Use all neighbors in a sphere of radius 3cm (TODO: Pass as parameter)
+        ne.setRadiusSearch(0.035);
+        // Compute the features
+        ne.compute(*input_normals_ptr);
+
+        // TODO: Change to ROS params
+        float voxel_resolution = 0.05f;
+        float seed_resolution = 0.02f;
+        float color_importance = 0.0f;
+        float spatial_importance = 2.0f;
+        float normal_importance = 2.0f;
+        bool use_single_cam_transform = false;
+        bool use_supervoxel_refinement = false;
+
+        // LCCPSegmentation Stuff
+        float concavity_tolerance_threshold = 20;
+        float smoothness_threshold = 0.4;
+        std::uint32_t min_segment_size = 10;
+        bool use_extended_convexity = false;
+        bool use_sanity_criterion = true;
+
+        unsigned int k_factor = 0;
+        if (use_extended_convexity)
+            k_factor = 1;
+
+        pcl::SupervoxelClustering<pcl::PointXYZRGB> super(voxel_resolution, seed_resolution);
+        super.setUseSingleCameraTransform(use_single_cam_transform);
+        super.setInputCloud(inputPointCloud);
+        super.setNormalCloud(input_normals_ptr);
+        super.setColorImportance(color_importance);
+        super.setSpatialImportance(spatial_importance);
+        super.setNormalImportance(normal_importance);
+        std::map<std::uint32_t, pcl::Supervoxel<pcl::PointXYZRGB>::Ptr> supervoxel_clusters;
+
+        if (use_supervoxel_refinement)
+        {
+            // PCL_INFO ("Refining supervoxels\n");
+            super.refineSupervoxels(2, supervoxel_clusters);
+        }
+
+        // PCL_INFO ("Extracting supervoxels\n");
+        super.extract(supervoxel_clusters);
+
+        std::stringstream temp;
+        temp << "  Nr. Supervoxels: " << supervoxel_clusters.size() << "\n";
+        PCL_INFO(temp.str().c_str());
+        // PCL_INFO ("Getting supervoxel adjacency\n");
+        std::multimap<std::uint32_t, std::uint32_t> supervoxel_adjacency;
+        super.getSupervoxelAdjacency(supervoxel_adjacency);
+
+        pcl::PointCloud<pcl::PointXYZL>::Ptr sv_labeled_cloud = super.getLabeledCloud();
+
+        /// Get the cloud of supervoxel centroid with normals and the colored cloud with supervoxel coloring (this is used for visulization)
+        pcl::PointCloud<pcl::PointNormal>::Ptr sv_centroid_normal_cloud = pcl::SupervoxelClustering<pcl::PointXYZRGB>::makeSupervoxelNormalCloud(supervoxel_clusters);
+
+        // pcl::io::savePCDFile ("svcloud.pcd", *sv_centroid_normal_cloud, true);
+
+        PCL_INFO("Starting Segmentation\n");
+
+        pcl::LCCPSegmentation<pcl::PointXYZRGB> lccp;
+        lccp.reset();
+        lccp.setConcavityToleranceThreshold(concavity_tolerance_threshold);
+        lccp.setSanityCheck(use_sanity_criterion);
+        lccp.setSmoothnessCheck(true, voxel_resolution, seed_resolution, smoothness_threshold);
+        lccp.setKFactor(k_factor);
+        lccp.setInputSupervoxels(supervoxel_clusters, supervoxel_adjacency);
+        lccp.setMinSegmentSize(min_segment_size);
+        lccp.segment();
+        SuperVoxelAdjacencyList sv_adjacency_list;
+        lccp.getSVAdjacencyList(sv_adjacency_list); // Needed for visualization
+
+        // lccp.getSegmentAdjacencyMap(supervoxel_adjacency);
+
+        // PCL_INFO ("Interpolation voxel cloud -> input cloud and relabeling\n");
+
+        // PCL_INFO ("Get labeled cloud done\n");
+
+        lccp_labeled_cloud = sv_labeled_cloud->makeShared();
+        // PCL_INFO ("makeShared\n");
+
+        lccp.relabelCloud(*lccp_labeled_cloud);
+
+        // PCL_INFO ("relabel\n");
     }
-}
+
+    void GraspObjects::updateDetectedObjectsPointCloud(const pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud)
+    {
+        detectedObjects_.clear();
+        for (int i = 0; i < lccp_labeled_cloud->points.size(); ++i)
+        {
+
+            uint32_t idx = lccp_labeled_cloud->points[i].label;
+
+            // in this way we enlarges the vector everytime we encounter a greater label. So we don't need to pass all
+            //  labeeld point cloud to see what is the greater label, and then to resize the vector.
+            if (idx >= detectedObjects_.size()) // keep in mind that there is also the label 0!
+            {
+                detectedObjects_.resize(idx + 1);
+            }
+            // if (detected_objects[idx].object_cloud.empty())
+            // {
+            //     detected_objects[idx].r = rand() % 256;
+            //     detected_objects[idx].g = rand() % 256;
+            //     detected_objects[idx].b = rand() % 256;
+            // }
+            pcl::PointXYZRGB tmp_point_rgb;
+            tmp_point_rgb.x = lccp_labeled_cloud->points[i].x;
+            tmp_point_rgb.y = lccp_labeled_cloud->points[i].y;
+            tmp_point_rgb.z = lccp_labeled_cloud->points[i].z;
+            tmp_point_rgb.r = rand() % 256;
+            tmp_point_rgb.g = rand() % 256;
+            tmp_point_rgb.b = rand() % 256;
+
+            detectedObjects_[idx].object_cloud.points.push_back(tmp_point_rgb);
+            detectedObjects_[idx].label = (int)idx;
+        }
+
+        // remove segments with too few points
+        // it will removes te ones with few points or the ones with no points (these are created because of the labels of lccp)
+        int size = detectedObjects_.size();
+        ROS_INFO("[GraspObjects] size: %d", detectedObjects_.size());
+
+        int i = 0;
+        while (i < size)
+        {
+            if (detectedObjects_[i].object_cloud.size() < this->th_points_)
+            {
+                detectedObjects_.erase(detectedObjects_.begin() + i);
+                size = detectedObjects_.size();
+            }
+            else
+            {
+                detectedObjects_[i].object_cloud.width = detectedObjects_[i].object_cloud.size();
+                detectedObjects_[i].object_cloud.height = 1;
+                i++;
+            }
+        }
+        ROS_INFO("[GraspObjects] size: %d", detectedObjects_.size());
+    }
+
+    void GraspObjects::pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &pointCloud_msg)
+    {
+        bool activate;
+        mtxActivate_.lock();
+        activate = activate_;
+        mtxActivate_.unlock();
+        if (activate)
+        {
+            sensor_msgs::PointCloud2 pcOut;
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+            tf::StampedTransform transform;
+
+            listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transform);
+
+            pcl_ros::transformPointCloud(std::string("/base_footprint"), transform, *pointCloud_msg, pcOut);
+
+            pcl::PCLPointCloud2 *cloudFiltered = new pcl::PCLPointCloud2;
+            pcl::PCLPointCloud2ConstPtr cloudFilteredPtr(cloudFiltered);
+            // Convert to PCL data type
+            pcl_conversions::toPCL(pcOut, *cloudFiltered);
+
+            // Perform the actual filtering
+            pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
+            sor.setInputCloud(cloudFilteredPtr);
+            sor.setLeafSize(0.005f, 0.005f, 0.005f);
+            sor.filter(*cloudFiltered);
+
+            // Create the filtering object
+            pcl::PassThrough<pcl::PCLPointCloud2> pass;
+            pass.setInputCloud(cloudFilteredPtr);
+            pass.setFilterFieldName("z");
+            pass.setFilterLimits(0.2, 1.5);
+            // pass.setFilterLimitsNegative (true);
+            pass.filter(*cloudFiltered);
+
+            pcl::fromPCLPointCloud2(*cloudFiltered, *cloud_without_table);
+
+            // Coefficients and inliners objects for tge ransac plannar model
+            pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
+            pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+            // Create the segmentation object
+            pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+            // Optional
+            seg.setOptimizeCoefficients(true);
+            // Mandatory
+            seg.setModelType(pcl::SACMODEL_PARALLEL_PLANE);
+            seg.setMethodType(pcl::SAC_RANSAC);
+            seg.setMaxIterations(2000);
+            seg.setDistanceThreshold(distanceThresholdPlaneSegmentation_);
+            seg.setAxis(Eigen::Vector3f::UnitX());
+            seg.setEpsAngle(epsAnglePlaneSegmentation_);
+
+            seg.setInputCloud(cloud_without_table);
+            seg.segment(*inliers, *coefficients);
+            // Create the filtering object
+            pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+
+            extract.setInputCloud(cloud_without_table);
+            extract.setIndices(inliers);
+            extract.setNegative(true); // Extract the inliers
+            extract.filter(*cloud_without_table);
+
+            pcl::PointCloud<pcl::PointXYZL>::Ptr lccp_labeled_cloud;
+            supervoxelOversegmentation(cloud_without_table, lccp_labeled_cloud);
+
+            // Convert to ROS data type
+            pcl::toPCLPointCloud2(*lccp_labeled_cloud, *cloudFiltered);
+            pcl_conversions::moveFromPCL(*cloudFiltered, pcOut);
+            pcOut.header.frame_id = "/base_footprint";
+            outPointCloudPublisher_.publish(pcOut);
+
+            pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
+            superquadricObjects_.clear();
+            if (lccp_labeled_cloud->points.size() != 0)
+            {
+
+                sharon_msgs::SuperquadricMultiArray superquadricsMsg;
+                superquadricsMsg.header.stamp = ros::Time::now();
+                updateDetectedObjectsPointCloud(lccp_labeled_cloud);
+
+                std::vector<std::vector<double>> graspingPoses;
+
+                for (unsigned int idx = 0; idx < detectedObjects_.size(); idx++)
+                {
+                    SuperqModel::PointCloud point_cloud;
+                    pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
+                    ROS_INFO("pointCloud points: %d", point_cloud.n_points);
+                    std::vector<SuperqModel::Superquadric> superqs;
+                    getSuperquadricFromPointCloud(point_cloud, superqs);
+                    sharon_msgs::Superquadric superquadric;
+                    auto params = superqs[0].getSuperqParams();
+                    superquadric.id = detectedObjects_[idx].label;
+                    superquadric.a1 = params[0];
+                    superquadric.a2 = params[1];
+                    superquadric.a3 = params[2];
+                    superquadric.e1 = params[3];
+                    superquadric.e2 = params[4];
+                    superquadric.x = params[5];
+                    superquadric.y = params[6];
+                    superquadric.z = params[7];
+                    superquadric.roll = params[8];
+                    superquadric.pitch = params[9];
+                    superquadric.yaw = params[10];
+
+                    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr auxCloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
+
+                    // This is only for visulazition of the superquadrics
+                    createPointCloudFromSuperquadric(superqs, auxCloudSuperquadric, idx);
+                    *cloudSuperquadric += *auxCloudSuperquadric;
+
+                    ObjectSuperquadric objectSuperquadric;
+                    objectSuperquadric.label = detectedObjects_[idx].label;
+                    objectSuperquadric.superqs = superqs;
+                    objectSuperquadric.cloud = *auxCloudSuperquadric;
+
+                    superquadricObjects_.push_back(objectSuperquadric);
+                    superquadricsMsg.superquadrics.push_back(superquadric);
+                }
+                // Convert to ROS data type
+                sensor_msgs::PointCloud2 pcOutSupeqs;
+                pcl::PCLPointCloud2 *cloudAux = new pcl::PCLPointCloud2;
+
+                pcl::toPCLPointCloud2(*cloudSuperquadric, *cloudAux);
+                pcl_conversions::moveFromPCL(*cloudAux, pcOutSupeqs);
+                pcOutSupeqs.header.frame_id = "/base_footprint";
+                outPointCloudSuperqsPublisher_.publish(pcOutSupeqs);
+                superquadricsPublisher_.publish(superquadricsMsg);
+            }
+        }
+    }
+
+    void GraspObjects::createPointCloudFromSuperquadric(const std::vector<SuperqModel::Superquadric> &superqs, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloudSuperquadric, int indexDetectedObjects)
+    {
+        double step = 0.005;
+        auto params = superqs[0].getSuperqParams();
+
+        std::cout << "a0: " << params[0] << " a1: " << params[1] << " a2: " << params[2] << std::endl;
+
+        for (double x = 0; x <= params[0]; x += step)
+        {
+            for (double y = 0; y <= params[1]; y += step)
+            {
+                for (double z = 0; z <= params[2]; z += step)
+                {
+                    double f = pow(abs(pow(abs(x / params[0]), 2.0 / params[4]) + pow(abs(y / params[1]), 2.0 / params[4])), params[4] / params[3]) + pow(abs(z / params[2]), 2.0 / params[3]);
+                    if (f <= 1.0)
+                    {
+                        pcl::PointXYZRGBA p;
+
+                        p.x = x;
+                        p.y = y;
+                        p.z = z;
+                        p.r = detectedObjects_[indexDetectedObjects].object_cloud.points[0].r;
+                        p.g = detectedObjects_[indexDetectedObjects].object_cloud.points[0].g;
+                        p.b = detectedObjects_[indexDetectedObjects].object_cloud.points[0].b;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+
+                        p.z = -z;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+
+                        p.x = -x;
+                        p.y = y;
+                        p.z = z;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+                        p.z = -z;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+
+                        p.x = x;
+                        p.y = -y;
+                        p.z = z;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+                        p.z = -z;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+
+                        p.x = -x;
+                        p.y = -y;
+                        p.z = z;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+
+                        p.z = -z;
+                        cloudSuperquadric->push_back(*(pcl::PointXYZRGBA *)(&p));
+                    }
+                }
+            }
+        }
+
+        Eigen::AngleAxisf rollAngle(params[8], Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf yawAngle(params[9], Eigen::Vector3f::UnitY());
+        Eigen::AngleAxisf pitchAngle(params[10], Eigen::Vector3f::UnitZ());
+
+        Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
+        Eigen::Matrix3f rotationMatrix = q.matrix();
+
+        Eigen::Vector3f v(params[5], params[6], params[7]);
+        Eigen::Matrix4f transform = Eigen::Affine3f(Eigen::Translation3f(v)).matrix();
+
+        transform.block<3, 3>(0, 0) = rotationMatrix;
+        pcl::transformPointCloud(*cloudSuperquadric, *cloudSuperquadric, transform);
+    }
+
+    bool GraspObjects::pclPointCloudToSuperqPointCloud(const pcl::PointCloud<pcl::PointXYZRGB> &object_cloud, SuperqModel::PointCloud &point_cloud)
+    {
+        std::vector<std::vector<unsigned char>> acquired_colors;
+
+        // yarp::sig::Vector point(3);
+        std::vector<unsigned char> c;
+        c.resize(3);
+        std::deque<Eigen::Vector3d> eigen_points;
+
+        for (size_t idx = 0; idx < object_cloud.size(); idx++)
+        {
+            Eigen::Vector3d point(object_cloud[idx].x, object_cloud[idx].y, object_cloud[idx].z);
+
+            c[0] = object_cloud[idx].r;
+            c[1] = object_cloud[idx].g;
+            c[2] = object_cloud[idx].b;
+
+            eigen_points.push_back(point);
+            acquired_colors.push_back(c);
+        }
+
+        // for (size_t i = 0; i < acquired_points.size(); i++)
+        // {
+        //     eigen_points.push_back(yarp::eigen::toEigen(acquired_points[i]));
+        // }
+
+        if (eigen_points.size() >= minimumPoints_)
+        {
+            point_cloud.setPoints(eigen_points);
+            point_cloud.setColors(acquired_colors);
+            return true;
+        }
+        else
+            return false;
+    }
+
+    void GraspObjects::getSuperquadricFromPointCloud(SuperqModel::PointCloud point_cloud, std::vector<SuperqModel::Superquadric> &superqs)
+    {
+
+        /*  ------------------------------  */
+        /*  ------> Compute superq <------  */
+        /*  ------------------------------  */
+
+        ROS_INFO("[grasp_objects]: compute superq");
+        if (single_superq_ || object_class_ != "default")
+        {
+            ROS_INFO("!!!!!");
+            estim_.SetStringValue("object_class", object_class_);
+            superqs = estim_.computeSuperq(point_cloud);
+        }
+    }
 }

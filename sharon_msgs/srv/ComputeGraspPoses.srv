@@ -2,4 +2,4 @@
 int32 id
 ---
 bool success
-geometry_msgs/PoseStamped[] poses
+geometry_msgs/PoseArray poses

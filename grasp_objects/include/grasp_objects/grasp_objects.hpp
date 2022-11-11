@@ -19,7 +19,7 @@
 #include <mutex>
 
 #include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Path.h>
+#include <geometry_msgs/PoseArray.h>
 
 #include "sharon_msgs/SuperquadricMultiArray.h"
 #include "sharon_msgs/ActivateSupercuadricsComputation.h"
@@ -74,7 +74,7 @@ namespace grasp_objects{
         bool activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request & req, sharon_msgs::ActivateSupercuadricsComputation::Response & res);
 
         bool computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request & req, sharon_msgs::ComputeGraspPoses::Response & res);
-        void computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, std::vector<geometry_msgs::PoseStamped> &graspingPoses);
+        void computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses);
 
 
         private:
