@@ -201,7 +201,7 @@ namespace grasp_objects
 
                         KDL::Vector axesz(0, 0, 1);
                         float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
-                        printf("angle: %f\n", angle * 180.0 / M_PI);
+                        // printf("angle: %f\n", angle * 180.0 / M_PI);
 
 
                             geometry_msgs::Pose pose;
