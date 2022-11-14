@@ -54,6 +54,7 @@ add_service_files(
   FILES
   ActivateSupercuadricsComputation.srv
   ComputeGraspPoses.srv
+  GetSuperquadrics.srv
 )
 
 ## Generate actions in the 'action' folder

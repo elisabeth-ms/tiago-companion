@@ -55,6 +55,19 @@ namespace grasp_objects
 
         serviceActivateSuperquadricsComputation_ = nodeHandle_.advertiseService("/grasp_objects/activate_superquadrics_computation", &GraspObjects::activateSuperquadricsComputation, this);
         serviceComputeGraspPoses_ = nodeHandle_.advertiseService("/grasp_objects/compute_grasp_poses", &GraspObjects::computeGraspPoses, this);
+        serviceGetSuperquadrics_ = nodeHandle_.advertiseService("/grasp_objects/get_superquadrics", &GraspObjects::getSuperquadrics, this);
+    
+    }
+
+    bool GraspObjects::getSuperquadrics(sharon_msgs::GetSuperquadrics::Request &req, sharon_msgs::GetSuperquadrics::Response &res)
+    {
+        ROS_INFO("[GraspObjects] GetSuperquadrics().");
+        sharon_msgs::SuperquadricMultiArray superquadrics;
+        geometry_msgs::PoseArray graspingPoses;
+
+        res.superquadrics = superquadricsMsg_;
+
+        return true;
     }
 
     bool GraspObjects::computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request &req, sharon_msgs::ComputeGraspPoses::Response &res)
@@ -446,8 +459,9 @@ namespace grasp_objects
             if (lccp_labeled_cloud->points.size() != 0)
             {
 
-                sharon_msgs::SuperquadricMultiArray superquadricsMsg;
-                superquadricsMsg.header.stamp = ros::Time::now();
+                sharon_msgs::SuperquadricMultiArray aux;
+                superquadricsMsg_= aux;
+                superquadricsMsg_.header.stamp = ros::Time::now();
                 updateDetectedObjectsPointCloud(lccp_labeled_cloud);
 
                 std::vector<std::vector<double>> graspingPoses;
@@ -486,7 +500,7 @@ namespace grasp_objects
                     objectSuperquadric.cloud = *auxCloudSuperquadric;
 
                     superquadricObjects_.push_back(objectSuperquadric);
-                    superquadricsMsg.superquadrics.push_back(superquadric);
+                    superquadricsMsg_.superquadrics.push_back(superquadric);
                 }
                 // Convert to ROS data type
                 sensor_msgs::PointCloud2 pcOutSupeqs;
@@ -496,7 +510,7 @@ namespace grasp_objects
                 pcl_conversions::moveFromPCL(*cloudAux, pcOutSupeqs);
                 pcOutSupeqs.header.frame_id = "/base_footprint";
                 outPointCloudSuperqsPublisher_.publish(pcOutSupeqs);
-                superquadricsPublisher_.publish(superquadricsMsg);
+                superquadricsPublisher_.publish(superquadricsMsg_);
             }
         }
     }

@@ -23,6 +23,7 @@
 
 #include "sharon_msgs/SuperquadricMultiArray.h"
 #include "sharon_msgs/ActivateSupercuadricsComputation.h"
+#include "sharon_msgs/GetSuperquadrics.h"
 #include "sharon_msgs/ComputeGraspPoses.h"
 
 #define DEFAULT_MIN_NPOINTS 100
@@ -75,6 +76,7 @@ namespace grasp_objects{
 
         bool computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request & req, sharon_msgs::ComputeGraspPoses::Response & res);
         void computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses);
+        bool getSuperquadrics(sharon_msgs::GetSuperquadrics::Request &req, sharon_msgs::GetSuperquadrics::Response &res);
 
 
         private:
@@ -89,6 +91,7 @@ namespace grasp_objects{
 
         ros::ServiceServer serviceActivateSuperquadricsComputation_; 
         ros::ServiceServer serviceComputeGraspPoses_;
+        ros::ServiceServer serviceGetSuperquadrics_;
 
 
         tf::TransformListener listener_;
@@ -113,6 +116,7 @@ namespace grasp_objects{
 
         std::vector<Object> detectedObjects_;
         std::vector<ObjectSuperquadric> superquadricObjects_;
+        sharon_msgs::SuperquadricMultiArray superquadricsMsg_;
 
         bool activate_ = false;
         std::mutex mtxActivate_;
