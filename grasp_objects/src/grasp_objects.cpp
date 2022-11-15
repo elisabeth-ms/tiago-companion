@@ -105,7 +105,7 @@ namespace grasp_objects
     void GraspObjects::computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses)
     {
 
-        graspingPoses.header.frame_id = "/base_footprint";
+        graspingPoses.header.frame_id = "base_footprint";
         graspingPoses.header.stamp = ros::Time::now();
 
         auto params = superqs[0].getSuperqParams();

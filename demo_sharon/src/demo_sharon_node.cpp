@@ -14,6 +14,6 @@ int main(int argc, char** argv) {
   ros::NodeHandle nodeHandle("~");
   demo_sharon::DemoSharon demoSharon(nodeHandle);
 
-  ros::spin();
+
   return 0;
 }

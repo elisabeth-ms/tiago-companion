@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
   sharon_msgs
   kdl_conversions
   nav_msgs
+  moveit_msgs
+  moveit_ros_planning_interface
 )
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
