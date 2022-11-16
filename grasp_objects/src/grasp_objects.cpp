@@ -137,11 +137,11 @@ namespace grasp_objects
 
             for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
             {
-                zobject = KDL::Vector(0, yaxes, 0);
+                yobject = KDL::Vector(0, yaxes, 0);
                 for (float x = 0; x <= params[0] / 2.0; x += step)
                 {
-                    float xaxes = -1.0;
-                    yobject = KDL::Vector(xaxes, 0.0, 0.0);
+                    float xaxes = 1.0;
+                    zobject = KDL::Vector(xaxes, 0.0, 0.0);
                     xobject = yobject * zobject;
                     rot = KDL::Rotation(xobject, yobject, zobject);
                     frameTCP = KDL::Frame(rot);
@@ -173,7 +173,7 @@ namespace grasp_objects
                 }
             }
 
-            float yaxes = -1.0;
+            float yaxes = 1.0;
 
             for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
             {
@@ -181,8 +181,8 @@ namespace grasp_objects
                 for (float y = 0; y <= params[1] / 2.0; y += step)
                 // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
                 {
-                    yobject = KDL::Vector(0, yaxes, 0.0);
-                    zobject = xobject * yobject;
+                    zobject = KDL::Vector(0, yaxes, 0.0);
+                    yobject = zobject * xobject;
                     rot = KDL::Rotation(xobject, yobject, zobject);
                     frameTCP = KDL::Frame(rot);
                     frameTCP = KDL::Frame(KDL::Rotation::RotX(-M_PI / 2.0)) * frameTCP;

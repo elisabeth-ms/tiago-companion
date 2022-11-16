@@ -29,7 +29,7 @@ typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
 typedef boost::shared_ptr< follow_joint_control_client>  follow_joint_control_client_Ptr;
 
 // TODO: ADD AS ROS PARAMS
-
+#define DISTANCE_TOOL_LINK_GRIPPER_LINK 0.151
 
 namespace demo_sharon{
 
@@ -59,12 +59,20 @@ namespace demo_sharon{
 
         void addSupequadricsPlanningScene();
 
+        bool goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible);
+
+        void waypointGripperGoal(std::string name,control_msgs::FollowJointTrajectoryGoal &goal,  const float positions[2], const float &timeToReach);
+
+        void moveGripper(const float positions[2], std::string name);
 
         private:
         //! ROS node handle.
         ros::NodeHandle nodeHandle_;
         follow_joint_control_client_Ptr headClient_;
         follow_joint_control_client_Ptr torsoClient_;
+        follow_joint_control_client_Ptr rightGripperClient_;
+        follow_joint_control_client_Ptr leftGripperClient_;
+
 
         ros::ServiceClient clientActivateSuperquadricsComputation_; 
         ros::ServiceClient clientComputeGraspPoses_;
@@ -83,6 +91,7 @@ namespace demo_sharon{
         float elimit1_;
         float elimit2_;
         float inflateSize_;
+        float openGripperPositions_[2] = {0.04, 0.04};
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;
 

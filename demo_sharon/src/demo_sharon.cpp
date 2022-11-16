@@ -5,10 +5,12 @@ namespace demo_sharon
     DemoSharon::DemoSharon(ros::NodeHandle nh) : nodeHandle_(nh)
     {
         ROS_INFO("[DemoSharon] Node started.");
+
+        // Need it asynspinner for moveit
         ros::AsyncSpinner spinner(1);
         spinner.start();
-
         init(); // Tiagos head and torso are at the initial positions
+
 
         removeCollisionObjectsPlanningScene();
 
@@ -24,13 +26,13 @@ namespace demo_sharon
         ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
         // Start computation of the superquadrics from the pointcloud
         activateSuperquadricsComputation(true);
-        ros::Duration(0.1).sleep(); // sleep for 2 seconds
+        ros::Duration(0.5).sleep(); // sleep for 2 seconds
 
         // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
         // continuously recompute the superquadrics
         ROS_INFO("[DemoSharon] Stop the computation of the superquadrics.");
         activateSuperquadricsComputation(false);
-        ros::Duration(0.1).sleep(); // sleep for 2 seconds
+        ros::Duration(0.5).sleep(); // sleep for 2 seconds
 
         ROS_INFO("[DemoSharon] Get the computed superquadrics.");
         // Get the previously computed superquadrics
@@ -39,7 +41,10 @@ namespace demo_sharon
             return;
         }
         ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
-        // addSupequadricsPlanningScene();
+        addSupequadricsPlanningScene();
+
+        ROS_INFO("Planning to move %s to a target pose expressed in %s",groupRightArmTorsoPtr_->getEndEffectorLink().c_str(),  groupRightArmTorsoPtr_->getPlanningFrame().c_str());
+
 
         sharon_msgs::ComputeGraspPoses srvGraspingPoses;
         srvGraspingPoses.request.id = 1;
@@ -52,6 +57,56 @@ namespace demo_sharon
             graspingPoses = srvGraspingPoses.response.poses;
         }
         ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses.poses.size());
+
+        int indexFeasible = -1;
+        bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
+        
+        if(successGoToReaching){
+            ROS_INFO("[DemoSharon] Wiii!");
+
+            // Open gripper
+            moveGripper(openGripperPositions_, "right");
+
+
+
+        }
+
+
+
+        ROS_INFO("[DemoSharon] Done!");
+    }
+
+    DemoSharon::~DemoSharon()
+    {
+    }
+
+    void DemoSharon::moveGripper(const float positions[2], std::string name){
+        follow_joint_control_client_Ptr auxGripperClient;
+
+        if(name == "right"){
+            auxGripperClient = rightGripperClient_;
+        }else if(name == "left"){
+            auxGripperClient = leftGripperClient_;
+        }
+        control_msgs::FollowJointTrajectoryGoal gripperGoal;
+        ROS_INFO("Setting gripper position: (%f ,%f)", positions[0], positions[1]);
+        waypointGripperGoal(name,gripperGoal, positions, 2.0);
+
+        // Sends the command to start the given trajectory now
+        gripperGoal.trajectory.header.stamp = ros::Time::now();
+        auxGripperClient->sendGoal(gripperGoal);
+
+        // Wait for trajectory execution
+        while (!(auxGripperClient->getState().isDone()) && ros::ok())
+        {
+            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+        }
+        ROS_INFO("Gripper set to position: (%f, %f)", positions[0], positions[1]);
+
+        
+    }
+
+    bool DemoSharon::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible){
         geometry_msgs::Pose reachingPose;
         bool successPlanning = false;
         for (int idx = 0; idx < graspingPoses.poses.size(); idx++)
@@ -62,14 +117,14 @@ namespace demo_sharon
             KDL::Frame frameEndWrtBase;
             tf::poseMsgToKDL(graspingPoses.poses[idx], frameEndWrtBase);
             KDL::Frame frameReachingWrtEnd;
-            frameReachingWrtEnd.p[0] = -reachingDistance_;
+            frameReachingWrtEnd.p[0] = -reachingDistance_-DISTANCE_TOOL_LINK_GRIPPER_LINK;
             KDL::Frame frameReachingWrtBase = frameEndWrtBase * frameReachingWrtEnd;
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose);
             geometry_msgs::PoseStamped goal_pose;
             goal_pose.header.frame_id = "base_footprint";
             goal_pose.pose = graspingPoses.poses[idx];
-            groupRightArmTorsoPtr_->setPoseTarget(goal_pose);
+            groupRightArmTorsoPtr_->setPoseTarget(reachingPose);
             ROS_INFO("SET POSE TARGET");
             moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
             successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -81,18 +136,27 @@ namespace demo_sharon
             // }
             // ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", successPlanning ? "" : "FAILED");
 
-            if(successPlanning)
+            if(successPlanning){
+                indexFeasible = idx;
                 break;
+            }
             // ROS_INFO("AQUI");
         }
-        if(successPlanning)
-            groupRightArmTorsoPtr_->move();
-
-        ROS_INFO("[DemoSharon] Done!");
-    }
-
-    DemoSharon::~DemoSharon()
-    {
+        if(successPlanning){
+            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->move();
+            if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS){
+                ROS_INFO("[DemoSharon] Success in moving the robot to the reaching pose.");
+                return true;
+            }
+            else{
+                ROS_INFO("[DemoSharon] Error in moving the robot to the reaching pose.");
+                return false;
+            }
+        }
+        else{
+            ROS_INFO("[DemoSharon] No feasible reaching pose found!");
+            return false;
+        }
     }
 
     void DemoSharon::removeCollisionObjectsPlanningScene()
@@ -250,9 +314,11 @@ namespace demo_sharon
         groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(1.0);
         createClient(headClient_, std::string("head"));
         createClient(torsoClient_, std::string("torso"));
+        createClient(rightGripperClient_, std::string("gripper_right"));
 
         control_msgs::FollowJointTrajectoryGoal headGoal;
         control_msgs::FollowJointTrajectoryGoal torsoGoal;
+
 
         float initHeadPositions[2] = {0, -0.4};
         ROS_INFO("Setting head to init position: (%f ,%f)", initHeadPositions[0], initHeadPositions[1]);
@@ -387,6 +453,32 @@ namespace demo_sharon
 
         // To be reached 2 second after starting along the trajectory
         goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
+    }
+
+    void DemoSharon::waypointGripperGoal(std::string name,control_msgs::FollowJointTrajectoryGoal &goal, const float positions[2], const float &timeToReach){
+        // The joint names, which apply to all waypoints
+        std::string right_finger = "gripper_"+name+"_right_finger_joint";
+        std::string left_finger = "gripper_"+name+"_left_finger_joint";
+
+        goal.trajectory.joint_names.push_back(right_finger);
+        goal.trajectory.joint_names.push_back(left_finger);
+
+        int index = 0;
+        goal.trajectory.points.resize(1);
+        goal.trajectory.points[index].positions.resize(2);
+        goal.trajectory.points[index].positions[0] = positions[0];
+        goal.trajectory.points[index].positions[1] = positions[1];
+
+        // Velocities
+        goal.trajectory.points[index].velocities.resize(2);
+        for (int j = 0; j < 2; ++j)
+        {
+            goal.trajectory.points[index].velocities[j] = 0.0;
+        }
+        // To be reached 2 second after starting along the trajectory
+        goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
+
+
     }
 
 }
