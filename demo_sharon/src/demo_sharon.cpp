@@ -66,6 +66,23 @@ namespace demo_sharon
 
             // Open gripper
             moveGripper(openGripperPositions_, "right");
+            std::vector<std::string> objectIds;
+            objectIds.push_back("object_1");
+            planningSceneInterface_.removeCollisionObjects(objectIds);
+            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+            goToGraspingPose(graspingPoses.poses[indexFeasible]);
+            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+            moveGripper(closeGripperPositions_, "right");
+            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+            goUp(groupRightArmTorsoPtr_, 0.2);
+
+            releaseGripper_=false;
+            while(ros::ok() && !releaseGripper_){
+                ROS_INFO("Waiting for command to realese the gripper...");
+                ros::Duration(0.1).sleep(); // sleep for 1 seconds
+            }
+            moveGripper(openGripperPositions_, "right");
+            ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
 
 
@@ -104,6 +121,73 @@ namespace demo_sharon
         ROS_INFO("Gripper set to position: (%f, %f)", positions[0], positions[1]);
 
         
+    }
+
+    bool DemoSharon::goUp(moveit::planning_interface::MoveGroupInterface * groupArmTorsoPtr, float upDistance){
+        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(1.0);
+        geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
+        KDL::Frame frameEndWrtBase;
+        tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
+        KDL::Frame frameUpWrtEnd;
+        frameUpWrtEnd.p[1] = -upDistance;
+        KDL::Frame frameUpWrtBase = frameEndWrtBase * frameUpWrtEnd;
+
+        geometry_msgs::Pose upPose;
+        tf::poseKDLToMsg(frameUpWrtBase, upPose);
+        groupArmTorsoPtr->setPoseTarget(upPose);
+
+        moveit::planning_interface::MoveItErrorCode code = groupArmTorsoPtr->plan(plan_);
+        bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        if(successPlanning){
+            moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->move();
+            if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS){
+                ROS_INFO("[DemoSharon] Success in moving the grasped object up.");
+                return true;
+            }
+            else{
+                ROS_INFO("[DemoSharon] Error in moving the grasped object up.");
+                return false;
+            }
+        }
+        else{
+            ROS_INFO("[DemoSharon] No feasible up pose!");
+            return false;
+        }
+
+
+    }
+
+    bool DemoSharon::goToGraspingPose(const geometry_msgs::Pose &graspingPose){
+        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+        KDL::Frame frameEndWrtBase;
+        tf::poseMsgToKDL(graspingPose, frameEndWrtBase);
+        KDL::Frame frameToolWrtEnd;
+        frameToolWrtEnd.p[0] = -DISTANCE_TOOL_LINK_GRIPPER_LINK;
+        KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
+
+        geometry_msgs::Pose toolPose;
+
+        tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+        groupRightArmTorsoPtr_->setPoseTarget(toolPose);
+
+        moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
+        bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        if(successPlanning){
+            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->move();
+            if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS){
+                ROS_INFO("[DemoSharon] Success in moving the robot to the grasping pose.");
+                return true;
+            }
+            else{
+                ROS_INFO("[DemoSharon] Error in moving the robot to the grasping pose.");
+                return false;
+            }
+        }
+        else{
+            ROS_INFO("[DemoSharon] No feasible grasping pose!");
+            return false;
+        }
+
     }
 
     bool DemoSharon::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible){
@@ -212,7 +296,7 @@ namespace demo_sharon
             moveit_msgs::CollisionObject collisionObject;
             collisionObject.header.frame_id = groupRightArmTorsoPtr_->getPlanningFrame();
 
-            collisionObject.id = "object_" + std::to_string(i);
+            collisionObject.id = "object_" + std::to_string(superquadric.id);
 
             shape_msgs::SolidPrimitive primitive;
 
@@ -290,6 +374,8 @@ namespace demo_sharon
         planningSceneInterface_.applyCollisionObjects(collisionObjects);
     }
 
+    
+
     void DemoSharon::init()
     {
         ROS_INFO("[DemoSharon] init().");
@@ -298,6 +384,9 @@ namespace demo_sharon
         clientActivateSuperquadricsComputation_ = nodeHandle_.serviceClient<sharon_msgs::ActivateSupercuadricsComputation>("/grasp_objects/activate_superquadrics_computation");
         clientGetSuperquadrics_ = nodeHandle_.serviceClient<sharon_msgs::GetSuperquadrics>("/grasp_objects/get_superquadrics");
         clientComputeGraspPoses_ = nodeHandle_.serviceClient<sharon_msgs::ComputeGraspPoses>("/grasp_objects/compute_grasp_poses");
+
+        serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo_sharon/release_gripper", &DemoSharon::releaseGripper, this);
+
 
         ros::param::get("demo_sharon/reaching_distance", reachingDistance_);
         ros::param::get("demo_sharon/elimit1", elimit1_);
@@ -354,6 +443,12 @@ namespace demo_sharon
 
         return;
     }
+
+    bool DemoSharon::releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
+        releaseGripper_=true;
+        return true;
+    }
+
 
     bool DemoSharon::getSuperquadrics()
     {

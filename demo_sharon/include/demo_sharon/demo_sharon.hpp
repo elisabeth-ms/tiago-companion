@@ -8,6 +8,7 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <std_srvs/Empty.h>
 #include <ros/topic.h>
 
 // Moveit headers
@@ -65,6 +66,12 @@ namespace demo_sharon{
 
         void moveGripper(const float positions[2], std::string name);
 
+        bool goToGraspingPose(const geometry_msgs::Pose &graspingPose);
+
+        bool goUp(moveit::planning_interface::MoveGroupInterface * groupArmTorsoPtr, float upDistance);
+
+        bool releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+
         private:
         //! ROS node handle.
         ros::NodeHandle nodeHandle_;
@@ -77,6 +84,11 @@ namespace demo_sharon{
         ros::ServiceClient clientActivateSuperquadricsComputation_; 
         ros::ServiceClient clientComputeGraspPoses_;
         ros::ServiceClient clientGetSuperquadrics_;
+
+        ros::ServiceServer serviceReleaseGripper_;
+        bool releaseGripper_ = false;
+
+
 
         sharon_msgs::SuperquadricMultiArray superquadricsMsg_;
         std::string nameTorsoRightArmGroup_="arm_right_torso";
@@ -91,7 +103,8 @@ namespace demo_sharon{
         float elimit1_;
         float elimit2_;
         float inflateSize_;
-        float openGripperPositions_[2] = {0.04, 0.04};
+        float openGripperPositions_[2] = {0.05, 0.05};
+        float closeGripperPositions_[2] = {0.015, 0.015};
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;
 
