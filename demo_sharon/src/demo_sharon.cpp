@@ -128,12 +128,10 @@ namespace demo_sharon
         geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
         KDL::Frame frameEndWrtBase;
         tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
-        KDL::Frame frameUpWrtEnd;
-        frameUpWrtEnd.p[1] = -upDistance;
-        KDL::Frame frameUpWrtBase = frameEndWrtBase * frameUpWrtEnd;
+        frameEndWrtBase.p[2] += upDistance;
 
         geometry_msgs::Pose upPose;
-        tf::poseKDLToMsg(frameUpWrtBase, upPose);
+        tf::poseKDLToMsg(frameEndWrtBase, upPose);
         groupArmTorsoPtr->setPoseTarget(upPose);
 
         moveit::planning_interface::MoveItErrorCode code = groupArmTorsoPtr->plan(plan_);

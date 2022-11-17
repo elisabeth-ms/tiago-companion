@@ -207,6 +207,10 @@ target_link_libraries(${PROJECT_NAME}_node
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+install(PROGRAMS
+        scripts/comms_glasses_server.py
+        DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 #############
 ## Testing ##
 #############

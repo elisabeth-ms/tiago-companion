@@ -1,4 +1,4 @@
-reaching_distance: 0.2
+reaching_distance: 0.15
 elimit1: 0.3
 elimit2: 0.8
 inflate_size: 0.005

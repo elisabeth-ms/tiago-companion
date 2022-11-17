@@ -47,6 +47,7 @@ add_message_files(
     FILES
     Superquadric.msg
     SuperquadricMultiArray.msg
+    GlassesData.msg
 )
 
 ## Generate services in the 'srv' folder
