@@ -209,6 +209,7 @@ target_link_libraries(${PROJECT_NAME}_node
 
 install(PROGRAMS
         scripts/comms_glasses_server.py
+        scripts/asr_node.py
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 #############

@@ -62,7 +62,6 @@ namespace demo_sharon
         bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
         
         if(successGoToReaching){
-            ROS_INFO("[DemoSharon] Wiii!");
 
             // Open gripper
             moveGripper(openGripperPositions_, "right");
