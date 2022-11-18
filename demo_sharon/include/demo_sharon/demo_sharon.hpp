@@ -10,6 +10,7 @@
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_srvs/Empty.h>
 #include <ros/topic.h>
+#include <std_msgs/String.h>
 
 // Moveit headers
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -25,6 +26,10 @@
 #include "sharon_msgs/GetSuperquadrics.h"
 #include "sharon_msgs/ComputeGraspPoses.h"
 #include "sharon_msgs/BoundingBoxes.h"
+#include "sharon_msgs/GetBboxes.h"
+
+// darknet_ros
+#include "darknet_ros_msgs/BoundingBoxes.h"
 
 // Action interface type for moving TIAGo, provided as a typedef for convenience
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
@@ -34,7 +39,10 @@ typedef boost::shared_ptr< follow_joint_control_client>  follow_joint_control_cl
 #define DISTANCE_TOOL_LINK_GRIPPER_LINK 0.151
 
 namespace demo_sharon{
-
+    struct SqCategory{             
+        int idSq;         
+        std::string category;   
+    };
 
     class DemoSharon{
         public:
@@ -73,6 +81,11 @@ namespace demo_sharon{
 
         bool releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 
+        bool getBoundingBoxesFromSupercuadrics();
+        
+        void asrCallback(const std_msgs::StringConstPtr &asrMsg);
+
+        bool computeIntersectionOverUnion(const std::array<int,4> &bboxYolo, const std::array<int,4> &bboxSq, float &IoU);
 
 
         private:
@@ -87,11 +100,13 @@ namespace demo_sharon{
         ros::ServiceClient clientActivateSuperquadricsComputation_; 
         ros::ServiceClient clientComputeGraspPoses_;
         ros::ServiceClient clientGetSuperquadrics_;
+        ros::ServiceClient clientGetBboxesSuperquadrics_;
 
         ros::ServiceServer serviceReleaseGripper_;
+        ros::Subscriber asrSubscriber_;
         bool releaseGripper_ = false;
-
-
+        sharon_msgs::BoundingBoxes bboxesMsg_;
+        darknet_ros_msgs::BoundingBoxes yoloBBoxesMsg_;
 
         sharon_msgs::SuperquadricMultiArray superquadricsMsg_;
         std::string nameTorsoRightArmGroup_="arm_right_torso";
@@ -106,8 +121,15 @@ namespace demo_sharon{
         float elimit1_;
         float elimit2_;
         float inflateSize_;
+        bool useGlasses_;
+        bool useAsr_;
+        bool waitingForAsrCommand_;
+        bool asrCommandReceived_;
         float openGripperPositions_[2] = {0.05, 0.05};
         float closeGripperPositions_[2] = {0.015, 0.015};
+
+        std::string asr_;
+        std::vector<SqCategory> sqCategories_;
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;
 

@@ -26,6 +26,8 @@
   <build_depend>nav_msgs</build_depend>
   <build_depend>moveit_msgs</build_depend>
   <build_depend>moveit_ros_planning_interface</build_depend>
+  <build_depend>darknet_ros_msgs</build_depend>
+
 
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
@@ -34,6 +36,7 @@
   <build_export_depend>sharon_msgs</build_export_depend>
   <build_export_depend>moveit_msgs</build_export_depend>
   <build_export_depend>moveit_ros_planning_interface</build_export_depend>
+  <build_export_depend>darknet_ros_msgs</build_export_depend>
 
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
@@ -44,6 +47,7 @@
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>moveit_msgs</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
+  <exec_depend>darknet_ros_msgs</exec_depend>
 
   <buildtool_depend>catkin</buildtool_depend>
 

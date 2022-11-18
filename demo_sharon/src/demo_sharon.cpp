@@ -11,7 +11,8 @@ namespace demo_sharon
         spinner.start();
         init(); // Tiagos head and torso are at the initial positions
 
-
+        waitingForAsrCommand_ = false;
+        asrCommandReceived_ = false;
         removeCollisionObjectsPlanningScene();
 
         float dimensions[3] = {1.0, 0.9, 0.85};
@@ -41,10 +42,61 @@ namespace demo_sharon
             return;
         }
         ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
+        
+        if(!getBoundingBoxesFromSupercuadrics()){
+            return;
+        }
+        for(int i=0; i<bboxesMsg_.bounding_boxes.size(); i++)
+            ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
+                    bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
+                    bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
+        
+
+        sqCategories_.clear();
+        darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
+        yoloBBoxesMsg_ = *darknetBBoxesMsg;
+
+        for(int i=0; i<yoloBBoxesMsg_.bounding_boxes.size();i++){
+            darknet_ros_msgs::BoundingBox bboxMsg= yoloBBoxesMsg_.bounding_boxes[i];
+            std::array<int,4> bboxYolo = {bboxMsg.xmin, bboxMsg.ymin, bboxMsg.xmax, bboxMsg.ymax};
+            float IoU = 0.0;
+            int currentSqId = -1;
+            for(int j=0; j<bboxesMsg_.bounding_boxes.size(); j++){
+                std::array<int,4> bboxSq = {bboxesMsg_.bounding_boxes[j].tlx, bboxesMsg_.bounding_boxes[j].tly, 
+                                        bboxesMsg_.bounding_boxes[j].brx, bboxesMsg_.bounding_boxes[j].bry};
+                
+                ROS_INFO("yolo: %d superq: %d", i, j);
+                float currentIoU = 0.0;
+                computeIntersectionOverUnion(bboxYolo, bboxSq, currentIoU);
+
+                if(currentIoU > IoU){
+                    IoU = currentIoU;
+                    currentSqId = bboxesMsg_.bounding_boxes[j].id;
+                }
+            }
+            if (IoU>0){
+                SqCategory sqCategory;
+                sqCategory.idSq = currentSqId;
+                sqCategory.category = bboxMsg.Class;
+                sqCategories_.push_back(sqCategory);
+            }
+        }
+        
+        for(int idx = 0; idx<sqCategories_.size(); idx++){
+            ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
+        }
+        
         addSupequadricsPlanningScene();
 
-        ROS_INFO("Planning to move %s to a target pose expressed in %s",groupRightArmTorsoPtr_->getEndEffectorLink().c_str(),  groupRightArmTorsoPtr_->getPlanningFrame().c_str());
+        waitingForAsrCommand_ = true;
+        ROS_INFO("[DemoSharon] Wait for message in asr_node/data");
+        while(!asrCommandReceived_ && ros::ok()){ 
+            // Además que el objeto sea uno de los detectados
+        }
 
+
+
+        ROS_INFO("Planning to move %s to a target pose expressed in %s",groupRightArmTorsoPtr_->getEndEffectorLink().c_str(),  groupRightArmTorsoPtr_->getPlanningFrame().c_str());
 
         sharon_msgs::ComputeGraspPoses srvGraspingPoses;
         srvGraspingPoses.request.id = 1;
@@ -381,10 +433,13 @@ namespace demo_sharon
         clientActivateSuperquadricsComputation_ = nodeHandle_.serviceClient<sharon_msgs::ActivateSupercuadricsComputation>("/grasp_objects/activate_superquadrics_computation");
         clientGetSuperquadrics_ = nodeHandle_.serviceClient<sharon_msgs::GetSuperquadrics>("/grasp_objects/get_superquadrics");
         clientComputeGraspPoses_ = nodeHandle_.serviceClient<sharon_msgs::ComputeGraspPoses>("/grasp_objects/compute_grasp_poses");
+        clientGetBboxesSuperquadrics_ = nodeHandle_.serviceClient<sharon_msgs::GetBboxes>("/grasp_objects/get_bboxes_superquadrics");
+        asrSubscriber_ = nodeHandle_.subscribe("/asr_node/data", 10, &DemoSharon::asrCallback, this);
 
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo_sharon/release_gripper", &DemoSharon::releaseGripper, this);
 
-
+        ros::param::get("demo_sharon/use_asr", useAsr_);
+        ros::param::get("demo_sharon/use_glasses", useGlasses_);
         ros::param::get("demo_sharon/reaching_distance", reachingDistance_);
         ros::param::get("demo_sharon/elimit1", elimit1_);
         ros::param::get("demo_sharon/elimit2", elimit2_);
@@ -462,6 +517,23 @@ namespace demo_sharon
             {
                 return false;
             }
+        }
+    }
+
+    bool DemoSharon::getBoundingBoxesFromSupercuadrics(){
+
+        sharon_msgs::GetBboxes srvBBox;
+
+        if(clientGetBboxesSuperquadrics_.call(srvBBox)){
+            bboxesMsg_ = srvBBox.response.bounding_boxes;
+            if(bboxesMsg_.bounding_boxes.size() == superquadricsMsg_.superquadrics.size() &&
+                bboxesMsg_.bounding_boxes.size() != 0)
+            {
+                return true;
+            }else{
+                return false;
+            }
+
         }
     }
 
@@ -571,6 +643,57 @@ namespace demo_sharon
         goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
 
 
+    }
+
+    void DemoSharon::asrCallback(const std_msgs::StringConstPtr &asrMsg)
+    {
+        if(waitingForAsrCommand_){
+            asr_ = asrMsg->data;
+            asrCommandReceived_ = true;
+        }
+    }
+
+    bool DemoSharon::computeIntersectionOverUnion(const std::array<int,4> &bboxYolo, const std::array<int,4> &bboxSq, float &IoU){
+        if (bboxYolo[0] < bboxSq[2] and bboxYolo[2] > bboxSq[0] and
+            bboxYolo[1] < bboxSq[3] and bboxYolo[3] > bboxSq[1]){
+            int xA = bboxYolo[0];
+            if(bboxSq[0] > xA){
+                xA = bboxSq[0];
+            }
+
+            int yA = bboxYolo[1];
+            if(bboxSq[1]>yA){
+                yA = bboxSq[1];
+            }
+
+            int xB = bboxYolo[2];
+            if(bboxSq[2]<xB){
+                xB = bboxSq[2];
+            }
+
+            int yB = bboxYolo[3];
+            if(bboxSq[3] < yB){
+                yB = bboxSq[3];
+            }
+
+            float interArea = (xB - xA) * (yB - yA);
+            float yoloBboxArea = (bboxYolo[2]-bboxYolo[0])*(bboxYolo[3]-bboxYolo[1]);
+            float sqBboxArea = (bboxSq[2]-bboxSq[0])*(bboxSq[3]-bboxSq[1]);
+
+            ROS_INFO("InterArea: %f", interArea);
+            ROS_INFO("Yolo bbox area: %f", yoloBboxArea);
+            ROS_INFO("Superquadric bbox area: %f", sqBboxArea);
+
+            IoU = interArea / (yoloBboxArea + sqBboxArea - interArea);
+
+            ROS_INFO("IoU: %f", IoU);
+            return true;
+        }
+        else{
+            ROS_INFO("No IoU");
+            IoU = 0;
+            return false;
+        }
     }
 
 }
