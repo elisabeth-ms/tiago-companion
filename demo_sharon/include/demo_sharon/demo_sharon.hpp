@@ -24,6 +24,7 @@
 #include "sharon_msgs/ActivateSupercuadricsComputation.h"
 #include "sharon_msgs/GetSuperquadrics.h"
 #include "sharon_msgs/ComputeGraspPoses.h"
+#include "sharon_msgs/BoundingBoxes.h"
 
 // Action interface type for moving TIAGo, provided as a typedef for convenience
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
@@ -71,6 +72,8 @@ namespace demo_sharon{
         bool goUp(moveit::planning_interface::MoveGroupInterface * groupArmTorsoPtr, float upDistance);
 
         bool releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+
+
 
         private:
         //! ROS node handle.

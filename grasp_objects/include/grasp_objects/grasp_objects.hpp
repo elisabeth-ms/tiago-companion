@@ -20,11 +20,15 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include "sharon_msgs/SuperquadricMultiArray.h"
 #include "sharon_msgs/ActivateSupercuadricsComputation.h"
 #include "sharon_msgs/GetSuperquadrics.h"
 #include "sharon_msgs/ComputeGraspPoses.h"
+#include "sharon_msgs/BoundingBoxes.h"
+#include "sharon_msgs/GetBboxes.h"
 
 #define DEFAULT_MIN_NPOINTS 100
 #define MAX_OBJECT_WIDTH_GRASP 0.16
@@ -58,6 +62,12 @@ namespace grasp_objects{
         void init();
 
         void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &pointCloud_msg);
+
+        void setCameraParams(const sensor_msgs::CameraInfo &cameraInfo_msg);
+
+        void getPixelCoordinates(const pcl::PointXYZ &p, int &xpixel, int &ypixel);
+
+
         void supervoxelOversegmentation(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &inputPointCloud,
                                         pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud);
         
@@ -75,23 +85,31 @@ namespace grasp_objects{
         bool activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request & req, sharon_msgs::ActivateSupercuadricsComputation::Response & res);
 
         bool computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request & req, sharon_msgs::ComputeGraspPoses::Response & res);
+
         void computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses);
+
         bool getSuperquadrics(sharon_msgs::GetSuperquadrics::Request &req, sharon_msgs::GetSuperquadrics::Response &res);
 
+        bool getBboxes(sharon_msgs::GetBboxes::Request &req, sharon_msgs::GetBboxes::Response &res);
+
+        bool createBoundingBox2DFromSuperquadric(const sharon_msgs::Superquadric &superq, sharon_msgs::BoundingBox & bbox);
 
         private:
         //! ROS node handle.
         ros::NodeHandle nodeHandle_;
         ros::Subscriber pointCloudSubscriber_;
+        ros::Subscriber cameraInfoSubscriber_;
         ros::Publisher outPointCloudPublisher_;
         ros::Publisher outPointCloudSuperqsPublisher_;
         ros::Publisher superquadricsPublisher_;
         ros::Publisher graspPosesPublisher_;
+        ros::Publisher bbox3dPublisher_;
 
 
         ros::ServiceServer serviceActivateSuperquadricsComputation_; 
         ros::ServiceServer serviceComputeGraspPoses_;
         ros::ServiceServer serviceGetSuperquadrics_;
+        ros::ServiceServer serviceGetBboxesSuperquadrics_;
 
 
         tf::TransformListener listener_;
@@ -111,6 +129,9 @@ namespace grasp_objects{
         std::string object_class_;
         bool single_superq_;
         bool merge_model_;
+
+        int height_ = 480;
+        int width_ = 640;
         std::map<std::string,double> sq_model_params_;
         SuperqModel::SuperqEstimatorApp estim_;
 
@@ -120,6 +141,12 @@ namespace grasp_objects{
 
         bool activate_ = false;
         std::mutex mtxActivate_;
+
+        float focalLengthX_, focalLengthY_;
+        float principalPointX_, principalPointY_; 
+
+        tf::StampedTransform transformCameraWrtBase_;
+
 
 };
 }

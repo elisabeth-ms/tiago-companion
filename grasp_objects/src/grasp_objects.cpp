@@ -15,10 +15,12 @@ namespace grasp_objects
     void GraspObjects::init()
     {
         ROS_INFO("[GraspObjects] init().");
-        std::string pointCloudTopicName;
+        std::string pointCloudTopicName, cameraInfoTopicName;
         nodeHandle_.param("grasp_objects/eps_angle/value", epsAnglePlaneSegmentation_, float(0.01));
         nodeHandle_.param("grasp_objects/distance_threshold/value", distanceThresholdPlaneSegmentation_, float(0.01));
         nodeHandle_.param("subscribers/point_cloud/topic", pointCloudTopicName, std::string("/xtion/depth_registered/points"));
+        nodeHandle_.param("subscribers/point_cloud/topic", cameraInfoTopicName, std::string("/xtion/rgb/camera_info"));
+
         nodeHandle_.param("grasp_objects/tol_superq/value", tolSuperq_, float(1e-4));
         nodeHandle_.param("grasp_objects/optimizer_points/value", optimizerPoints_, int(100));
         nodeHandle_.param("grasp_objects/random_sampling/value", randomSampling_, bool(true));
@@ -46,17 +48,192 @@ namespace grasp_objects
         estim_.SetNumericValue("threshold_section1", thresholdSection1_);
         estim_.SetNumericValue("threshold_section2", thresholdSection2_);
 
+        ROS_INFO("[GraspObjects] Waiting to get the camera info...");
+        sensor_msgs::CameraInfoConstPtr cameraInfoMsg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(cameraInfoTopicName);
+
+        setCameraParams(*cameraInfoMsg);
+
         pointCloudSubscriber_ = nodeHandle_.subscribe(pointCloudTopicName, 10, &GraspObjects::pointCloudCallback, this);
 
         outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud", 5);
         outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 5);
         superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 5);
         graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 5);
+        bbox3dPublisher_ = nodeHandle_.advertise<visualization_msgs::MarkerArray>("/grasp_objects/bbox3d", 5);
 
         serviceActivateSuperquadricsComputation_ = nodeHandle_.advertiseService("/grasp_objects/activate_superquadrics_computation", &GraspObjects::activateSuperquadricsComputation, this);
         serviceComputeGraspPoses_ = nodeHandle_.advertiseService("/grasp_objects/compute_grasp_poses", &GraspObjects::computeGraspPoses, this);
         serviceGetSuperquadrics_ = nodeHandle_.advertiseService("/grasp_objects/get_superquadrics", &GraspObjects::getSuperquadrics, this);
-    
+        serviceGetBboxesSuperquadrics_ = nodeHandle_.advertiseService("/grasp_objects/get_bboxes_superquadrics", &GraspObjects::getBboxes, this);
+    }
+
+    bool GraspObjects::createBoundingBox2DFromSuperquadric(const sharon_msgs::Superquadric &superq, sharon_msgs::BoundingBox &bbox)
+    {
+        // Bbox 3d wrt object's frame
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr bbox3d(new pcl::PointCloud<pcl::PointXYZ>);
+        for (float x = -1; x <= 1; x += 2)
+        {
+            for (float y = -1; y <= 1; y += 2)
+            {
+                for (float z = -1; z <= 1; z += 2)
+                {
+                    pcl::PointXYZ p;
+
+                    p.x = x * superq.a1;
+                    p.y = y * superq.a2;
+                    p.z = z * superq.a3;
+
+                    bbox3d->push_back(*(pcl::PointXYZ *)(&p));
+                }
+            }
+        }
+
+        // Bbox 3d wrt world frame
+        Eigen::AngleAxisf rollAngle(superq.roll, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf yawAngle(superq.pitch, Eigen::Vector3f::UnitY());
+        Eigen::AngleAxisf pitchAngle(superq.yaw, Eigen::Vector3f::UnitZ());
+
+        Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
+        Eigen::Matrix3f rotationMatrix = q.matrix();
+
+        Eigen::Vector3f v(superq.x, superq.y, superq.z);
+        Eigen::Matrix4f transform = Eigen::Affine3f(Eigen::Translation3f(v)).matrix();
+
+        transform.block<3, 3>(0, 0) = rotationMatrix;
+        pcl::transformPointCloud(*bbox3d, *bbox3d, transform);
+
+        visualization_msgs::MarkerArray markerArray;
+        visualization_msgs::Marker marker;
+
+        marker.type = visualization_msgs::Marker::LINE_LIST;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.header.frame_id = "base_footprint";
+        marker.header.stamp = ros::Time::now();
+
+        ROS_INFO("Bbox has %d points", bbox3d->points.size());
+        for (int idx = 0; idx <= bbox3d->points.size() - 1; idx += 1)
+        {
+            if (idx % 2 == 0)
+            {
+                // marker.id = idx;
+                ROS_INFO("Line %d and %d", idx, idx+1);
+                geometry_msgs::Point pointRos;
+                pointRos.x = bbox3d->points[idx].x;
+                pointRos.y = bbox3d->points[idx].y;
+                pointRos.z = bbox3d->points[idx].z;
+                marker.points.push_back(pointRos);
+
+                pointRos.x = bbox3d->points[idx + 1].x;
+                pointRos.y = bbox3d->points[idx + 1].y;
+                pointRos.z = bbox3d->points[idx + 1].z;
+                marker.points.push_back(pointRos);
+
+                marker.pose.orientation.w = 1.0;
+            }
+            if (idx <= 1 || ((idx >= 4) && (idx < 6)))
+            {
+                geometry_msgs::Point pointRos;
+                pointRos.x = bbox3d->points[idx].x;
+                pointRos.y = bbox3d->points[idx].y;
+                pointRos.z = bbox3d->points[idx].z;
+                marker.points.push_back(pointRos);
+
+                pointRos.x = bbox3d->points[idx + 2].x;
+                pointRos.y = bbox3d->points[idx + 2].y;
+                pointRos.z = bbox3d->points[idx + 2].z;
+                marker.points.push_back(pointRos);
+
+                marker.pose.orientation.w = 1.0;
+            }
+            if (idx <= 3)
+            {
+                geometry_msgs::Point pointRos;
+
+                pointRos.x = bbox3d->points[idx].x;
+                pointRos.y = bbox3d->points[idx].y;
+                pointRos.z = bbox3d->points[idx].z;
+                marker.points.push_back(pointRos);
+
+                pointRos.x = bbox3d->points[idx + 4].x;
+                pointRos.y = bbox3d->points[idx + 4].y;
+                pointRos.z = bbox3d->points[idx + 4].z;
+                marker.points.push_back(pointRos);
+
+                marker.pose.orientation.w = 1.0;
+            }
+        }
+        marker.scale.x = 0.005;
+        marker.color.a = 1.0; // Don't forget to set the alpha!
+        marker.color.r = 0.0;
+        marker.color.g = 0.0;
+        marker.color.b = 1.0;
+        markerArray.markers.push_back(marker);
+
+        bbox3dPublisher_.publish(markerArray);
+
+        Eigen::Matrix4f outMatrixTransform;
+
+        pcl_ros::transformAsMatrix(transformCameraWrtBase_, outMatrixTransform);
+
+        // Eigen::Matrix4f transform_world_to_camera;
+        // getTransformMatrix(false, transform_world_to_camera);
+
+        pcl::transformPointCloud(*bbox3d, *bbox3d, outMatrixTransform);
+
+        int tlx1 = width_, tly1 = height_, brx1 = 0, bry1 = 0;
+        for (size_t idx = 0; idx < bbox3d->size(); idx++)
+        {
+            pcl::PointXYZ p(bbox3d->points[idx].x, bbox3d->points[idx].y, bbox3d->points[idx].z);
+            int xpixel, ypixel;
+            // yInfo()<<"xpixel: "<<xpixel<<" ypixel: "<<ypixel;
+            getPixelCoordinates(p, xpixel, ypixel);
+            if (xpixel < tlx1)
+            {
+                tlx1 = xpixel;
+            }
+            if (xpixel > brx1)
+            {
+                brx1 = xpixel;
+            }
+            if (ypixel < tly1)
+            {
+                tly1 = ypixel;
+            }
+            if (ypixel > bry1)
+            {
+                bry1 = ypixel;
+            }
+        }
+        bbox.tlx = tlx1;
+        bbox.tly = tly1;
+        bbox.brx = brx1;
+        bbox.bry = bry1;
+        bbox.id = superq.id;
+
+        return true;
+    }
+
+    void GraspObjects::getPixelCoordinates(const pcl::PointXYZ &p, int &xpixel, int &ypixel)
+    {
+        ROS_INFO("p: %f %f %f ",p.x, p.y, p.z);
+        // yInfo() << "intrinsics.focalLengthX:" << intrinsics.focalLengthX << " intrinsics.principalPointX: " << intrinsics.principalPointX;
+        // yInfo() << "intrinsics.focalLengthY:" << intrinsics.focalLengthY << " intrinsics.principalPointY: " << intrinsics.principalPointY;
+
+        ROS_INFO("focalLengthX_: %f principalPointX_: %f", focalLengthX_, principalPointX_);
+        xpixel = (int) (p.x* focalLengthX_ + principalPointX_);
+        ypixel = (int) (p.y* focalLengthY_ + principalPointY_);
+        ROS_INFO("xpixel: %f ypixel %f", xpixel, ypixel);
+
+        // yInfo() << "xpixel: " << xpixel << "ypixel: " << ypixel;
+        if (xpixel > width_)
+            xpixel = width_;
+        if (ypixel > height_)
+            ypixel = height_;
+        if (xpixel < 0)
+            xpixel = 0;
+        if (ypixel < 0)
+            ypixel = 0;
     }
 
     bool GraspObjects::getSuperquadrics(sharon_msgs::GetSuperquadrics::Request &req, sharon_msgs::GetSuperquadrics::Response &res)
@@ -68,6 +245,21 @@ namespace grasp_objects
         res.superquadrics = superquadricsMsg_;
 
         return true;
+    }
+
+    bool GraspObjects::getBboxes(sharon_msgs::GetBboxes::Request &req, sharon_msgs::GetBboxes::Response &res)
+    {
+        ROS_INFO("[GraspObjects] getBboxes().");
+        sharon_msgs::BoundingBoxes boundingBoxes;
+        boundingBoxes.header.stamp = ros::Time::now();
+
+        for (int i = 0; i < superquadricsMsg_.superquadrics.size(); i++)
+        {
+            sharon_msgs::BoundingBox bbox;
+            createBoundingBox2DFromSuperquadric(superquadricsMsg_.superquadrics[i], bbox);
+            boundingBoxes.bounding_boxes.push_back(bbox);
+        }
+        res.bounding_boxes = boundingBoxes;
     }
 
     bool GraspObjects::computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request &req, sharon_msgs::ComputeGraspPoses::Response &res)
@@ -150,7 +342,7 @@ namespace grasp_objects
                     frame_grasping_wrt_object = frameTCP;
                     for (int sign = 1.0; sign >= -1; sign -= 2.0)
                     {
-                        frame_grasping_wrt_object.p[0] = sign*x;
+                        frame_grasping_wrt_object.p[0] = sign * x;
                         frame_grasping_wrt_object.p[1] = -yaxes * params[1];
                         frame_grasping_wrt_object.p[2] = 0;
                         frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
@@ -163,12 +355,10 @@ namespace grasp_objects
                         float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
                         // printf("angle: %f\n", angle * M_1_PI / 180.0);
 
-                       
-                            geometry_msgs::Pose pose;
-                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
-                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                            graspingPoses.poses.push_back(pose);
-                        
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+                        graspingPoses.poses.push_back(pose);
                     }
                 }
             }
@@ -203,12 +393,10 @@ namespace grasp_objects
                         float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
                         // printf("angle: %f\n", angle * 180.0 / M_PI);
 
-
-                            geometry_msgs::Pose pose;
-                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
-                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                            graspingPoses.poses.push_back(pose);
-                        
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+                        graspingPoses.poses.push_back(pose);
                     }
                 }
             }
@@ -393,11 +581,9 @@ namespace grasp_objects
             sensor_msgs::PointCloud2 pcOut;
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-            tf::StampedTransform transform;
+            listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transformCameraWrtBase_);
 
-            listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transform);
-
-            pcl_ros::transformPointCloud(std::string("/base_footprint"), transform, *pointCloud_msg, pcOut);
+            pcl_ros::transformPointCloud(std::string("/base_footprint"), transformCameraWrtBase_, *pointCloud_msg, pcOut);
 
             pcl::PCLPointCloud2 *cloudFiltered = new pcl::PCLPointCloud2;
             pcl::PCLPointCloud2ConstPtr cloudFilteredPtr(cloudFiltered);
@@ -460,7 +646,7 @@ namespace grasp_objects
             {
 
                 sharon_msgs::SuperquadricMultiArray aux;
-                superquadricsMsg_= aux;
+                superquadricsMsg_ = aux;
                 superquadricsMsg_.header.stamp = ros::Time::now();
                 updateDetectedObjectsPointCloud(lccp_labeled_cloud);
 
@@ -513,6 +699,22 @@ namespace grasp_objects
                 superquadricsPublisher_.publish(superquadricsMsg_);
             }
         }
+    }
+
+    void GraspObjects::setCameraParams(const sensor_msgs::CameraInfo &cameraInfo_msg)
+    {
+        height_ = cameraInfo_msg.height;
+        width_ = cameraInfo_msg.width;
+        focalLengthX_ = cameraInfo_msg.P[0];
+        focalLengthY_ = cameraInfo_msg.P[5];
+        principalPointX_ = cameraInfo_msg.P[2];
+        principalPointY_ = cameraInfo_msg.P[6];
+
+        ROS_INFO("[GraspObjects] Camera params ----");
+        ROS_INFO("[GraspObjects] Width: %d", width_);
+        ROS_INFO("[GraspObjects] Height: %d", height_);
+        ROS_INFO("[GraspObjects] Focal Length: (%f, %f)", focalLengthX_, focalLengthY_);
+        ROS_INFO("[GraspObjects] Principal point: (%f, %f)", principalPointX_, principalPointY_);
     }
 
     void GraspObjects::createPointCloudFromSuperquadric(const std::vector<SuperqModel::Superquadric> &superqs, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloudSuperquadric, int indexDetectedObjects)

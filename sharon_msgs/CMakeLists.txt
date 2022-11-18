@@ -48,6 +48,8 @@ add_message_files(
     Superquadric.msg
     SuperquadricMultiArray.msg
     GlassesData.msg
+    BoundingBox.msg
+    BoundingBoxes.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -56,6 +58,7 @@ add_service_files(
   ActivateSupercuadricsComputation.srv
   ComputeGraspPoses.srv
   GetSuperquadrics.srv
+  GetBboxes.srv
 )
 
 ## Generate actions in the 'action' folder
