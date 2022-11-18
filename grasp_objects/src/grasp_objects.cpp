@@ -103,12 +103,18 @@ namespace grasp_objects
         transform.block<3, 3>(0, 0) = rotationMatrix;
         pcl::transformPointCloud(*bbox3d, *bbox3d, transform);
 
+        Eigen::Matrix4f outMatrixTransform;
+        pcl_ros::transformAsMatrix(transformCameraWrtBase_, outMatrixTransform);
+
+
+        pcl::transformPointCloud(*bbox3d, *bbox3d, outMatrixTransform.inverse());
+
         visualization_msgs::MarkerArray markerArray;
         visualization_msgs::Marker marker;
 
         marker.type = visualization_msgs::Marker::LINE_LIST;
         marker.action = visualization_msgs::Marker::ADD;
-        marker.header.frame_id = "base_footprint";
+        marker.header.frame_id = "xtion_rgb_optical_frame";
         marker.header.stamp = ros::Time::now();
 
         ROS_INFO("Bbox has %d points", bbox3d->points.size());
@@ -172,14 +178,8 @@ namespace grasp_objects
 
         bbox3dPublisher_.publish(markerArray);
 
-        Eigen::Matrix4f outMatrixTransform;
 
-        pcl_ros::transformAsMatrix(transformCameraWrtBase_, outMatrixTransform);
 
-        // Eigen::Matrix4f transform_world_to_camera;
-        // getTransformMatrix(false, transform_world_to_camera);
-
-        pcl::transformPointCloud(*bbox3d, *bbox3d, outMatrixTransform);
 
         int tlx1 = width_, tly1 = height_, brx1 = 0, bry1 = 0;
         for (size_t idx = 0; idx < bbox3d->size(); idx++)
