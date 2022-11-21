@@ -165,18 +165,19 @@ class ASR(object):
         return closestWords
     
     def update(self):
-        self.r = sr.Recognizer()
-            
+        
+
         while not rospy.is_shutdown():
 
             # si el microfono no funciona es interesante ver que microfonos hay disponibles
             # e ir probando
             # mic = sr.Microphone(device_index=36)
-            
+            self.r = sr.Recognizer()
+
             with sr.Microphone(device_index = self.device_id) as source:
                 print("Talk:")
+                self.r.adjust_for_ambient_noise(source, duration = 1.5)
                 # read the audio data from the default microphone
-                self.r.adjust_for_ambient_noise(source, duration = 0.5)
                 audio_data = self.r.listen(source)
                 print("Stop - Recognizing...\n")
                 

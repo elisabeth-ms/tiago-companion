@@ -255,6 +255,7 @@ namespace grasp_objects
 
         for (int i = 0; i < superquadricsMsg_.superquadrics.size(); i++)
         {
+            ROS_INFO("[GraspObjects] SQ: %d", i);
             sharon_msgs::BoundingBox bbox;
             createBoundingBox2DFromSuperquadric(superquadricsMsg_.superquadrics[i], bbox);
             boundingBoxes.bounding_boxes.push_back(bbox);

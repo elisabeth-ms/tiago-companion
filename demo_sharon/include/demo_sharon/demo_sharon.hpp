@@ -130,6 +130,9 @@ namespace demo_sharon{
 
         std::string asr_;
         std::vector<SqCategory> sqCategories_;
+        bool foundAsr_ = false;
+        int indexSqCategory_ = -1;
+
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;
 
