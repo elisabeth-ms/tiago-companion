@@ -1,6 +1,6 @@
 use_glasses: false
 use_asr: true
-reaching_distance: 0.15
+reaching_distance: 0.12
 elimit1: 0.3
 elimit2: 0.8
 inflate_size: 0.005

@@ -114,7 +114,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
    INCLUDE_DIRS include
 #  LIBRARIES grasp_objects
-  CATKIN_DEPENDS roscpp rospy std_msgs sharon_msgs kdl_conversions nav_msgs darknet_ros_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs sharon_msgs kdl_conversions nav_msgs darknet_ros_msgs 
 #  DEPENDS system_lib
 )
 

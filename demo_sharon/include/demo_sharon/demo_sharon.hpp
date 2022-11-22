@@ -15,6 +15,10 @@
 // Moveit headers
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
+
 
 // KDL
 #include <kdl_conversions/kdl_msg.h>
@@ -30,6 +34,8 @@
 
 // darknet_ros
 #include "darknet_ros_msgs/BoundingBoxes.h"
+
+
 
 // Action interface type for moving TIAGo, provided as a typedef for convenience
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
@@ -136,5 +142,8 @@ namespace demo_sharon{
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;
 
+        robot_model::RobotModelPtr kinematicModel_;
+        robot_state::RobotStatePtr kinematicState_;
+        const robot_state::JointModelGroup* joint_model_group;
 };
 }

@@ -14,8 +14,8 @@ namespace demo_sharon
         waitingForAsrCommand_ = false;
         asrCommandReceived_ = false;
         removeCollisionObjectsPlanningScene();
-
-        float dimensions[3] = {1.0, 0.9, 0.85};
+        
+        float dimensions[3] = {1.1, 0.95, 0.9};
         geometry_msgs::Pose tablePose;
         tablePose.orientation.w = 1.0;
         tablePose.position.x = 0.9;
@@ -121,8 +121,8 @@ namespace demo_sharon
             ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
 
             sharon_msgs::ComputeGraspPoses srvGraspingPoses;
-            srvGraspingPoses.request.id = 1;
-            geometry_msgs::PoseArray graspingPoses;
+            srvGraspingPoses.request.id = sqCategories_[indexSqCategory_].idSq;
+            geometry_msgs::PoseArray graspingPoses, orderedGraspingPoses;
             groupRightArmTorsoPtr_->setStartStateToCurrentState();
 
             if (clientComputeGraspPoses_.call(srvGraspingPoses))
@@ -131,6 +131,7 @@ namespace demo_sharon
                 graspingPoses = srvGraspingPoses.response.poses;
             }
             ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses.poses.size());
+
 
             int indexFeasible = -1;
             bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
@@ -167,6 +168,13 @@ namespace demo_sharon
     DemoSharon::~DemoSharon()
     {
     }
+
+    // void DemoSharon::orderGraspingPoses(bool rightArm, const geometry_msgs::PoseArray &graspingPoses, geometry_msgs::PoseArray &orderedGraspingPoses){
+    //     if(rightArm){
+            
+    //     }
+    // }
+
 
     void DemoSharon::moveGripper(const float positions[2], std::string name)
     {
@@ -272,6 +280,8 @@ namespace demo_sharon
     {
         geometry_msgs::Pose reachingPose;
         bool successPlanning = false;
+        robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
+        kinematic_state->setToDefaultValues();
         for (int idx = 0; idx < graspingPoses.poses.size(); idx++)
         {
             ROS_INFO("[DemoSharon] idx: %d", idx);
@@ -284,13 +294,23 @@ namespace demo_sharon
             KDL::Frame frameReachingWrtBase = frameEndWrtBase * frameReachingWrtEnd;
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose);
-            geometry_msgs::PoseStamped goal_pose;
-            goal_pose.header.frame_id = "base_footprint";
-            goal_pose.pose = graspingPoses.poses[idx];
-            groupRightArmTorsoPtr_->setPoseTarget(reachingPose);
-            ROS_INFO("SET POSE TARGET");
-            moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
-            successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+
+
+            bool found_ik = kinematic_state->setFromIK(joint_model_group, reachingPose, 10, 0.1);
+
+            //     geometry_msgs::PoseStamped goal_pose;
+            // goal_pose.header.frame_id = "base_footprint";
+            // goal_pose.pose = graspingPoses.poses[idx];
+            if(found_ik){
+                groupRightArmTorsoPtr_->setPoseTarget(reachingPose);
+                ROS_INFO("SET POSE TARGET");
+
+                
+                moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
+                successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+            }else{
+                successPlanning = false;
+            }
 
             // if(groupRightArmTorsoPtr_->plan(plan_) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             //     successPlanning = true;
@@ -345,9 +365,9 @@ namespace demo_sharon
         shape_msgs::SolidPrimitive table;
         table.type = table.BOX;
         table.dimensions.resize(3);
-        table.dimensions[0] = 1.0;
-        table.dimensions[1] = 0.9;
-        table.dimensions[2] = 0.85;
+        table.dimensions[0] = dimensions[0];
+        table.dimensions[1] = dimensions[1];
+        table.dimensions[2] = dimensions[2];
 
         collisionObject.primitives.push_back(table);
         collisionObject.primitive_poses.push_back(tablePose);
@@ -489,6 +509,9 @@ namespace demo_sharon
         createClient(headClient_, std::string("head"));
         createClient(torsoClient_, std::string("torso"));
         createClient(rightGripperClient_, std::string("gripper_right"));
+        robot_model_loader::RobotModelLoader robotModelLoader_("robot_description");
+        kinematicModel_ = robotModelLoader_.getModel();
+        joint_model_group = kinematicModel_->getJointModelGroup(nameTorsoRightArmGroup_);
 
         control_msgs::FollowJointTrajectoryGoal headGoal;
         control_msgs::FollowJointTrajectoryGoal torsoGoal;
