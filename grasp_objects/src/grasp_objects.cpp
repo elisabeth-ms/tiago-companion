@@ -113,7 +113,7 @@ namespace grasp_objects
 
         marker.type = visualization_msgs::Marker::LINE_LIST;
         marker.action = visualization_msgs::Marker::ADD;
-        marker.header.frame_id = "xtion_rgb_optical_frame";
+        marker.header.frame_id = "xtion_depth_optical_frame";
         marker.header.stamp = ros::Time::now();
 
         ROS_INFO("Bbox has %d points", bbox3d->points.size());
@@ -217,9 +217,10 @@ namespace grasp_objects
         // yInfo() << "intrinsics.focalLengthY:" << intrinsics.focalLengthY << " intrinsics.principalPointY: " << intrinsics.principalPointY;
 
         ROS_INFO("focalLengthX_: %f principalPointX_: %f", focalLengthX_, principalPointX_);
-        xpixel = (int)(p.x * focalLengthX_ + principalPointX_);
-        ypixel = (int)(p.y * focalLengthY_ + principalPointY_);
-        ROS_INFO("xpixel: %f ypixel %f", xpixel, ypixel);
+        ROS_INFO("%f", p.x * focalLengthX_);
+        xpixel = (int)(p.x * focalLengthX_/p.z + principalPointX_);
+        ypixel = (int)(p.y * focalLengthY_/p.z + principalPointY_);
+        ROS_INFO("xpixel: %d ypixel %d", xpixel, ypixel);
 
         // yInfo() << "xpixel: " << xpixel << "ypixel: " << ypixel;
         if (xpixel > width_)
@@ -670,7 +671,7 @@ namespace grasp_objects
             sensor_msgs::PointCloud2 pcOut;
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-            listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transformCameraWrtBase_);
+            listener_.lookupTransform("/base_footprint", "/xtion_depth_optical_frame", ros::Time(0), transformCameraWrtBase_);
 
             pcl_ros::transformPointCloud(std::string("/base_footprint"), transformCameraWrtBase_, *pointCloud_msg, pcOut);
 
