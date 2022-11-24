@@ -1,4 +1,4 @@
 image: {width: 1080, height: 1088}
-server_ip: '192.168.1.43' 
+server_ip: '10.118.48.82' 
 port: 55555
 mark_images:  false

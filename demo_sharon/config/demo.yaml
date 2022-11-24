@@ -1,7 +1,13 @@
-use_glasses: false
-use_asr: true
+use_glasses: true
+use_asr: false
 reaching_distance: 0.12
 elimit1: 0.3
 elimit2: 0.8
 inflate_size: 0.005
 max_error_joints: 0.001
+head_joints_position_init: [0, -0.6]
+torso_joint_position_init: 0.25
+right_arm_joints_position_init: [-1.11, 1.15, 2.53, 1.59, -1.6, 1.25, 0.0]
+left_arm_joints_position_init: [-1.11, 1.15, 2.53, 1.59, -1.6, 1.25, 0.0]
+table_dimensions: [1.1, 0.95, 0.9]
+table_position: [0.9,0.0,0.4]

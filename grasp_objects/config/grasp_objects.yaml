@@ -13,4 +13,3 @@ object_class: "default"
 single_superq: true
 merge_model: true
 th_points: 100
-
