@@ -11,11 +11,41 @@ namespace demo_sharon
         spinner.start();
         init(); // Tiagos head and torso are at the initial positions
 
+        if(useAsr_ && !useGlasses_){
+            demoOnlyASR();
+        }
+
+        
+    }
+
+    DemoSharon::~DemoSharon()
+    {
+    }
+
+    // void DemoSharon::orderGraspingPoses(bool rightArm, const geometry_msgs::PoseArray &graspingPoses, geometry_msgs::PoseArray &orderedGraspingPoses){
+    //     if(rightArm){
+            
+    //     }
+    // }
+
+    void DemoSharon::demoOnlyASR(){
+
+
+        float initHeadPositions[2] = {0, -0.6};
+        float initTorsoPosition = 0.25;
+        
+        
+        initializeTorsoPosition(initTorsoPosition);
+        
+        initializeHeadPosition(initHeadPositions);
+        
+        // initArmsPosition
+
         waitingForAsrCommand_ = false;
         asrCommandReceived_ = false;
         removeCollisionObjectsPlanningScene();
         
-        float dimensions[3] = {1.1, 0.95, 0.9};
+        float dimensions[3] = {1.1, 0.95, 0.7};
         geometry_msgs::Pose tablePose;
         tablePose.orientation.w = 1.0;
         tablePose.position.x = 0.9;
@@ -136,6 +166,7 @@ namespace demo_sharon
             int indexFeasible = -1;
             bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
 
+
             if (successGoToReaching)
             {
 
@@ -154,7 +185,7 @@ namespace demo_sharon
                 releaseGripper_ = false;
                 while (ros::ok() && !releaseGripper_)
                 {
-                    ROS_INFO("Waiting for command to realese the gripper...");
+                    ROS_INFO("Waiting for command to release the gripper...");
                     ros::Duration(0.1).sleep(); // sleep for 1 seconds
                 }
                 moveGripper(openGripperPositions_, "right");
@@ -163,18 +194,8 @@ namespace demo_sharon
 
             ROS_INFO("[DemoSharon] Done!");
         }
+
     }
-
-    DemoSharon::~DemoSharon()
-    {
-    }
-
-    // void DemoSharon::orderGraspingPoses(bool rightArm, const geometry_msgs::PoseArray &graspingPoses, geometry_msgs::PoseArray &orderedGraspingPoses){
-    //     if(rightArm){
-            
-    //     }
-    // }
-
 
     void DemoSharon::moveGripper(const float positions[2], std::string name)
     {
@@ -478,6 +499,71 @@ namespace demo_sharon
         planningSceneInterface_.applyCollisionObjects(collisionObjects);
     }
 
+    void DemoSharon::initializeHeadPosition(float initHeadPositions[2]){
+
+        ROS_INFO("Setting head to init position: (%f ,%f)", initHeadPositions[0], initHeadPositions[1]);
+
+        sensor_msgs::JointStateConstPtr jointStatesMsgPtr = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states");
+
+        float head1Position = jointStatesMsgPtr->position[find (jointStatesMsgPtr->name.begin(),jointStatesMsgPtr->name.end(), std::string("head_1_joint")) - jointStatesMsgPtr->name.begin()];
+        float head2Position = jointStatesMsgPtr->position[find (jointStatesMsgPtr->name.begin(),jointStatesMsgPtr->name.end(), std::string("head_2_joint")) - jointStatesMsgPtr->name.begin()];
+
+        if( (abs(initHeadPositions[0] - head1Position)<maxErrorJoints_) && (abs(initHeadPositions[1] - head2Position) < maxErrorJoints_) ){
+            ROS_INFO("Head joints already in the init position: (%f, %f)", initHeadPositions[0], initHeadPositions[1]);
+            return;
+        }
+
+        control_msgs::FollowJointTrajectoryGoal headGoal;
+
+        waypointHeadGoal(headGoal, initHeadPositions, 3.0);
+
+        // Sends the command to start the given trajectory now
+        headGoal.trajectory.header.stamp = ros::Time::now();
+        headClient_->sendGoal(headGoal);
+
+        // Wait for trajectory execution
+        while (!(headClient_->getState().isDone()) && ros::ok())
+        {
+            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+        }
+        ROS_INFO("Head set to position: (%f, %f)", initHeadPositions[0], initHeadPositions[1]);
+    }
+
+    void DemoSharon::initializeTorsoPosition(float initTorsoPosition){
+        control_msgs::FollowJointTrajectoryGoal torsoGoal;
+     
+        ROS_INFO("Setting torso to init position: (%f)", initTorsoPosition);
+
+        sensor_msgs::JointStateConstPtr jointStatesMsgPtr = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states");
+
+        float torsoPosition = jointStatesMsgPtr->position[find (jointStatesMsgPtr->name.begin(),jointStatesMsgPtr->name.end(), std::string("torso_lift_joint")) - jointStatesMsgPtr->name.begin()];
+
+        if( (abs(initTorsoPosition - torsoPosition)<maxErrorJoints_) && (abs(initTorsoPosition - torsoPosition) < maxErrorJoints_) ){
+            ROS_INFO("Torso joint already in the init position: (%f)", initTorsoPosition);
+            return;
+        }
+
+
+        waypointTorsoGoal(torsoGoal, initTorsoPosition, 3.0);
+
+        // Sends the command to start the given trajectory now
+        torsoGoal.trajectory.header.stamp = ros::Time::now();
+        torsoClient_->sendGoal(torsoGoal);
+
+        // Wait for trajectory execution
+        while (!(torsoClient_->getState().isDone()) && ros::ok())
+        {
+            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+        }
+
+        ROS_INFO("Torso set to position: (%f)", initTorsoPosition);
+
+
+    }
+
+
+
+
     void DemoSharon::init()
     {
         ROS_INFO("[DemoSharon] init().");
@@ -497,6 +583,7 @@ namespace demo_sharon
         ros::param::get("demo_sharon/elimit1", elimit1_);
         ros::param::get("demo_sharon/elimit2", elimit2_);
         ros::param::get("demo_sharon/inflate_size", inflateSize_);
+        ros::param::get("demo_sharon/max_error_joints", maxErrorJoints_);
 
         ROS_INFO("[DemoSharon] demo_sharon/reaching_distance set to %f", reachingDistance_);
 
@@ -513,40 +600,7 @@ namespace demo_sharon
         kinematicModel_ = robotModelLoader_.getModel();
         joint_model_group = kinematicModel_->getJointModelGroup(nameTorsoRightArmGroup_);
 
-        control_msgs::FollowJointTrajectoryGoal headGoal;
-        control_msgs::FollowJointTrajectoryGoal torsoGoal;
-
-        float initHeadPositions[2] = {0, -0.4};
-        ROS_INFO("Setting head to init position: (%f ,%f)", initHeadPositions[0], initHeadPositions[1]);
-
-        waypointHeadGoal(headGoal, initHeadPositions, 3.0);
-
-        // Sends the command to start the given trajectory now
-        headGoal.trajectory.header.stamp = ros::Time::now();
-        headClient_->sendGoal(headGoal);
-
-        // Wait for trajectory execution
-        while (!(headClient_->getState().isDone()) && ros::ok())
-        {
-            ros::Duration(1.0).sleep(); // sleep for 1 seconds
-        }
-        ROS_INFO("Head set to position: (%f, %f)", initHeadPositions[0], initHeadPositions[1]);
-        float initTorsoPosition = 0.3;
-        ROS_INFO("Setting torso to init position: (%f)", initTorsoPosition);
-
-        waypointTorsoGoal(torsoGoal, initTorsoPosition, 3.0);
-
-        // Sends the command to start the given trajectory now
-        torsoGoal.trajectory.header.stamp = ros::Time::now();
-        torsoClient_->sendGoal(torsoGoal);
-
-        // Wait for trajectory execution
-        while (!(torsoClient_->getState().isDone()) && ros::ok())
-        {
-            ros::Duration(1.0).sleep(); // sleep for 1 seconds
-        }
-
-        ROS_INFO("Torso set to position: (%f)", initTorsoPosition);
+       
 
         return;
     }

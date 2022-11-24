@@ -16,24 +16,45 @@ namespace grasp_objects
     {
         ROS_INFO("[GraspObjects] init().");
         std::string pointCloudTopicName, cameraInfoTopicName;
-        nodeHandle_.param("grasp_objects/eps_angle/value", epsAnglePlaneSegmentation_, float(0.01));
-        nodeHandle_.param("grasp_objects/distance_threshold/value", distanceThresholdPlaneSegmentation_, float(0.005));
-        nodeHandle_.param("subscribers/point_cloud/topic", pointCloudTopicName, std::string("/xtion/depth_registered/points"));
-        nodeHandle_.param("subscribers/point_cloud/topic", cameraInfoTopicName, std::string("/xtion/rgb/camera_info"));
+        ros::param::get("grasp_objects/eps_angle",epsAnglePlaneSegmentation_);
+        ros::param::get("grasp_objects/distance_threshold",distanceThresholdPlaneSegmentation_);
+        ros::param::get("grasp_objects/tol_superq",tolSuperq_);
+        ros::param::get("grasp_objects/optimizer_points",optimizerPoints_);
+        ros::param::get("grasp_objects/random_sampling",randomSampling_);
+        ros::param::get("grasp_objects/max_iter",maxIter_);
+        ros::param::get("grasp_objects/minimum_points",minimumPoints_);
+        ros::param::get("grasp_objects/fraction_pc",fractionPc_);
+        ros::param::get("grasp_objects/threshold_axis",thresholdAxis_);
+        ros::param::get("grasp_objects/threshold_section1",thresholdSection1_);
+        ros::param::get("grasp_objects/threshold_section2",thresholdSection2_);
+        ros::param::get("grasp_objects/object_class",object_class_);
+        ros::param::get("grasp_objects/single_superq",single_superq_);
+        ros::param::get("grasp_objects/merge_model",merge_model_);
+        ros::param::get("grasp_objects/th_points",th_points_);
 
-        nodeHandle_.param("grasp_objects/tol_superq/value", tolSuperq_, float(1e-4));
-        nodeHandle_.param("grasp_objects/optimizer_points/value", optimizerPoints_, int(100));
-        nodeHandle_.param("grasp_objects/random_sampling/value", randomSampling_, bool(true));
-        nodeHandle_.param("grasp_objects/max_iter/value", maxIter_, int(10000000));
-        nodeHandle_.param("grasp_objects/minimum_points/value", minimumPoints_, int(250));
-        nodeHandle_.param("grasp_objects/fraction_pc/value", fractionPc_, int(4));
-        nodeHandle_.param("grasp_objects/threshold_axis/value", thresholdAxis_, float(0.7));
-        nodeHandle_.param("grasp_objects/threshold_section1/value", thresholdSection1_, float(0.6));
-        nodeHandle_.param("grasp_objects/threshold_section2/value", thresholdSection2_, float(0.03));
-        nodeHandle_.param("grasp_objects/object_class/value", object_class_, std::string("default"));
-        nodeHandle_.param("grasp_objects/single_superq/value", single_superq_, bool(true));
-        nodeHandle_.param("grasp_objects/merge_model/value", merge_model_, bool(true));
-        nodeHandle_.param("grasp_objects/th_points/value", th_points_, int(40));
+        
+        nodeHandle_.param("subscribers/point_cloud/topic", pointCloudTopicName, std::string("/xtion/depth_registered/points"));
+        nodeHandle_.param("subscribers/camera_info/topic", cameraInfoTopicName, std::string("/xtion/rgb/camera_info"));
+
+
+        ROS_INFO("[GraspObjects] grasp_objects/eps_angle set to %f", epsAnglePlaneSegmentation_);
+        ROS_INFO("[GraspObjects] grasp_objects/distance_threshold set to %f", distanceThresholdPlaneSegmentation_);
+        ROS_INFO("[GraspObjects] grasp_objects/tol_superq set to %f", tolSuperq_);
+        ROS_INFO("[GraspObjects] grasp_objects/optimizer_points set to %d", optimizerPoints_);
+        ROS_INFO("[GraspObjects] grasp_objects/random_sampling set to %d", randomSampling_);
+        ROS_INFO("[GraspObjects] grasp_objects/max_iter set to %d", maxIter_);
+        ROS_INFO("[GraspObjects] grasp_objects/minimum_points set to %d", minimumPoints_);
+        ROS_INFO("[GraspObjects] grasp_objects/fraction_pc set to %d", fractionPc_);
+        ROS_INFO("[GraspObjects] grasp_objects/threshold_axis set to %f", thresholdAxis_);
+        ROS_INFO("[GraspObjects] grasp_objects/threshold_section1 set to %f", thresholdSection1_);
+        ROS_INFO("[GraspObjects] grasp_objects/threshold_section2 set to %f", thresholdSection2_);
+        ROS_INFO("[GraspObjects] grasp_objects/object_class set to %s", object_class_.c_str());
+        ROS_INFO("[GraspObjects] grasp_objects/single_superq set to %d", single_superq_);
+        ROS_INFO("[GraspObjects] grasp_objects/merge_model set to %d", merge_model_);
+        ROS_INFO("[GraspObjects] grasp_objects/th_points set to %d", th_points_);
+        ROS_INFO("[GraspObjects] subscribers/point_cloud/topic set to %s", pointCloudTopicName.c_str());
+        ROS_INFO("[GraspObjects] subscribers/camera_info/topic set to %s", cameraInfoTopicName.c_str());
+
 
         estim_.SetNumericValue("tol", tolSuperq_);
         estim_.SetIntegerValue("print_level", 0);
@@ -113,7 +134,7 @@ namespace grasp_objects
 
         marker.type = visualization_msgs::Marker::LINE_LIST;
         marker.action = visualization_msgs::Marker::ADD;
-        marker.header.frame_id = "xtion_depth_optical_frame";
+        marker.header.frame_id = "xtion_rgb_optical_frame";
         marker.header.stamp = ros::Time::now();
 
         ROS_INFO("Bbox has %d points", bbox3d->points.size());
@@ -671,7 +692,7 @@ namespace grasp_objects
             sensor_msgs::PointCloud2 pcOut;
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-            listener_.lookupTransform("/base_footprint", "/xtion_depth_optical_frame", ros::Time(0), transformCameraWrtBase_);
+            listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transformCameraWrtBase_);
 
             pcl_ros::transformPointCloud(std::string("/base_footprint"), transformCameraWrtBase_, *pointCloud_msg, pcOut);
 

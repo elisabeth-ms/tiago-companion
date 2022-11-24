@@ -11,6 +11,7 @@
 #include <std_srvs/Empty.h>
 #include <ros/topic.h>
 #include <std_msgs/String.h>
+#include <sensor_msgs/JointState.h>
 
 // Moveit headers
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -93,6 +94,12 @@ namespace demo_sharon{
 
         bool computeIntersectionOverUnion(const std::array<int,4> &bboxYolo, const std::array<int,4> &bboxSq, float &IoU);
 
+        void initializeHeadPosition(float initHeadPositions[2]);
+
+        void initializeTorsoPosition(float initTorsoPosition);
+
+        void demoOnlyASR();
+
 
         private:
         //! ROS node handle.
@@ -133,6 +140,7 @@ namespace demo_sharon{
         bool asrCommandReceived_;
         float openGripperPositions_[2] = {0.05, 0.05};
         float closeGripperPositions_[2] = {0.015, 0.015};
+        float maxErrorJoints_;
 
         std::string asr_;
         std::vector<SqCategory> sqCategories_;
