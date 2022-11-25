@@ -7,7 +7,7 @@ namespace demo_sharon
         ROS_INFO("[DemoSharon] Node started.");
 
         // Need it asynspinner for moveit
-        ros::AsyncSpinner spinner(1);
+        ros::AsyncSpinner spinner(2);
         spinner.start();
         init(); // Tiagos head and torso are at the initial positions
 
@@ -16,8 +16,13 @@ namespace demo_sharon
             demoOnlyASR();
         }
 
-        if (!useAsr_ && useGlasses_){
+        else if (!useAsr_ && useGlasses_)
+        {
             demoOnlyGlasses();
+        }
+        else if (useAsr_ && useGlasses_)
+        {
+            demoGlassesASR();
         }
     }
 
@@ -31,8 +36,155 @@ namespace demo_sharon
     //     }
     // }
 
+    void DemoSharon::demoGlassesASR()
+    {
 
-    void DemoSharon::demoOnlyGlasses(){
+        waitingForGlassesCommand_ = false;
+        glassesCommandReceived_ = false;
+
+        waitingForAsrCommand_ = false;
+        asrCommandReceived_ = false;
+
+        removeCollisionObjectsPlanningScene();
+
+        geometry_msgs::Pose tablePose;
+        tablePose.orientation.w = 1.0;
+        tablePose.position.x = tablePosition_[0];
+        tablePose.position.y = tablePosition_[1];
+        tablePose.position.z = tablePosition_[2];
+
+        addTablePlanningScene(tableDimensions_, tablePose, "table1");
+
+        if (!initializeRightArmPosition(initRightArmPositions_))
+        {
+            return;
+        }
+
+        if (!initializeLeftArmPosition(initLeftArmPositions_))
+        {
+            return;
+        }
+
+        initializeTorsoPosition(initTorsoPosition_);
+
+        initializeHeadPosition(initHeadPositions_);
+
+        ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
+        // Start computation of the superquadrics from the pointcloud
+        activateSuperquadricsComputation(true);
+        ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+        // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
+        // continuously recompute the superquadrics
+        ROS_INFO("[DemoSharon] Stop the computation of the superquadrics.");
+        activateSuperquadricsComputation(false);
+        ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+        ROS_INFO("[DemoSharon] Get the computed superquadrics.");
+        // Get the previously computed superquadrics
+        if (!getSuperquadrics())
+        { // If it's empty, there is no objects to grasp
+            return;
+        }
+        ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
+        ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+        if (!getBoundingBoxesFromSupercuadrics())
+        {
+            return;
+        }
+        for (int i = 0; i < bboxesMsg_.bounding_boxes.size(); i++)
+            ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
+                     bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
+                     bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
+
+        sqCategories_.clear();
+        darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
+        yoloBBoxesMsg_ = *darknetBBoxesMsg;
+
+        for (int i = 0; i < yoloBBoxesMsg_.bounding_boxes.size(); i++)
+        {
+            darknet_ros_msgs::BoundingBox bboxMsg = yoloBBoxesMsg_.bounding_boxes[i];
+            std::array<int, 4> bboxYolo = {(int)bboxMsg.xmin, (int)bboxMsg.ymin, (int)bboxMsg.xmax, (int)bboxMsg.ymax};
+            float IoU = 0.0;
+            int currentSqId = -1;
+            for (int j = 0; j < bboxesMsg_.bounding_boxes.size(); j++)
+            {
+                std::array<int, 4> bboxSq = {bboxesMsg_.bounding_boxes[j].tlx, bboxesMsg_.bounding_boxes[j].tly,
+                                             bboxesMsg_.bounding_boxes[j].brx, bboxesMsg_.bounding_boxes[j].bry};
+
+                ROS_INFO("yolo: %d superq: %d", i, j);
+                float currentIoU = 0.0;
+                computeIntersectionOverUnion(bboxYolo, bboxSq, currentIoU);
+
+                if (currentIoU > IoU)
+                {
+                    IoU = currentIoU;
+                    currentSqId = bboxesMsg_.bounding_boxes[j].id;
+                }
+            }
+            if (IoU > 0)
+            {
+                SqCategory sqCategory;
+                sqCategory.idSq = currentSqId;
+                sqCategory.category = bboxMsg.Class;
+                sqCategories_.push_back(sqCategory);
+            }
+        }
+
+        for (int idx = 0; idx < sqCategories_.size(); idx++)
+        {
+            ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
+        }
+
+        addSupequadricsPlanningScene();
+
+        waitingForGlassesCommand_ = true;
+        int indexSq = -1;
+        ROS_INFO("[DemoSharon] Wait for message in /comms_glasses_server/data");
+        while (!glassesCommandReceived_ && ros::ok())
+        {
+        }
+
+        if (glassesCommandReceived_)
+        {
+            // Además que el objeto sea uno de los detectados
+            waitingForGlassesCommand_ = false;
+            waitingForAsrCommand_ = true;
+            foundGlasses_ = false;
+            for (int i = 0; i < sqCategories_.size(); i++)
+            {
+                if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
+                {
+                    foundGlasses_ = true;
+                    indexGlassesSqCategory_ = i;
+                    break;
+                }
+            }
+            
+
+            mtxASR_.lock();
+            if (foundAsr_)
+            {
+                if(sqCategories_[indexGlassesSqCategory_].category.find(asr_,0) != std::string::npos){
+                    ROS_INFO("ASR command received is the same: %s", asr_.c_str());
+                    indexSq = indexGlassesSqCategory_;
+                }else{
+                    indexSq = indexSqCategory_;
+                }
+                waitingForGlassesCommand_ = false;
+            }
+            mtxASR_.unlock();
+
+
+
+
+
+        }
+    }
+
+    void DemoSharon::demoOnlyGlasses()
+    {
 
         waitingForGlassesCommand_ = false;
         glassesCommandReceived_ = false;
@@ -45,13 +197,15 @@ namespace demo_sharon
         tablePose.position.y = tablePosition_[1];
         tablePose.position.z = tablePosition_[2];
 
-        addTablePlanningScene(tableDimensions_, tablePose);
+        addTablePlanningScene(tableDimensions_, tablePose, "table1");
 
-        if(!initializeRightArmPosition(initRightArmPositions_)){
+        if (!initializeRightArmPosition(initRightArmPositions_))
+        {
             return;
         }
 
-        if(!initializeLeftArmPosition(initLeftArmPositions_)){
+        if (!initializeLeftArmPosition(initLeftArmPositions_))
+        {
             return;
         }
 
@@ -139,8 +293,9 @@ namespace demo_sharon
         {
             // Además que el objeto sea uno de los detectados
             waitingForGlassesCommand_ = false;
+
             foundGlasses_ = false;
-            for (int i = 0; sqCategories_.size(); i++)
+            for (int i = 0; i < sqCategories_.size(); i++)
             {
                 if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
                 {
@@ -171,6 +326,11 @@ namespace demo_sharon
             int indexFeasible = -1;
             bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
 
+            while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
+            {
+                ROS_INFO("WAITING.....");
+            }
+
             if (successGoToReaching)
             {
 
@@ -180,10 +340,16 @@ namespace demo_sharon
                 objectIds.push_back("object_" + std::to_string(sqCategories_[indexGlassesSqCategory_].idSq));
                 planningSceneInterface_.removeCollisionObjects(objectIds);
                 ros::Duration(1.0).sleep(); // sleep for 1 seconds
+
                 goToGraspingPose(graspingPoses.poses[indexFeasible]);
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
+                {
+                    ROS_INFO("WAITING.....");
+                }
+
+                // ros::Duration(1.0).sleep(); // sleep for 1 seconds
                 moveGripper(closeGripperPositions_, "right");
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                ros::Duration(0.1).sleep(); // sleep for 1 seconds
                 goUp(groupRightArmTorsoPtr_, 0.2);
 
                 releaseGripper_ = false;
@@ -198,14 +364,10 @@ namespace demo_sharon
 
             ROS_INFO("[DemoSharon] Done!");
         }
-
     }
-
 
     void DemoSharon::demoOnlyASR()
     {
-
-        // initArmsPosition
 
         waitingForAsrCommand_ = false;
         asrCommandReceived_ = false;
@@ -217,13 +379,22 @@ namespace demo_sharon
         tablePose.position.y = tablePosition_[1];
         tablePose.position.z = tablePosition_[2];
 
-        addTablePlanningScene(tableDimensions_, tablePose);
+        addTablePlanningScene(tableDimensions_, tablePose, "table1");
 
-        if(!initializeRightArmPosition(initRightArmPositions_)){
+        tablePose.position.x = tablePosition2_[0];
+        tablePose.position.y = tablePosition2_[1];
+        tablePose.position.z = tablePosition2_[2];
+        addTablePlanningScene(tableDimensions2_, tablePose, "table2");
+
+
+
+        if (!initializeRightArmPosition(initRightArmPositions_))
+        {
             return;
         }
 
-        if(!initializeLeftArmPosition(initLeftArmPositions_)){
+        if (!initializeLeftArmPosition(initLeftArmPositions_))
+        {
             return;
         }
 
@@ -303,28 +474,22 @@ namespace demo_sharon
 
         waitingForAsrCommand_ = true;
         ROS_INFO("[DemoSharon] Wait for message in asr_node/data");
-        while (!asrCommandReceived_ && ros::ok())
+        bool auxASR = false;
+        while (ros::ok() && !auxASR)
         {
-        }
-
-        if (asrCommandReceived_)
-        {
-            // Además que el objeto sea uno de los detectados
-            foundAsr_ = false;
-            for (int i = 0; sqCategories_.size(); i++)
+            mtxASR_.lock();
+            auxASR = foundAsr_;
+            mtxASR_.unlock();
+            if (auxASR)
             {
-                if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
-                {
-                    foundAsr_ = true;
-                    indexSqCategory_ = i;
-                    break;
-                }
+                break;
             }
         }
+        ROS_INFO("CHECK!");
 
         if (indexSqCategory_ >= 0)
         {
-
+            waitingForAsrCommand_ = false;
             ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
 
             sharon_msgs::ComputeGraspPoses srvGraspingPoses;
@@ -342,6 +507,11 @@ namespace demo_sharon
             int indexFeasible = -1;
             bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
 
+            while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
+            {
+                ROS_INFO("WAITING.....");
+            }
+
             if (successGoToReaching)
             {
 
@@ -352,9 +522,14 @@ namespace demo_sharon
                 planningSceneInterface_.removeCollisionObjects(objectIds);
                 ros::Duration(1.0).sleep(); // sleep for 1 seconds
                 goToGraspingPose(graspingPoses.poses[indexFeasible]);
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
+                {
+                    ROS_INFO("WAITING.....");
+                }
+
+                ros::Duration(0.2).sleep(); // sleep for 1 seconds
                 moveGripper(closeGripperPositions_, "right");
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                ros::Duration(0.2).sleep(); // sleep for 1 seconds
                 goUp(groupRightArmTorsoPtr_, 0.2);
 
                 releaseGripper_ = false;
@@ -394,14 +569,14 @@ namespace demo_sharon
         // Wait for trajectory execution
         while (!(auxGripperClient->getState().isDone()) && ros::ok())
         {
-            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+            ros::Duration(0.1).sleep(); // sleep for 1 seconds
         }
         ROS_INFO("Gripper set to position: (%f, %f)", positions[0], positions[1]);
     }
 
     bool DemoSharon::goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance)
     {
-        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(1.0);
+        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.2);
         geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
         KDL::Frame frameEndWrtBase;
         tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
@@ -415,7 +590,7 @@ namespace demo_sharon
         bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
         if (successPlanning)
         {
-            moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->move();
+            moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->execute(plan_);
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
                 ROS_INFO("[DemoSharon] Success in moving the grasped object up.");
@@ -452,7 +627,7 @@ namespace demo_sharon
         bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
         if (successPlanning)
         {
-            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->move();
+            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
                 ROS_INFO("[DemoSharon] Success in moving the robot to the grasping pose.");
@@ -473,7 +648,7 @@ namespace demo_sharon
 
     bool DemoSharon::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible)
     {
-        geometry_msgs::Pose reachingPose;
+
         bool successPlanning = false;
         robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
         kinematic_state->setToDefaultValues();
@@ -488,16 +663,16 @@ namespace demo_sharon
             frameReachingWrtEnd.p[0] = -reachingDistance_ - DISTANCE_TOOL_LINK_GRIPPER_LINK;
             KDL::Frame frameReachingWrtBase = frameEndWrtBase * frameReachingWrtEnd;
 
-            tf::poseKDLToMsg(frameReachingWrtBase, reachingPose);
+            tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            bool found_ik = kinematic_state->setFromIK(joint_model_group, reachingPose, 0.1);
+            bool found_ik = kinematic_state->setFromIK(joint_model_group, reachingPose_, 0.1);
 
             //     geometry_msgs::PoseStamped goal_pose;
             // goal_pose.header.frame_id = "base_footprint";
             // goal_pose.pose = graspingPoses.poses[idx];
             if (found_ik)
             {
-                groupRightArmTorsoPtr_->setPoseTarget(reachingPose);
+                groupRightArmTorsoPtr_->setPoseTarget(reachingPose_);
                 ROS_INFO("SET POSE TARGET");
 
                 moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
@@ -524,7 +699,7 @@ namespace demo_sharon
         }
         if (successPlanning)
         {
-            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->move();
+            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
                 ROS_INFO("[DemoSharon] Success in moving the robot to the reaching pose.");
@@ -551,11 +726,12 @@ namespace demo_sharon
         ros::Duration(1.0).sleep(); // sleep for 2 seconds
     }
 
-    void DemoSharon::addTablePlanningScene(const std::vector<float> &dimensions, const geometry_msgs::Pose &tablePose)
+    void DemoSharon::addTablePlanningScene(const std::vector<float> &dimensions, const geometry_msgs::Pose &tablePose, const std::string &id)
     {
         ROS_INFO("[DemoSharon] Add table collision objects to the planning scene");
         // Collision object
         moveit_msgs::CollisionObject collisionObject;
+        collisionObject.id = id;
         collisionObject.header.frame_id = groupRightArmTorsoPtr_->getPlanningFrame();
         ROS_INFO("[DemoSharon] Planning_frame: %s", groupRightArmTorsoPtr_->getPlanningFrame().c_str());
         shape_msgs::SolidPrimitive table;
@@ -701,7 +877,7 @@ namespace demo_sharon
         // Wait for trajectory execution
         while (!(headClient_->getState().isDone()) && ros::ok())
         {
-            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+            ros::Duration(0.1).sleep(); // sleep for 1 seconds
         }
         ROS_INFO("Head set to position: (%f, %f)", initHeadPositions[0], initHeadPositions[1]);
     }
@@ -731,7 +907,7 @@ namespace demo_sharon
         // Wait for trajectory execution
         while (!(torsoClient_->getState().isDone()) && ros::ok())
         {
-            ros::Duration(1.0).sleep(); // sleep for 1 seconds
+            ros::Duration(0.1).sleep(); // sleep for 1 seconds
         }
 
         ROS_INFO("Torso set to position: (%f)", initTorsoPosition);
@@ -741,7 +917,7 @@ namespace demo_sharon
     {
         ROS_INFO("Setting RightArm to init position: (%f %f %f %f %f %f %f)", initRightArmPositions[0], initRightArmPositions[1], initRightArmPositions[2],
                  initRightArmPositions[3], initRightArmPositions[4], initRightArmPositions[5], initRightArmPositions[6]);
-        
+
         groupRightArmPtr_->setStartStateToCurrentState();
         groupRightArmPtr_->setJointValueTarget(initRightArmPositions);
 
@@ -761,17 +937,17 @@ namespace demo_sharon
                 return false;
             }
         }
-        else{
+        else
+        {
             return false;
         }
-
     }
 
     bool DemoSharon::initializeLeftArmPosition(const std::vector<double> &initLeftArmPositions)
     {
         ROS_INFO("Setting RightArm to init position: (%f %f %f %f %f %f %f)", initLeftArmPositions[0], initLeftArmPositions[1], initLeftArmPositions[2],
                  initLeftArmPositions[3], initLeftArmPositions[4], initLeftArmPositions[5], initLeftArmPositions[6]);
-        
+
         groupLeftArmPtr_->setStartStateToCurrentState();
         groupLeftArmPtr_->setJointValueTarget(initLeftArmPositions);
 
@@ -791,10 +967,10 @@ namespace demo_sharon
                 return false;
             }
         }
-        else{
+        else
+        {
             return false;
         }
-
     }
 
     void DemoSharon::init()
@@ -807,8 +983,7 @@ namespace demo_sharon
         clientComputeGraspPoses_ = nodeHandle_.serviceClient<sharon_msgs::ComputeGraspPoses>("/grasp_objects/compute_grasp_poses");
         clientGetBboxesSuperquadrics_ = nodeHandle_.serviceClient<sharon_msgs::GetBboxes>("/grasp_objects/get_bboxes_superquadrics");
         asrSubscriber_ = nodeHandle_.subscribe("/asr_node/data", 10, &DemoSharon::asrCallback, this);
-        glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data",10, &DemoSharon::glassesDataCallback, this);
-
+        glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoSharon::glassesDataCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo_sharon/release_gripper", &DemoSharon::releaseGripper, this);
 
         ros::param::get("demo_sharon/use_asr", useAsr_);
@@ -822,6 +997,9 @@ namespace demo_sharon
         ros::param::get("demo_sharon/torso_joint_position_init", initTorsoPosition_);
         ros::param::get("demo_sharon/table_dimensions", tableDimensions_);
         ros::param::get("demo_sharon/table_position", tablePosition_);
+        ros::param::get("demo_sharon/table_position2", tablePosition2_);
+        ros::param::get("demo_sharon/table_dimensions2", tableDimensions2_);
+
         ros::param::get("demo_sharon/right_arm_joints_position_init", initRightArmPositions_);
         ros::param::get("demo_sharon/left_arm_joints_position_init", initLeftArmPositions_);
 
@@ -832,25 +1010,25 @@ namespace demo_sharon
         groupLeftArmTorsoPtr_ = new moveit::planning_interface::MoveGroupInterface(nameTorsoLeftArmGroup_);
         groupLeftArmPtr_ = new moveit::planning_interface::MoveGroupInterface(nameLeftArmGroup_);
 
-        groupRightArmTorsoPtr_->setPlanningTime(1.0);
+        groupRightArmTorsoPtr_->setPlanningTime(1.5);
         groupRightArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
         groupRightArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
-        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(1.0);
+        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.2);
 
-        groupRightArmPtr_->setPlanningTime(1.0);
+        groupRightArmPtr_->setPlanningTime(1.5);
         groupRightArmPtr_->setPlannerId("SBLkConfigDefault");
         groupRightArmPtr_->setPoseReferenceFrame("base_footprint");
-        groupRightArmPtr_->setMaxVelocityScalingFactor(1.0);
+        groupRightArmPtr_->setMaxVelocityScalingFactor(0.2);
 
-        groupLeftArmTorsoPtr_->setPlanningTime(1.0);
+        groupLeftArmTorsoPtr_->setPlanningTime(1.5);
         groupLeftArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
         groupLeftArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
-        groupLeftArmTorsoPtr_->setMaxVelocityScalingFactor(1.0);
+        groupLeftArmTorsoPtr_->setMaxVelocityScalingFactor(0.2);
 
-        groupLeftArmPtr_->setPlanningTime(1.0);
+        groupLeftArmPtr_->setPlanningTime(1.5);
         groupLeftArmPtr_->setPlannerId("SBLkConfigDefault");
         groupLeftArmPtr_->setPoseReferenceFrame("base_footprint");
-        groupLeftArmPtr_->setMaxVelocityScalingFactor(1.0);
+        groupLeftArmPtr_->setMaxVelocityScalingFactor(0.2);
 
         createClient(headClient_, std::string("head"));
         createClient(torsoClient_, std::string("torso"));
@@ -928,7 +1106,7 @@ namespace demo_sharon
 
         int iterations = 0, max_iterations = 3;
         // Wait for arm controller action server to come up
-        while (!actionClient->waitForServer(ros::Duration(2.0)) && ros::ok() && iterations < max_iterations)
+        while (!actionClient->waitForServer(ros::Duration(0.5)) && ros::ok() && iterations < max_iterations)
         {
             ROS_DEBUG("Waiting for the %s_controller_action server to come up", name.c_str());
             ++iterations;
@@ -1018,26 +1196,47 @@ namespace demo_sharon
         if (waitingForAsrCommand_)
         {
             asr_ = asrMsg->data;
-            asrCommandReceived_ = true;
+            ROS_INFO("%s", asr_.c_str());
+            // Además que el objeto sea uno de los detectados
+            mtxASR_.lock();
+            foundAsr_ = false;
+            indexSqCategory_ = -1;
+            for (int i = 0; i < sqCategories_.size(); i++)
+            {
+                ROS_INFO("%s %d", sqCategories_[i].category.c_str(), sqCategories_.size());
+                if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
+                {
+                    foundAsr_ = true;
+                    indexSqCategory_ = i;
+                    break;
+                }
+                else
+                {
+                    ROS_INFO("NOT FOUND");
+                }
+            }
+            mtxASR_.unlock();
         }
     }
 
-    void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr& glassesData){
+    void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)
+    {
 
-        if (waitingForGlassesCommand_){
+        if (waitingForGlassesCommand_)
+        {
             std::vector<double> decisionVector = glassesData->decision_vector;
             double key = 1.0;
             std::vector<double>::iterator itr = std::find(decisionVector.begin(), decisionVector.end(), key);
-            if (itr != decisionVector.cend()) {
-                if(std::distance(decisionVector.begin(), itr) != 0){
+            if (itr != decisionVector.cend())
+            {
+                if (std::distance(decisionVector.begin(), itr) != 0)
+                {
                     glassesCategory_ = glassesData->category;
                     glassesCommandReceived_ = true;
                     ROS_INFO("[DemoSharon] Glasses command to grasp %s", glassesData->category.c_str());
                 }
             }
         }
- 
-
     }
 
     bool DemoSharon::computeIntersectionOverUnion(const std::array<int, 4> &bboxYolo, const std::array<int, 4> &bboxSq, float &IoU)

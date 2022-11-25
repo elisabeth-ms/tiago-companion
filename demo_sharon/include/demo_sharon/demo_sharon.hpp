@@ -19,9 +19,15 @@
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
+#include <moveit_msgs/MoveGroupAction.h>
+
+#include <actionlib/client/simple_action_client.h>
 
 // KDL
 #include <kdl_conversions/kdl_msg.h>
+
+#include <mutex>
+
 
 // Sharon headers
 
@@ -70,7 +76,7 @@ namespace demo_sharon
 
         bool getSuperquadrics();
 
-        void addTablePlanningScene(const std::vector<float> &dimensions, const geometry_msgs::Pose &tablePose);
+        void addTablePlanningScene(const std::vector<float> &dimensions, const geometry_msgs::Pose &tablePose, const std::string &id);
 
         void removeCollisionObjectsPlanningScene();
 
@@ -108,6 +114,8 @@ namespace demo_sharon
 
         void demoOnlyGlasses();
 
+        void demoGlassesASR();
+
 
     private:
         //! ROS node handle.
@@ -127,9 +135,11 @@ namespace demo_sharon
         ros::ServiceServer serviceReleaseGripper_;
         ros::Subscriber asrSubscriber_;
         ros::Subscriber glassesDataSubscriber_;
+        ros::Subscriber moveGroupStatusSubscriber_;
         bool releaseGripper_ = false;
         sharon_msgs::BoundingBoxes bboxesMsg_;
         darknet_ros_msgs::BoundingBoxes yoloBBoxesMsg_;
+        geometry_msgs::Pose reachingPose_;
 
         sharon_msgs::SuperquadricMultiArray superquadricsMsg_;
         std::string nameTorsoRightArmGroup_ = "arm_right_torso";
@@ -141,6 +151,8 @@ namespace demo_sharon
         moveit::planning_interface::MoveGroupInterface *groupRightArmPtr_;
         moveit::planning_interface::MoveGroupInterface *groupLeftArmTorsoPtr_;
         moveit::planning_interface::MoveGroupInterface *groupLeftArmPtr_;
+
+
 
         moveit::planning_interface::PlanningSceneInterface planningSceneInterface_;
 
@@ -157,12 +169,16 @@ namespace demo_sharon
         bool glassesCommandReceived_;
 
         float openGripperPositions_[2] = {0.05, 0.05};
-        float closeGripperPositions_[2] = {0.015, 0.015};
+        float closeGripperPositions_[2] = {0.03, 0.03};
         float maxErrorJoints_;
         std::vector<float> initHeadPositions_;
         float initTorsoPosition_;
         std::vector<float> tableDimensions_;
         std::vector<float> tablePosition_;
+
+        std::vector<float> tableDimensions2_;
+        std::vector<float> tablePosition2_;
+
         std::vector<double> initRightArmPositions_;
         std::vector<double> initLeftArmPositions_;
 
@@ -181,5 +197,7 @@ namespace demo_sharon
         robot_model::RobotModelPtr kinematicModel_;
         robot_state::RobotStatePtr kinematicState_;
         const robot_state::JointModelGroup *joint_model_group;
+
+        std::mutex mtxASR_;
     };
 }

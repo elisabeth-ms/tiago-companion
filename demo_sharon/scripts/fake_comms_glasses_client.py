@@ -133,14 +133,16 @@ if __name__ == '__main__':
         path_images = sys.argv[1]
         from_frame = sys.argv[2]
         number_frames = sys.argv[3]
-        fixations_file_str = path_images+'/fixations.pkl'
         
 
+
+        categories = np.load(sys.path[0]+'/../demoSharon/'+'categories.npy')
+        print(categories)
+        
+        fixations_file_str = path_images+'/fixations.pkl'
         frames, fixations, action_level, labels = get_frames_fixations_action_from_pkl(fixations_file_str)
         for i in range(len(frames)):
             print(frames[i], action_level[i])
-        categories = np.load(sys.path[0]+'/../demoSharon/'+'/categories.npy')
-        print(categories)
 
         #Lets check the category of the graspped object in the video
         selected_index_category = None

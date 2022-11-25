@@ -710,11 +710,12 @@ namespace grasp_objects
             // Create the filtering object
             pcl::PassThrough<pcl::PCLPointCloud2> pass;
             pass.setInputCloud(cloudFilteredPtr);
-            pass.setFilterFieldName("z");
-            pass.setFilterLimits(0.2, 1.5);
+            pass.setFilterFieldName("x");
+            pass.setFilterLimits(0.0, 1.5);
             // pass.setFilterLimitsNegative (true);
             pass.filter(*cloudFiltered);
 
+            
             pcl::fromPCLPointCloud2(*cloudFiltered, *cloud_without_table);
 
             // Coefficients and inliners objects for tge ransac plannar model

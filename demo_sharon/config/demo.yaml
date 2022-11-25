@@ -1,13 +1,15 @@
-use_glasses: true
-use_asr: false
-reaching_distance: 0.12
+use_glasses: false
+use_asr: true
+reaching_distance: 0.15
 elimit1: 0.3
 elimit2: 0.8
 inflate_size: 0.005
-max_error_joints: 0.001
-head_joints_position_init: [0, -0.6]
-torso_joint_position_init: 0.25
+max_error_joints: 0.008
+head_joints_position_init: [0, -0.61]
+torso_joint_position_init: 0.10
 right_arm_joints_position_init: [-1.11, 1.15, 2.53, 1.59, -1.6, 1.25, 0.0]
 left_arm_joints_position_init: [-1.11, 1.15, 2.53, 1.59, -1.6, 1.25, 0.0]
-table_dimensions: [1.1, 0.95, 0.9]
-table_position: [0.9,0.0,0.4]
+table_dimensions: [1.1, 2.0, 0.55]
+table_position: [1.1,0.0,0.3]
+table_dimensions2: [2.0, 1.0, 0.55]
+table_position2: [0.5, -1.3, 0.3]
