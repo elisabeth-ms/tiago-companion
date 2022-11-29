@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
   sharon_msgs
   kdl_conversions
   nav_msgs
+  image_transport
+  image_geometry
 )
 find_package(SuperquadricLib 0.1.0.0 EXACT REQUIRED)
 

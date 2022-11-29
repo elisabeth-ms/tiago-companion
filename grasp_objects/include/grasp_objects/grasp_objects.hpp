@@ -1,10 +1,19 @@
 #include <ros/ros.h>
+
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/CompressedImage.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/image_encodings.h>
+
+#include <image_transport/image_transport.h>
 #include <tf/transform_listener.h>
 #include <kdl_conversions/kdl_msg.h>
+#include <image_geometry/pinhole_camera_model.h>
+#include <depth_image_proc/depth_conversions.h>
+#include <cv_bridge/cv_bridge.h>
 
 #include <pcl_ros/transforms.h>
-
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_cloud.h>
@@ -20,7 +29,6 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
-#include <sensor_msgs/CameraInfo.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include "sharon_msgs/SuperquadricMultiArray.h"
@@ -61,14 +69,16 @@ namespace grasp_objects{
 
         void init();
 
-        void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &pointCloud_msg);
+        // void pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &pointCloud_msg);
+
+        void compressedDepthImageCallback(const  sensor_msgs::ImageConstPtr &compressedImage_msg);
 
         void setCameraParams(const sensor_msgs::CameraInfo &cameraInfo_msg);
 
         void getPixelCoordinates(const pcl::PointXYZ &p, int &xpixel, int &ypixel);
 
 
-        void supervoxelOversegmentation(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr &inputPointCloud,
+        void supervoxelOversegmentation(const pcl::PointCloud<pcl::PointXYZ>::Ptr &inputPointCloud,
                                         pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud);
         
         void updateDetectedObjectsPointCloud(const pcl::PointCloud<pcl::PointXYZL>::Ptr &lccp_labeled_cloud);
@@ -98,6 +108,7 @@ namespace grasp_objects{
         //! ROS node handle.
         ros::NodeHandle nodeHandle_;
         ros::Subscriber pointCloudSubscriber_;
+        image_transport::Subscriber compressedDepthImageSubscriber_;
         ros::Subscriber cameraInfoSubscriber_;
         ros::Publisher outPointCloudPublisher_;
         ros::Publisher outPointCloudSuperqsPublisher_;
@@ -146,6 +157,7 @@ namespace grasp_objects{
         float principalPointX_, principalPointY_; 
 
         tf::StampedTransform transformCameraWrtBase_;
+        image_geometry::PinholeCameraModel model_;
 
 
 };
