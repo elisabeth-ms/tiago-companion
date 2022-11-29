@@ -161,25 +161,22 @@ namespace demo_sharon
                     break;
                 }
             }
-            
 
             mtxASR_.lock();
             if (foundAsr_)
             {
-                if(sqCategories_[indexGlassesSqCategory_].category.find(asr_,0) != std::string::npos){
+                if (sqCategories_[indexGlassesSqCategory_].category.find(asr_, 0) != std::string::npos)
+                {
                     ROS_INFO("ASR command received is the same: %s", asr_.c_str());
                     indexSq = indexGlassesSqCategory_;
-                }else{
+                }
+                else
+                {
                     indexSq = indexSqCategory_;
                 }
                 waitingForGlassesCommand_ = false;
             }
             mtxASR_.unlock();
-
-
-
-
-
         }
     }
 
@@ -386,8 +383,6 @@ namespace demo_sharon
         tablePose.position.z = tablePosition2_[2];
         addTablePlanningScene(tableDimensions2_, tablePose, "table2");
 
-
-
         if (!initializeRightArmPosition(initRightArmPositions_))
         {
             return;
@@ -402,10 +397,12 @@ namespace demo_sharon
 
         initializeHeadPosition(initHeadPositions_);
 
+        ros::Duration(1.5).sleep(); // sleep for 2 seconds
+
         ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
         // Start computation of the superquadrics from the pointcloud
         activateSuperquadricsComputation(true);
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
+        ros::Duration(3.5).sleep(); // sleep for 2 seconds
 
         // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
         // continuously recompute the superquadrics
@@ -541,6 +538,11 @@ namespace demo_sharon
                 moveGripper(openGripperPositions_, "right");
                 ros::Duration(1.0).sleep(); // sleep for 1 seconds
             }
+            if (!initializeRightArmPosition(initRightArmPositions_))
+            {
+                return;
+            }
+
 
             ROS_INFO("[DemoSharon] Done!");
         }
@@ -560,7 +562,7 @@ namespace demo_sharon
         }
         control_msgs::FollowJointTrajectoryGoal gripperGoal;
         ROS_INFO("Setting gripper position: (%f ,%f)", positions[0], positions[1]);
-        waypointGripperGoal(name, gripperGoal, positions, 2.0);
+        waypointGripperGoal(name, gripperGoal, positions, 0.5);
 
         // Sends the command to start the given trajectory now
         gripperGoal.trajectory.header.stamp = ros::Time::now();
@@ -868,7 +870,7 @@ namespace demo_sharon
 
         control_msgs::FollowJointTrajectoryGoal headGoal;
 
-        waypointHeadGoal(headGoal, initHeadPositions, 3.0);
+        waypointHeadGoal(headGoal, initHeadPositions, 1.0);
 
         // Sends the command to start the given trajectory now
         headGoal.trajectory.header.stamp = ros::Time::now();
@@ -1006,9 +1008,16 @@ namespace demo_sharon
         ROS_INFO("[DemoSharon] demo_sharon/reaching_distance set to %f", reachingDistance_);
 
         groupRightArmTorsoPtr_ = new moveit::planning_interface::MoveGroupInterface(nameTorsoRightArmGroup_);
+        ROS_INFO("[DemoSharon] Move group interface %s", nameTorsoRightArmGroup_.c_str());
+
         groupRightArmPtr_ = new moveit::planning_interface::MoveGroupInterface(nameRightArmGroup_);
+        ROS_INFO("[DemoSharon] Move group interface %s", nameRightArmGroup_.c_str());
+
         groupLeftArmTorsoPtr_ = new moveit::planning_interface::MoveGroupInterface(nameTorsoLeftArmGroup_);
+        ROS_INFO("[DemoSharon] Move group interface %s", nameTorsoLeftArmGroup_.c_str());
+
         groupLeftArmPtr_ = new moveit::planning_interface::MoveGroupInterface(nameLeftArmGroup_);
+        ROS_INFO("[DemoSharon] Move group interface %s", nameLeftArmGroup_.c_str());
 
         groupRightArmTorsoPtr_->setPlanningTime(1.5);
         groupRightArmTorsoPtr_->setPlannerId("SBLkConfigDefault");

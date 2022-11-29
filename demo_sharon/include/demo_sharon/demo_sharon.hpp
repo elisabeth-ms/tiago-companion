@@ -168,7 +168,7 @@ namespace demo_sharon
         bool asrCommandReceived_;
         bool glassesCommandReceived_;
 
-        float openGripperPositions_[2] = {0.05, 0.05};
+        float openGripperPositions_[2] = {0.04, 0.04};
         float closeGripperPositions_[2] = {0.03, 0.03};
         float maxErrorJoints_;
         std::vector<float> initHeadPositions_;

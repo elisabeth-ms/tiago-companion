@@ -74,13 +74,13 @@ namespace grasp_objects
 
         setCameraParams(*cameraInfoMsg);
 
-        pointCloudSubscriber_ = nodeHandle_.subscribe(pointCloudTopicName, 10, &GraspObjects::pointCloudCallback, this);
+        pointCloudSubscriber_ = nodeHandle_.subscribe(pointCloudTopicName, 1, &GraspObjects::pointCloudCallback, this);
 
-        outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud", 5);
-        outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 5);
-        superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 5);
-        graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 5);
-        bbox3dPublisher_ = nodeHandle_.advertise<visualization_msgs::MarkerArray>("/grasp_objects/bbox3d", 5);
+        outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud", 20);
+        outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 20);
+        superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 20);
+        graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 20);
+        bbox3dPublisher_ = nodeHandle_.advertise<visualization_msgs::MarkerArray>("/grasp_objects/bbox3d", 20);
 
         serviceActivateSuperquadricsComputation_ = nodeHandle_.advertiseService("/grasp_objects/activate_superquadrics_computation", &GraspObjects::activateSuperquadricsComputation, this);
         serviceComputeGraspPoses_ = nodeHandle_.advertiseService("/grasp_objects/compute_grasp_poses", &GraspObjects::computeGraspPoses, this);

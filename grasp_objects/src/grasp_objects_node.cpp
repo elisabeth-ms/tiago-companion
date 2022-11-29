@@ -13,7 +13,11 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "grasp_objects");
   ros::NodeHandle nodeHandle("~");
   grasp_objects::GraspObjects graspObjects(nodeHandle);
+  ros::Rate r(20);
+  while(ros::ok()){
 
-  ros::spin();
+    ros::spinOnce();
+    r.sleep();
+  }
   return 0;
 }
