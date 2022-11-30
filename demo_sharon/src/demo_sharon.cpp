@@ -504,9 +504,14 @@ namespace demo_sharon
             int indexFeasible = -1;
             bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
 
-            while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
+
+
+
+            actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>& moveGroupClient = groupRightArmTorsoPtr_->getMoveGroupClient();
+            while (!moveGroupClient.getState().isDone() && ros::ok())
             {
                 ROS_INFO("WAITING.....");
+                ros::Duration(0.1).sleep();
             }
 
             if (successGoToReaching)
@@ -522,12 +527,14 @@ namespace demo_sharon
                 while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
                 {
                     ROS_INFO("WAITING.....");
+                    ros::Duration(0.1).sleep();
+
                 }
 
                 ros::Duration(0.2).sleep(); // sleep for 1 seconds
                 moveGripper(closeGripperPositions_, "right");
                 ros::Duration(0.2).sleep(); // sleep for 1 seconds
-                goUp(groupRightArmTorsoPtr_, 0.2);
+                goUp(groupRightArmTorsoPtr_, 0.1);
 
                 releaseGripper_ = false;
                 while (ros::ok() && !releaseGripper_)
@@ -565,7 +572,7 @@ namespace demo_sharon
         waypointGripperGoal(name, gripperGoal, positions, 0.5);
 
         // Sends the command to start the given trajectory now
-        gripperGoal.trajectory.header.stamp = ros::Time::now();
+        gripperGoal.trajectory.header.stamp = ros::Time(0);
         auxGripperClient->sendGoal(gripperGoal);
 
         // Wait for trajectory execution
@@ -872,13 +879,14 @@ namespace demo_sharon
 
         waypointHeadGoal(headGoal, initHeadPositions, 1.0);
 
+        ROS_INFO("Head goal");
         // Sends the command to start the given trajectory now
-        headGoal.trajectory.header.stamp = ros::Time::now();
         headClient_->sendGoal(headGoal);
 
         // Wait for trajectory execution
         while (!(headClient_->getState().isDone()) && ros::ok())
         {
+
             ros::Duration(0.1).sleep(); // sleep for 1 seconds
         }
         ROS_INFO("Head set to position: (%f, %f)", initHeadPositions[0], initHeadPositions[1]);
@@ -903,7 +911,7 @@ namespace demo_sharon
         waypointTorsoGoal(torsoGoal, initTorsoPosition, 3.0);
 
         // Sends the command to start the given trajectory now
-        torsoGoal.trajectory.header.stamp = ros::Time::now();
+        // torsoGoal.trajectory.header.stamp = ros::Time::now();
         torsoClient_->sendGoal(torsoGoal);
 
         // Wait for trajectory execution
@@ -1148,6 +1156,8 @@ namespace demo_sharon
         {
             goal.trajectory.points[index].velocities[j] = 0.0;
         }
+        goal.trajectory.header.stamp = ros::Time(0);
+
         // To be reached 2 second after starting along the trajectory
         goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
     }
@@ -1172,6 +1182,8 @@ namespace demo_sharon
         goal.trajectory.points[index].velocities[0] = 0.0;
 
         // To be reached 2 second after starting along the trajectory
+        goal.trajectory.header.stamp = ros::Time(0);
+
         goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
     }
 
