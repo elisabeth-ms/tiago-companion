@@ -45,7 +45,7 @@ class ASR(object):
         self.pubAsr = rospy.Publisher('asr_node/data', String,queue_size=20)
         self.device_id = None
         mic_list = sr.Microphone.list_microphone_names()
-        mic_name = "default"
+        mic_name = "Andrea Comm USB-SA Headset: Audio (hw:1,0)"
         print(mic_list)
         for i, microphone_name in enumerate(mic_list):
             if microphone_name == mic_name:
