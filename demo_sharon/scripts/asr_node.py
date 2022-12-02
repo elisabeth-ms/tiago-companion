@@ -194,7 +194,7 @@ class ASR(object):
                 
                 try:
                     # esta pensado que se hable en inglés, si se quiere hablar en español r.recognize_google(audio_data,language="es-ES")
-                    text = self.r.recognize_google(audio_data)
+                    text = self.r.recognize_sphinx(audio_data)
                     print("What you said: " + text)
                     words = text.split()
             
