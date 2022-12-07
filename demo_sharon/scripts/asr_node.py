@@ -7,6 +7,7 @@ import numpy
 from jellyfish import soundex, metaphone, nysiis
 import rospy
 from std_msgs.msg import String
+from sharon_msgs.srv import ActivateASR
 
 
 word_dict = ['plate', 
@@ -41,9 +42,14 @@ word_dict = ['plate',
 
 class ASR(object):
     def __init__(self):
+        
         rospy.loginfo("Initalizing asr_node...")
         self.pubAsr = rospy.Publisher('asr_node/data', String,queue_size=20)
         self.device_id = None
+        self.serviceActiveASR = rospy.Service('/asr_node/activate_asr', ActivateASR, self.activate_asr)
+        self.activated = False
+        self.r.pause_threshold = 0.15
+        self.r.non_speaking_duration = 0.1
         mic_list = sr.Microphone.list_microphone_names()
         mic_name = "Andrea Comm USB-SA Headset: Audio (hw:1,0)"
         print(mic_list)
@@ -62,7 +68,10 @@ class ASR(object):
         
         self.update()
 
-
+    def activate_asr(self, req):
+        self.activated = req.activate
+        return True
+        
     
     def get_key(self,val):
         for key, value in self.sound_dict.items():
@@ -157,7 +166,7 @@ class ASR(object):
         wordDetails = []
         currWordDist = 0
         dictWordDist.sort()
-        # print(dictWordDist)
+
         for i in range(numWords):
             currWordDist = dictWordDist[i]
             wordDetails = currWordDist.split("-")
@@ -165,81 +174,70 @@ class ASR(object):
         return closestWords
     
     def update(self):
-        
+        self.r = sr.Recognizer()
+
+        with sr.Microphone(device_index = self.device_id) as source:
+            print("Adjusting ambient noise...")
+            self.r.adjust_for_ambient_noise(source, duration = 8.5)
 
         while not rospy.is_shutdown():
-
-            # si el microfono no funciona es interesante ver que microfonos hay disponibles
-            # e ir probando
-            # mic = sr.Microphone(device_index=36)
-            self.r = sr.Recognizer()
-
-            with sr.Microphone(device_index = self.device_id) as source:
-                print("Talk:")
-                self.r.adjust_for_ambient_noise(source, duration = 1.5)
-                # read the audio data from the default microphone
-                audio_data = self.r.listen(source)
-                print("Stop - Recognizing...\n")
-                
-               
-                    
-                
-                # if not os.path.exists(path_file):
-                #     f = open(path_file, "x")
-                #     f.close()
-                # else: 
-                #     f = open(path_file, "a")
-                #     f.write(str(hour) + ":"+ str(minute) +": "+save_text+"\n")
-                #     f.close()
-                
-                try:
-                    # esta pensado que se hable en inglés, si se quiere hablar en español r.recognize_google(audio_data,language="es-ES")
-                    text = self.r.recognize_sphinx(audio_data)
-                    print("What you said: " + text)
-                    words = text.split()
             
-                    text_list = []
-                    for word in words:
-                        print(word)
-                        word_dictionary_sound = self.calcDictDistance(nysiis(word), 1, self.sounds)
-                
-                        # si se quiere hacer por similitud de palabras y no por similitud de sonido
-                        # word_dictionary = calcDictDistance(word, 1, word_dict)
-                        # print("Similar word: ", word_dictionary[0])
-                
-                        text_list.append(self.get_key(word_dictionary_sound[0]))
-                
-                        # las palabras compuestas son casos especiales
-                        if self.get_key(word_dictionary_sound[0]) == 'cutting board':
-                            break;
-                        elif self.get_key(word_dictionary_sound[0]) == 'tomato sauce':
-                            break;
-                        elif self.get_key(word_dictionary_sound[0]) == 'sliced bread':
-                            break;
-                        elif self.get_key(word_dictionary_sound[0]) == 'olive oil':
-                            break;
-                
-                    save_text = ' '.join(text_list)
-                    print("Autocorrection: ",save_text)
-                    print("---------------------------------")
+            if self.activated:
+
+                with sr.Microphone(device_index = self.device_id) as source:
+                    print("Talk:")
+                    audio_data = self.r.listen(source)
+                    print("Stop - Recognizing...\n")
                     
-        
-                    msgText = String()
-                    msgText.data = save_text.lower()
-                    self.pubAsr.publish(msgText)
                     
-                except IndexError: # the API key didn't work
-                    print("No internet connection")
-                except KeyError:   # the API key didn't work
-                    print("Invalid API key or quota maxed out")
-                except LookupError: # speech is unintelligible
-                    print("Could not understand audio")
-                except sr.UnknownValueError:
-                    print("Google Speech Recognition could not understand audio")
-                except sr.RequestError as e:
-                    print("Could not request results from Google Speech Recognition service; {0}".format(e))
-                except:
-                    print('Sorry.. run again...')
+                    try:
+                        # esta pensado que se hable en inglés, si se quiere hablar en español r.recognize_google(audio_data,language="es-ES")
+                        text = self.r.recognize_google(audio_data)
+                        print("What you said: " + text)
+                        words = text.split()
+                
+                        text_list = []
+                        for word in words:
+                            print(word)
+                            word_dictionary_sound = self.calcDictDistance(nysiis(word), 1, self.sounds)
+                    
+                            # si se quiere hacer por similitud de palabras y no por similitud de sonido
+                            # word_dictionary = calcDictDistance(word, 1, word_dict)
+                            # print("Similar word: ", word_dictionary[0])
+                    
+                            text_list.append(self.get_key(word_dictionary_sound[0]))
+                    
+                            # las palabras compuestas son casos especiales
+                            if self.get_key(word_dictionary_sound[0]) == 'cutting board':
+                                break;
+                            elif self.get_key(word_dictionary_sound[0]) == 'tomato sauce':
+                                break;
+                            elif self.get_key(word_dictionary_sound[0]) == 'sliced bread':
+                                break;
+                            elif self.get_key(word_dictionary_sound[0]) == 'olive oil':
+                                break;
+                    
+                        save_text = ' '.join(text_list)
+                        print("Autocorrection: ",save_text)
+                        print("---------------------------------")
+                        
+            
+                        msgText = String()
+                        msgText.data = save_text.lower()
+                        self.pubAsr.publish(msgText)
+                        
+                    except IndexError: # the API key didn't work
+                        print("No internet connection")
+                    except KeyError:   # the API key didn't work
+                        print("Invalid API key or quota maxed out")
+                    except LookupError: # speech is unintelligible
+                        print("Could not understand audio")
+                    except sr.UnknownValueError:
+                        print("Google Speech Recognition could not understand audio")
+                    except sr.RequestError as e:
+                        print("Could not request results from Google Speech Recognition service; {0}".format(e))
+                    except:
+                        print('Sorry.. run again...')
             
 
 

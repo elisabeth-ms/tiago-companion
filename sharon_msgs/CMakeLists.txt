@@ -59,6 +59,7 @@ add_service_files(
   ComputeGraspPoses.srv
   GetSuperquadrics.srv
   GetBboxes.srv
+  ActivateASR.srv
 )
 
 ## Generate actions in the 'action' folder

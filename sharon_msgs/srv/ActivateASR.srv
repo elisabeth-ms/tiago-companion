@@ -1,0 +1,4 @@
+# Activate/Deactivate ASR
+bool activate
+---
+bool success
