@@ -34,7 +34,8 @@ namespace grasp_objects
 
         nodeHandle_.param("subscribers/point_cloud/topic", pointCloudTopicName, std::string("/xtion/depth/points"));
         nodeHandle_.param("subscribers/camera_info/topic", cameraInfoTopicName, std::string("/xtion/rgb/camera_info"));
-        nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth/image_rect"));
+        // nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth/image_rect"));
+        nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth_registered/image_raw"));
 
         image_transport::ImageTransport it(nodeHandle_);
         ROS_INFO("[GraspObjects] grasp_objects/eps_angle set to %f", epsAnglePlaneSegmentation_);
@@ -75,7 +76,9 @@ namespace grasp_objects
         setCameraParams(*cameraInfoMsg);
 
         // pointCloudSubscriber_ = nodeHandle_.subscribe(pointCloudTopicName, 20, &GraspObjects::pointCloudCallback, this);
-        compressedDepthImageSubscriber_ = it.subscribe(compressedDepthImageTopicName, 10, &GraspObjects::compressedDepthImageCallback, this, image_transport::TransportHints("compressedDepth"));
+        // compressedDepthImageSubscriber_ = it.subscribe(compressedDepthImageTopicName, 10, &GraspObjects::compressedDepthImageCallback, this, image_transport::TransportHints("compressedDepth"));
+        
+        compressedDepthImageSubscriber_ = it.subscribe(compressedDepthImageTopicName, 10, &GraspObjects::compressedDepthImageCallback, this, image_transport::TransportHints("raw"));
 
         outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud", 20);
         outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 20);
@@ -682,7 +685,7 @@ namespace grasp_objects
 
     void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr &depth_msg)
     {
-        ROS_INFO("[GraspObjects] Receiving the compressed depth image");
+        // ROS_INFO("[GraspObjects] Receiving the compressed depth image");
         bool activate;
         mtxActivate_.lock();
         activate = activate_;

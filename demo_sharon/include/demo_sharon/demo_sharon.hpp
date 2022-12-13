@@ -202,6 +202,7 @@ namespace demo_sharon
 
         int indexSqCategory_ = -1;
         int indexGlassesSqCategory_ = -1;
+        int indexSqCategoryAsr_ = -1;
 
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;
