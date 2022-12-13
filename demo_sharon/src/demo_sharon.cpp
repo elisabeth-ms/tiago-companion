@@ -38,146 +38,309 @@ namespace demo_sharon
 
     void DemoSharon::demoGlassesASR()
     {
-
-        waitingForGlassesCommand_ = false;
-        glassesCommandReceived_ = false;
-
-        waitingForAsrCommand_ = false;
-        asrCommandReceived_ = false;
-
-        removeCollisionObjectsPlanningScene();
-
-        geometry_msgs::Pose tablePose;
-        tablePose.orientation.w = 1.0;
-        tablePose.position.x = tablePosition_[0];
-        tablePose.position.y = tablePosition_[1];
-        tablePose.position.z = tablePosition_[2];
-
-        addTablePlanningScene(tableDimensions_, tablePose, "table1");
-
-        if (!initializeRightArmPosition(initRightArmPositions_))
+        state_ = INITIALIZE;
+        while (ros::ok())
         {
-            return;
-        }
 
-        if (!initializeLeftArmPosition(initLeftArmPositions_))
-        {
-            return;
-        }
-
-        initializeTorsoPosition(initTorsoPosition_);
-
-        initializeHeadPosition(initHeadPositions_);
-
-        ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
-        // Start computation of the superquadrics from the pointcloud
-        activateSuperquadricsComputation(true);
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
-        // continuously recompute the superquadrics
-        ROS_INFO("[DemoSharon] Stop the computation of the superquadrics.");
-        activateSuperquadricsComputation(false);
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        ROS_INFO("[DemoSharon] Get the computed superquadrics.");
-        // Get the previously computed superquadrics
-        if (!getSuperquadrics())
-        { // If it's empty, there is no objects to grasp
-            return;
-        }
-        ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        if (!getBoundingBoxesFromSupercuadrics())
-        {
-            return;
-        }
-        for (int i = 0; i < bboxesMsg_.bounding_boxes.size(); i++)
-            ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
-                     bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
-                     bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
-
-        sqCategories_.clear();
-        darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
-        yoloBBoxesMsg_ = *darknetBBoxesMsg;
-
-        for (int i = 0; i < yoloBBoxesMsg_.bounding_boxes.size(); i++)
-        {
-            darknet_ros_msgs::BoundingBox bboxMsg = yoloBBoxesMsg_.bounding_boxes[i];
-            std::array<int, 4> bboxYolo = {(int)bboxMsg.xmin, (int)bboxMsg.ymin, (int)bboxMsg.xmax, (int)bboxMsg.ymax};
-            float IoU = 0.0;
-            int currentSqId = -1;
-            for (int j = 0; j < bboxesMsg_.bounding_boxes.size(); j++)
+            switch (state_)
             {
-                std::array<int, 4> bboxSq = {bboxesMsg_.bounding_boxes[j].tlx, bboxesMsg_.bounding_boxes[j].tly,
-                                             bboxesMsg_.bounding_boxes[j].brx, bboxesMsg_.bounding_boxes[j].bry};
 
-                ROS_INFO("yolo: %d superq: %d", i, j);
-                float currentIoU = 0.0;
-                computeIntersectionOverUnion(bboxYolo, bboxSq, currentIoU);
-
-                if (currentIoU > IoU)
-                {
-                    IoU = currentIoU;
-                    currentSqId = bboxesMsg_.bounding_boxes[j].id;
-                }
-            }
-            if (IoU > 0)
+            case INITIALIZE:
             {
-                SqCategory sqCategory;
-                sqCategory.idSq = currentSqId;
-                sqCategory.category = bboxMsg.Class;
-                sqCategories_.push_back(sqCategory);
-            }
-        }
 
-        for (int idx = 0; idx < sqCategories_.size(); idx++)
-        {
-            ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
-        }
-
-        addSupequadricsPlanningScene();
-
-        waitingForGlassesCommand_ = true;
-        int indexSq = -1;
-        ROS_INFO("[DemoSharon] Wait for message in /comms_glasses_server/data");
-        while (!glassesCommandReceived_ && ros::ok())
-        {
-        }
-
-        if (glassesCommandReceived_)
-        {
-            // Además que el objeto sea uno de los detectados
-            waitingForGlassesCommand_ = false;
-            waitingForAsrCommand_ = true;
-            foundGlasses_ = false;
-            for (int i = 0; i < sqCategories_.size(); i++)
-            {
-                if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
-                {
-                    foundGlasses_ = true;
-                    indexGlassesSqCategory_ = i;
-                    break;
-                }
-            }
-
-            mtxASR_.lock();
-            if (foundAsr_)
-            {
-                if (sqCategories_[indexGlassesSqCategory_].category.find(asr_, 0) != std::string::npos)
-                {
-                    ROS_INFO("ASR command received is the same: %s", asr_.c_str());
-                    indexSq = indexGlassesSqCategory_;
-                }
-                else
-                {
-                    indexSq = indexSqCategory_;
-                }
                 waitingForGlassesCommand_ = false;
+                glassesCommandReceived_ = false;
+
+                waitingForAsrCommand_ = false;
+                asrCommandReceived_ = false;
+
+                removeCollisionObjectsPlanningScene();
+
+                geometry_msgs::Pose tablePose;
+                tablePose.orientation.w = 1.0;
+                tablePose.position.x = tablePosition_[0];
+                tablePose.position.y = tablePosition_[1];
+                tablePose.position.z = tablePosition_[2];
+
+                addTablePlanningScene(tableDimensions_, tablePose, "table1");
+
+                tablePose.position.x = tablePosition2_[0];
+                tablePose.position.y = tablePosition2_[1];
+                tablePose.position.z = tablePosition2_[2];
+                addTablePlanningScene(tableDimensions2_, tablePose, "table2");
+
+                if (!initializeRightArmPosition(initRightArmPositions_))
+                {
+                    return;
+                }
+
+                if (!initializeLeftArmPosition(initLeftArmPositions_))
+                {
+                    return;
+                }
+
+                initializeTorsoPosition(initTorsoPosition_);
+
+                initializeHeadPosition(initHeadPositions_);
+
+                ros::Duration(1.5).sleep(); // sleep for 2 seconds
+
+                ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
+
+                // Start computation of the superquadrics from the pointcloud
+                activateSuperquadricsComputation(true);
+                ros::Duration(3.5).sleep(); // sleep for 2 seconds
+
+                // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
+                // continuously recompute the superquadrics
+                ROS_INFO("[DemoSharon] Stop the computation of the superquadrics.");
+                activateSuperquadricsComputation(false);
+                ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+                ROS_INFO("[DemoSharon] Get the computed superquadrics.");
+                // Get the previously computed superquadrics
+                if (!getSuperquadrics())
+                { // If it's empty, there is no objects to grasp
+                    return;
+                }
+                ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
+                ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+                if (!getBoundingBoxesFromSupercuadrics())
+                {
+                    return;
+                }
+                for (int i = 0; i < bboxesMsg_.bounding_boxes.size(); i++)
+                    ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
+                             bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
+                             bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
+
+                sqCategories_.clear();
+                darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
+                yoloBBoxesMsg_ = *darknetBBoxesMsg;
+
+                for (int i = 0; i < yoloBBoxesMsg_.bounding_boxes.size(); i++)
+                {
+                    darknet_ros_msgs::BoundingBox bboxMsg = yoloBBoxesMsg_.bounding_boxes[i];
+                    std::array<int, 4> bboxYolo = {(int)bboxMsg.xmin, (int)bboxMsg.ymin, (int)bboxMsg.xmax, (int)bboxMsg.ymax};
+                    float IoU = 0.0;
+                    int currentSqId = -1;
+                    for (int j = 0; j < bboxesMsg_.bounding_boxes.size(); j++)
+                    {
+                        std::array<int, 4> bboxSq = {bboxesMsg_.bounding_boxes[j].tlx, bboxesMsg_.bounding_boxes[j].tly,
+                                                     bboxesMsg_.bounding_boxes[j].brx, bboxesMsg_.bounding_boxes[j].bry};
+
+                        ROS_INFO("yolo: %d superq: %d", i, j);
+                        float currentIoU = 0.0;
+                        computeIntersectionOverUnion(bboxYolo, bboxSq, currentIoU);
+
+                        if (currentIoU > IoU)
+                        {
+                            IoU = currentIoU;
+                            currentSqId = bboxesMsg_.bounding_boxes[j].id;
+                        }
+                    }
+                    if (IoU > 0)
+                    {
+                        SqCategory sqCategory;
+                        sqCategory.idSq = currentSqId;
+                        sqCategory.category = bboxMsg.Class;
+                        sqCategories_.push_back(sqCategory);
+                    }
+                }
+
+                for (int idx = 0; idx < sqCategories_.size(); idx++)
+                {
+                    ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
+                }
+
+                addSupequadricsPlanningScene();
+                state_ = WAIT_FOR_COMMAND;
+            }break;
+            case WAIT_FOR_COMMAND:
+            {
+                waitingForGlassesCommand_ = true;
+                waitingForAsrCommand_ = true;
+                foundGlasses_ = false;
+                indexGlassesSqCategory_ = -1;
+                ROS_INFO("[DemoSharon] Wait for user's command.");
+                if (!glassesCommandReceived_ && asrCommandReceived_)
+                {
+                    ROS_WARN("[DemoSharon] The gaze should be faster than the asr.");
+                    return;
+                }
+                if (glassesCommandReceived_ && !asrCommandReceived_)
+                {
+                    ROS_INFO("[DemoSharon] Gaze command received.");
+                    // Además que el objeto sea uno de los detectados
+
+                    for (int i = 0; i < sqCategories_.size(); i++)
+                    {
+                        if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
+                        {
+                            foundGlasses_ = true;
+                            indexGlassesSqCategory_ = i;
+                            break;
+                        }
+                    }
+                    if (indexGlassesSqCategory_ >= 0)
+                    {
+                        ROS_INFO("[DemoSharon] Gaze command category %s is  available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
+                        waitingForGlassesCommand_ = false;
+                        waitingForAsrCommand_ = true;
+                        state_ = COMPUTE_GRASP_POSES;
+                    }
+                    else
+                    {
+                        ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
+                        waitingForGlassesCommand_ = true;
+                        waitingForAsrCommand_ = true;
+                    }
+                }
+            }break;
+            case COMPUTE_GRASP_POSES:{
+                // HERE WE SHOULD CREATE A THREAD THAT CAN BE KILLED IF NEEDED
+                threadComputeGraspPoses_= new std::thread([this]{computeGraspPosesThread();});
+
+            }break;
+
             }
-            mtxASR_.unlock();
         }
+
+        // removeCollisionObjectsPlanningScene();
+
+        // geometry_msgs::Pose tablePose;
+        // tablePose.orientation.w = 1.0;
+        // tablePose.position.x = tablePosition_[0];
+        // tablePose.position.y = tablePosition_[1];
+        // tablePose.position.z = tablePosition_[2];
+
+        // addTablePlanningScene(tableDimensions_, tablePose, "table1");
+
+        // if (!initializeRightArmPosition(initRightArmPositions_))
+        // {
+        //     return;
+        // }
+
+        // if (!initializeLeftArmPosition(initLeftArmPositions_))
+        // {
+        //     return;
+        // }
+
+        // initializeTorsoPosition(initTorsoPosition_);
+
+        // initializeHeadPosition(initHeadPositions_);
+
+        // ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
+        // // Start computation of the superquadrics from the pointcloud
+        // activateSuperquadricsComputation(true);
+        // ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+        // // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
+        // // continuously recompute the superquadrics
+        // ROS_INFO("[DemoSharon] Stop the computation of the superquadrics.");
+        // activateSuperquadricsComputation(false);
+        // ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+        // ROS_INFO("[DemoSharon] Get the computed superquadrics.");
+        // // Get the previously computed superquadrics
+        // if (!getSuperquadrics())
+        // { // If it's empty, there is no objects to grasp
+        //     return;
+        // }
+        // ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
+        // ros::Duration(0.5).sleep(); // sleep for 2 seconds
+
+        // if (!getBoundingBoxesFromSupercuadrics())
+        // {
+        //     return;
+        // }
+        // for (int i = 0; i < bboxesMsg_.bounding_boxes.size(); i++)
+        //     ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
+        //              bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
+        //              bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
+
+        // sqCategories_.clear();
+        // darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
+        // yoloBBoxesMsg_ = *darknetBBoxesMsg;
+
+        // for (int i = 0; i < yoloBBoxesMsg_.bounding_boxes.size(); i++)
+        // {
+        //     darknet_ros_msgs::BoundingBox bboxMsg = yoloBBoxesMsg_.bounding_boxes[i];
+        //     std::array<int, 4> bboxYolo = {(int)bboxMsg.xmin, (int)bboxMsg.ymin, (int)bboxMsg.xmax, (int)bboxMsg.ymax};
+        //     float IoU = 0.0;
+        //     int currentSqId = -1;
+        //     for (int j = 0; j < bboxesMsg_.bounding_boxes.size(); j++)
+        //     {
+        //         std::array<int, 4> bboxSq = {bboxesMsg_.bounding_boxes[j].tlx, bboxesMsg_.bounding_boxes[j].tly,
+        //                                      bboxesMsg_.bounding_boxes[j].brx, bboxesMsg_.bounding_boxes[j].bry};
+
+        //         ROS_INFO("yolo: %d superq: %d", i, j);
+        //         float currentIoU = 0.0;
+        //         computeIntersectionOverUnion(bboxYolo, bboxSq, currentIoU);
+
+        //         if (currentIoU > IoU)
+        //         {
+        //             IoU = currentIoU;
+        //             currentSqId = bboxesMsg_.bounding_boxes[j].id;
+        //         }
+        //     }
+        //     if (IoU > 0)
+        //     {
+        //         SqCategory sqCategory;
+        //         sqCategory.idSq = currentSqId;
+        //         sqCategory.category = bboxMsg.Class;
+        //         sqCategories_.push_back(sqCategory);
+        //     }
+        // }
+
+        // for (int idx = 0; idx < sqCategories_.size(); idx++)
+        // {
+        //     ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
+        // }
+
+        // addSupequadricsPlanningScene();
+
+        // waitingForGlassesCommand_ = true;
+        // int indexSq = -1;
+        // ROS_INFO("[DemoSharon] Wait for message in /comms_glasses_server/data");
+
+        // while (!glassesCommandReceived_ && ros::ok())
+        // {
+        // }
+
+        // if (glassesCommandReceived_)
+        // {
+        //     // Además que el objeto sea uno de los detectados
+        //     waitingForGlassesCommand_ = false;
+        //     waitingForAsrCommand_ = true;
+        //     foundGlasses_ = false;
+        //     for (int i = 0; i < sqCategories_.size(); i++)
+        //     {
+        //         if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
+        //         {
+        //             foundGlasses_ = true;
+        //             indexGlassesSqCategory_ = i;
+        //             break;
+        //         }
+        //     }
+
+        //     mtxASR_.lock();
+        //     if (foundAsr_)
+        //     {
+        //         if (sqCategories_[indexGlassesSqCategory_].category.find(asr_, 0) != std::string::npos)
+        //         {
+        //             ROS_INFO("ASR command received is the same: %s", asr_.c_str());
+        //             indexSq = indexGlassesSqCategory_;
+        //         }
+        //         else
+        //         {
+        //             indexSq = indexSqCategory_;
+        //         }
+        //         waitingForGlassesCommand_ = false;
+        //     }
+        //     mtxASR_.unlock();
+        // }
     }
 
     void DemoSharon::demoOnlyGlasses()
@@ -504,10 +667,7 @@ namespace demo_sharon
             int indexFeasible = -1;
             bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses, indexFeasible);
 
-
-
-
-            actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>& moveGroupClient = groupRightArmTorsoPtr_->getMoveGroupClient();
+            actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> &moveGroupClient = groupRightArmTorsoPtr_->getMoveGroupClient();
             while (!moveGroupClient.getState().isDone() && ros::ok())
             {
                 ROS_INFO("WAITING.....");
@@ -528,7 +688,6 @@ namespace demo_sharon
                 {
                     ROS_INFO("WAITING.....");
                     ros::Duration(0.1).sleep();
-
                 }
 
                 ros::Duration(0.2).sleep(); // sleep for 1 seconds
@@ -549,7 +708,6 @@ namespace demo_sharon
             {
                 return;
             }
-
 
             ROS_INFO("[DemoSharon] Done!");
         }
@@ -1238,6 +1396,16 @@ namespace demo_sharon
             }
             mtxASR_.unlock();
         }
+    }
+
+    void DemoSharon::computeGraspPosesThread(){
+        ROS_INFO("This is the thread for computing the grasping poses.");
+        ros::Rate r(10);
+        while(ros::ok()){
+            ROS_INFO("WE ARE COMPUTING THE GRASPING POSES... KILL MEEEEE!");
+            r.sleep();
+        }
+        return;
     }
 
     void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)

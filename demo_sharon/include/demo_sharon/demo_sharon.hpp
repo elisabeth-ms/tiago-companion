@@ -26,7 +26,6 @@
 // KDL
 #include <kdl_conversions/kdl_msg.h>
 
-#include <mutex>
 
 
 // Sharon headers
@@ -42,12 +41,20 @@
 // darknet_ros
 #include "darknet_ros_msgs/BoundingBoxes.h"
 
+// STD HEADERS
+#include <mutex>
+#include <thread>
+
 // Action interface type for moving TIAGo, provided as a typedef for convenience
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
 typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_client_Ptr;
 
 // TODO: ADD AS ROS PARAMS
 #define DISTANCE_TOOL_LINK_GRIPPER_LINK 0.151
+#define INITIALIZE 0
+#define WAIT_FOR_COMMAND 1
+#define COMPUTE_GRASP_POSES 2
+#define PLAN_AND_MOVE 3
 
 namespace demo_sharon
 {
@@ -116,10 +123,14 @@ namespace demo_sharon
 
         void demoGlassesASR();
 
+        void computeGraspPosesThread();
+
+
 
     private:
         //! ROS node handle.
         ros::NodeHandle nodeHandle_;
+        int state_;
         follow_joint_control_client_Ptr headClient_;
         follow_joint_control_client_Ptr torsoClient_;
         follow_joint_control_client_Ptr rightGripperClient_;
@@ -168,6 +179,7 @@ namespace demo_sharon
         bool asrCommandReceived_;
         bool glassesCommandReceived_;
 
+
         float openGripperPositions_[2] = {0.04, 0.04};
         float closeGripperPositions_[2] = {0.03, 0.03};
         float maxErrorJoints_;
@@ -199,5 +211,6 @@ namespace demo_sharon
         const robot_state::JointModelGroup *joint_model_group;
 
         std::mutex mtxASR_;
+        std::thread * threadComputeGraspPoses_;
     };
 }
