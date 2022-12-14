@@ -207,15 +207,18 @@ namespace demo_sharon
                 // HERE WE SHOULD CREATE A THREAD THAT CAN BE KILLED IF NEEDED
                 if (firstInState)
                 {
-                    threadComputeGraspPoses_ = new std::thread([this]
-                                                               { this->computeGraspPosesThread(); });
+                    pthread_create(&threadComputeGraspPoses_, NULL, &this->sendcomputeGraspPosesThreadWrapper, this);
+                    pthread_join(threadComputeGraspPoses_,NULL);
                     firstInState = false;
+                    state_ = FIND_FEASIBLE
                 }
             }
             break;
             case -1:
             {
                 ROS_INFO("YES!! KILLED COMPUTE GRASP POSES");
+                firstInState = true;
+                state_ = COMPUTE_GRASP_POSES;
             }
             break;
             }
@@ -827,6 +830,7 @@ namespace demo_sharon
         }
     }
 
+
     bool DemoSharon::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible)
     {
 
@@ -1414,12 +1418,20 @@ namespace demo_sharon
 
                             indexSqCategoryAsr_ = i;
                             asrCommandReceived_ = true;
+                            waitingForAsrCommand_ = false;
                             if (state_ = COMPUTE_GRASP_POSES )
                             {
-                                ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
-                                threadComputeGraspPoses_->detach();
+                                ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
+                                pthread_cancel(threadComputeGraspPoses_);
+                                ROS_INFO("CANCELLING THEREAD!");
+                                void * result;
+                                pthread_join(threadComputeGraspPoses_, &result);
+                                while(result!= PTHREAD_CANCELED){
+                                    ros::Duration(0.0001).sleep();
+                                }
+                                ROS_INFO("THREAD CANCELL");
                                 indexSqCategory_ = indexSqCategoryAsr_;
-                                state_ = COMPUTE_GRASP_POSES;
+                                state_ = -1;
                             }
                             break;
                         }
@@ -1432,9 +1444,9 @@ namespace demo_sharon
                         if (state_ = COMPUTE_GRASP_POSES )
                         {
                             ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
-                            threadComputeGraspPoses_->detach();
+                            pthread_cancel(threadComputeGraspPoses_);
                             indexSqCategory_ = indexSqCategoryAsr_;
-                            state_ = COMPUTE_GRASP_POSES;
+                            state_ = -1;
                         }
                     }
 
@@ -1456,7 +1468,7 @@ namespace demo_sharon
                         {
                             ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
                             state_ = -1;
-                            threadComputeGraspPoses_->detach();
+                            pthread_cancel(threadComputeGraspPoses_);
                         }
                         break;
                     }
@@ -1471,11 +1483,18 @@ namespace demo_sharon
             }
         }
 
-        void DemoSharon::computeGraspPosesThread()
+        void * DemoSharon::sendcomputeGraspPosesThreadWrapper(void* object)
         {
+            reinterpret_cast<DemoSharon*>(object)->computeGraspPosesThread(NULL);
+            return 0;
+        }
+
+        void * DemoSharon::computeGraspPosesThread(void * ptr)
+        {   
+            pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
             ROS_INFO("This is the thread for computing the grasping poses.");
             ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
-
+            ROS_INFO("Compute grasping poses of %d ", sqCategories_[indexSqCategory_].idSq);
             sharon_msgs::ComputeGraspPoses srvGraspingPoses;
             srvGraspingPoses.request.id = sqCategories_[indexSqCategory_].idSq;
             geometry_msgs::PoseArray graspingPoses, orderedGraspingPoses;
@@ -1487,8 +1506,6 @@ namespace demo_sharon
                 graspingPoses = srvGraspingPoses.response.poses;
             }
             ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses.poses.size());
-            ros::Duration(10.0).sleep(); // Sleep for one second
-            return;
         }
 
         void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)

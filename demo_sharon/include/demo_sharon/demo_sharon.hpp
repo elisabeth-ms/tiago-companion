@@ -3,7 +3,7 @@
 
 // Boost headers
 #include <boost/shared_ptr.hpp>
-
+#include <boost/thread/thread.hpp>
 // ROS headers
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
@@ -43,7 +43,8 @@
 
 // STD HEADERS
 #include <mutex>
-#include <thread>
+
+#include <pthread.h>
 
 // Action interface type for moving TIAGo, provided as a typedef for convenience
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
@@ -54,7 +55,8 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define INITIALIZE 0
 #define WAIT_FOR_COMMAND 1
 #define COMPUTE_GRASP_POSES 2
-#define PLAN_AND_MOVE 3
+#defince IK_AVAILABLE 3
+#define PLAN_AND_MOVE 4
 
 namespace demo_sharon
 {
@@ -123,7 +125,10 @@ namespace demo_sharon
 
         void demoGlassesASR();
 
-        void computeGraspPosesThread();
+        void * computeGraspPosesThread( void * ptr);
+        static void * sendcomputeGraspPosesThreadWrapper(void* object);
+
+
 
 
 
@@ -212,6 +217,6 @@ namespace demo_sharon
         const robot_state::JointModelGroup *joint_model_group;
 
         std::mutex mtxASR_;
-        std::thread * threadComputeGraspPoses_;
+        pthread_t threadComputeGraspPoses_;
     };
 }

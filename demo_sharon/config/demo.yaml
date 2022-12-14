@@ -1,4 +1,4 @@
-use_glasses: false
+use_glasses: true
 use_asr: true
 reaching_distance: 0.15
 elimit1: 0.3
