@@ -1,6 +1,5 @@
 #include "demo_sharon/demo_sharon.hpp"
 
-
 namespace demo_sharon
 {
     DemoSharon::DemoSharon(ros::NodeHandle nh) : nodeHandle_(nh)
@@ -206,9 +205,10 @@ namespace demo_sharon
             case COMPUTE_GRASP_POSES:
             {
                 // HERE WE SHOULD CREATE A THREAD THAT CAN BE KILLED IF NEEDED
-                if(firstInState){
-                threadComputeGraspPoses_ = new std::thread([this]
-                                                           { this->computeGraspPosesThread(); });
+                if (firstInState)
+                {
+                    threadComputeGraspPoses_ = new std::thread([this]
+                                                               { this->computeGraspPosesThread(); });
                     firstInState = false;
                 }
             }
@@ -216,7 +216,8 @@ namespace demo_sharon
             case -1:
             {
                 ROS_INFO("YES!! KILLED COMPUTE GRASP POSES");
-            }break;
+            }
+            break;
             }
         }
 
@@ -1392,121 +1393,172 @@ namespace demo_sharon
             // Además que el objeto sea uno de los detectados
             mtxASR_.lock();
             foundAsr_ = false;
-            indexSqCategoryAsr_ = -1;
-            for (int i = 0; i < sqCategories_.size(); i++)
+            if (useGlasses_)
             {
-                ROS_INFO("%s %d", sqCategories_[i].category.c_str(), sqCategories_.size());
-                if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
+                // Aqui se supone que ya tenemos el objeto que se quiere con la mirada
+                if (sqCategories_[indexGlassesSqCategory_].category.find(asr_, 0) != std::string::npos)
                 {
-                    foundAsr_ = true;
-
-                    indexSqCategoryAsr_ = i;
-                    asrCommandReceived_ = true;
-                    if(state_ = COMPUTE_GRASP_POSES){
-                        ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
-                        state_ = -1;
-                        threadComputeGraspPoses_->detach();
-                    }
-                    break;
+                    ROS_INFO("[DemoSharon] ASR command received is the same: %s", asr_.c_str());
+                    ROS_INFO("[DemoSharon] We continue to grasp the same object");
                 }
                 else
                 {
-                    ROS_INFO("NOT FOUND");
+                    ROS_INFO("[DemoSharon] ASR command is different. Lets check if it's one of the detected objects by the robot.");
+                    indexSqCategoryAsr_ = -1;
+                    for (int i = 0; i < sqCategories_.size(); i++)
+                    {
+                        ROS_INFO("%s %d", sqCategories_[i].category.c_str(), sqCategories_.size());
+                        if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
+                        {
+                            foundAsr_ = true;
+
+                            indexSqCategoryAsr_ = i;
+                            asrCommandReceived_ = true;
+                            if (state_ = COMPUTE_GRASP_POSES )
+                            {
+                                ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
+                                threadComputeGraspPoses_->detach();
+                                indexSqCategory_ = indexSqCategoryAsr_;
+                                state_ = COMPUTE_GRASP_POSES;
+                            }
+                            break;
+                        }
+                    }
+
+                    if(indexSqCategoryAsr_<0)
+                    {
+                        ROS_WARN("[DemoSharon] ASR request: %s NOT found.", asr_.c_str());
+                        // robot should say I don't recognize this object.
+                        if (state_ = COMPUTE_GRASP_POSES )
+                        {
+                            ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
+                            threadComputeGraspPoses_->detach();
+                            indexSqCategory_ = indexSqCategoryAsr_;
+                            state_ = COMPUTE_GRASP_POSES;
+                        }
+                    }
+
+                }
+            }
+            else{
+
+                indexSqCategoryAsr_ = -1;
+                for (int i = 0; i < sqCategories_.size(); i++)
+                {
+                    ROS_INFO("%s %d", sqCategories_[i].category.c_str(), sqCategories_.size());
+                    if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
+                    {
+                        foundAsr_ = true;
+
+                        indexSqCategoryAsr_ = i;
+                        asrCommandReceived_ = true;
+                        if (state_ = COMPUTE_GRASP_POSES)
+                        {
+                            ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
+                            state_ = -1;
+                            threadComputeGraspPoses_->detach();
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        ROS_INFO("NOT FOUND");
+                    }
                 }
             }
             mtxASR_.unlock();
+
+            }
         }
-    }
 
-    void DemoSharon::computeGraspPosesThread()
-    {
-        ROS_INFO("This is the thread for computing the grasping poses.");
-        ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
-
-        sharon_msgs::ComputeGraspPoses srvGraspingPoses;
-        srvGraspingPoses.request.id = sqCategories_[indexSqCategory_].idSq;
-        geometry_msgs::PoseArray graspingPoses, orderedGraspingPoses;
-        groupRightArmTorsoPtr_->setStartStateToCurrentState();
-
-        if (clientComputeGraspPoses_.call(srvGraspingPoses))
+        void DemoSharon::computeGraspPosesThread()
         {
-            ROS_INFO("[DemoSharon] ComputeGraspPoses: %d", (bool)srvGraspingPoses.response.success);
-            graspingPoses = srvGraspingPoses.response.poses;
-        }
-        ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses.poses.size());
-        ros::Duration(10.0).sleep();  // Sleep for one second
-        return;
-    }
+            ROS_INFO("This is the thread for computing the grasping poses.");
+            ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
 
-    void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)
-    {
+            sharon_msgs::ComputeGraspPoses srvGraspingPoses;
+            srvGraspingPoses.request.id = sqCategories_[indexSqCategory_].idSq;
+            geometry_msgs::PoseArray graspingPoses, orderedGraspingPoses;
+            groupRightArmTorsoPtr_->setStartStateToCurrentState();
 
-        if (waitingForGlassesCommand_)
-        {
-            std::vector<double> decisionVector = glassesData->decision_vector;
-            double key = 1.0;
-            std::vector<double>::iterator itr = std::find(decisionVector.begin(), decisionVector.end(), key);
-            if (itr != decisionVector.cend())
+            if (clientComputeGraspPoses_.call(srvGraspingPoses))
             {
-                if (std::distance(decisionVector.begin(), itr) != 0)
-                {
-                    glassesCategory_ = glassesData->category;
-                    glassesCommandReceived_ = true;
+                ROS_INFO("[DemoSharon] ComputeGraspPoses: %d", (bool)srvGraspingPoses.response.success);
+                graspingPoses = srvGraspingPoses.response.poses;
+            }
+            ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses.poses.size());
+            ros::Duration(10.0).sleep(); // Sleep for one second
+            return;
+        }
 
-                    ROS_INFO("[DemoSharon] Glasses command to grasp %s", glassesData->category.c_str());
+        void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)
+        {
+
+            if (waitingForGlassesCommand_)
+            {
+                std::vector<double> decisionVector = glassesData->decision_vector;
+                double key = 1.0;
+                std::vector<double>::iterator itr = std::find(decisionVector.begin(), decisionVector.end(), key);
+                if (itr != decisionVector.cend())
+                {
+                    if (std::distance(decisionVector.begin(), itr) != 0)
+                    {
+                        glassesCategory_ = glassesData->category;
+                        glassesCommandReceived_ = true;
+
+                        ROS_INFO("[DemoSharon] Glasses command to grasp %s", glassesData->category.c_str());
+                    }
                 }
             }
         }
-    }
 
-    bool DemoSharon::computeIntersectionOverUnion(const std::array<int, 4> &bboxYolo, const std::array<int, 4> &bboxSq, float &IoU)
-    {
-        if (bboxYolo[0] < bboxSq[2] and bboxYolo[2] > bboxSq[0] and
-            bboxYolo[1] < bboxSq[3] and bboxYolo[3] > bboxSq[1])
+        bool DemoSharon::computeIntersectionOverUnion(const std::array<int, 4> &bboxYolo, const std::array<int, 4> &bboxSq, float &IoU)
         {
-            int xA = bboxYolo[0];
-            if (bboxSq[0] > xA)
+            if (bboxYolo[0] < bboxSq[2] and bboxYolo[2] > bboxSq[0] and
+                bboxYolo[1] < bboxSq[3] and bboxYolo[3] > bboxSq[1])
             {
-                xA = bboxSq[0];
-            }
+                int xA = bboxYolo[0];
+                if (bboxSq[0] > xA)
+                {
+                    xA = bboxSq[0];
+                }
 
-            int yA = bboxYolo[1];
-            if (bboxSq[1] > yA)
+                int yA = bboxYolo[1];
+                if (bboxSq[1] > yA)
+                {
+                    yA = bboxSq[1];
+                }
+
+                int xB = bboxYolo[2];
+                if (bboxSq[2] < xB)
+                {
+                    xB = bboxSq[2];
+                }
+
+                int yB = bboxYolo[3];
+                if (bboxSq[3] < yB)
+                {
+                    yB = bboxSq[3];
+                }
+
+                float interArea = (xB - xA) * (yB - yA);
+                float yoloBboxArea = (bboxYolo[2] - bboxYolo[0]) * (bboxYolo[3] - bboxYolo[1]);
+                float sqBboxArea = (bboxSq[2] - bboxSq[0]) * (bboxSq[3] - bboxSq[1]);
+
+                ROS_INFO("InterArea: %f", interArea);
+                ROS_INFO("Yolo bbox area: %f", yoloBboxArea);
+                ROS_INFO("Superquadric bbox area: %f", sqBboxArea);
+
+                IoU = interArea / (yoloBboxArea + sqBboxArea - interArea);
+
+                ROS_INFO("IoU: %f", IoU);
+                return true;
+            }
+            else
             {
-                yA = bboxSq[1];
+                ROS_INFO("No IoU");
+                IoU = 0;
+                return false;
             }
-
-            int xB = bboxYolo[2];
-            if (bboxSq[2] < xB)
-            {
-                xB = bboxSq[2];
-            }
-
-            int yB = bboxYolo[3];
-            if (bboxSq[3] < yB)
-            {
-                yB = bboxSq[3];
-            }
-
-            float interArea = (xB - xA) * (yB - yA);
-            float yoloBboxArea = (bboxYolo[2] - bboxYolo[0]) * (bboxYolo[3] - bboxYolo[1]);
-            float sqBboxArea = (bboxSq[2] - bboxSq[0]) * (bboxSq[3] - bboxSq[1]);
-
-            ROS_INFO("InterArea: %f", interArea);
-            ROS_INFO("Yolo bbox area: %f", yoloBboxArea);
-            ROS_INFO("Superquadric bbox area: %f", sqBboxArea);
-
-            IoU = interArea / (yoloBboxArea + sqBboxArea - interArea);
-
-            ROS_INFO("IoU: %f", IoU);
-            return true;
-        }
-        else
-        {
-            ROS_INFO("No IoU");
-            IoU = 0;
-            return false;
         }
     }
-
-}
