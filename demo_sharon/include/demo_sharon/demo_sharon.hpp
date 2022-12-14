@@ -55,7 +55,7 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define INITIALIZE 0
 #define WAIT_FOR_COMMAND 1
 #define COMPUTE_GRASP_POSES 2
-#defince IK_AVAILABLE 3
+#define FIND_REACHING_GRASP_IK 3
 #define PLAN_AND_MOVE 4
 
 namespace demo_sharon
@@ -127,6 +127,9 @@ namespace demo_sharon
 
         void * computeGraspPosesThread( void * ptr);
         static void * sendcomputeGraspPosesThreadWrapper(void* object);
+
+        void * findReachGraspIKThread(void * ptr);
+        static void * sendFindReachGraspIKThreadWrapper(void* object);
 
 
 
@@ -208,6 +211,11 @@ namespace demo_sharon
         int indexSqCategory_ = -1;
         int indexGlassesSqCategory_ = -1;
         int indexSqCategoryAsr_ = -1;
+        geometry_msgs::PoseArray graspingPoses_;
+        std::vector<double> reachJointValues_;
+        bool foundReachIk_;
+
+
 
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;
@@ -218,5 +226,6 @@ namespace demo_sharon
 
         std::mutex mtxASR_;
         pthread_t threadComputeGraspPoses_;
+        pthread_t threadFindReachGraspIK_;
     };
 }
