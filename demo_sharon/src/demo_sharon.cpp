@@ -210,14 +210,42 @@ namespace demo_sharon
                     pthread_create(&threadComputeGraspPoses_, NULL, &this->sendcomputeGraspPosesThreadWrapper, this);
                     pthread_join(threadComputeGraspPoses_, NULL);
                     firstInState = false;
+                }
+                else
+                {
+                    firstInState = true;
                     state_ = FIND_REACHING_GRASP_IK;
                 }
             }
             break;
             case FIND_REACHING_GRASP_IK:
             {
-                pthread_create(&threadFindReachGraspIK_, NULL, &this->sendFindReachGraspIKThreadWrapper, this);
-                pthread_join(threadFindReachGraspIK_, NULL);
+                if (firstInState)
+                {
+                    pthread_create(&threadFindReachGraspIK_, NULL, &this->sendFindReachGraspIKThreadWrapper, this);
+                    void *result;
+                    ROS_INFO("WAIT IN FIND_REACHING_GRASP_IK");
+                    pthread_join(threadFindReachGraspIK_, &result);
+                    if (result == PTHREAD_CANCELED)
+                    {
+                        firstInState = true;
+                        state_ = -1;
+                    }
+                    else
+                    {
+                        if (foundReachIk_)
+                        {
+                            firstInState = true;
+                            state_ = PLAN_TO_REACHING_JOINTS;
+                        }
+                        else
+                        {
+                            firstInState = true;
+                            state_ = UNABLE_TO_REACHING_GRASP_IK;
+                        }
+                    }
+                    ROS_INFO("DONE IN FIND_REACHING_GRASP_IK");
+                }
                 // while (ros::ok())
                 // {
                 //     ros::Duration(0.01).sleep();
@@ -225,11 +253,169 @@ namespace demo_sharon
                 // }
             }
             break;
+            case PLAN_TO_REACHING_JOINTS:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("Plan to reaching joints");
+
+                    pthread_create(&threadPlanToReachJoints_, NULL, &this->sendPlanToReachJointsThreadWrapper, this);
+                    void *result;
+                    ROS_INFO("WAIT IN FIND_REACHING_GRASP_IK");
+                    pthread_join(threadFindReachGraspIK_, &result);
+                    if (result == PTHREAD_CANCELED)
+                    {
+                        firstInState = true;
+                        state_ = -1;
+                    }
+                    else
+                    {
+                        firstInState = true;
+                        state_ = EXECUTE_PLAN_TO_REACHING_JOINTS;
+                    }
+                }
+            }
+            break;
+            case EXECUTE_PLAN_TO_REACHING_JOINTS:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("Executing planned trajectory to reaaching joints");
+                    firstInState = false;
+                    moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
+                }
+                else
+                {
+                    if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
+                    {
+                        state_ = OPEN_GRIPPER;
+                        firstInState = true;
+                    }
+                    if (stopMotion_)
+                    {
+                        groupRightArmTorsoPtr_->stop();
+                        state_ = -1;
+                        firstInState = true;
+                        stopMotion_ = false;
+                    }
+                }
+            }
+            break;
+            case OPEN_GRIPPER:
+            {
+
+                if (waitingForAsrCommand_)
+                {
+                    if (firstInState)
+                    {
+                        ROS_INFO("HEY! I'M WAITING FOR CONFIRMATION...");
+                        firstInState = false;
+                    }
+                }
+                else
+                {
+                    ROS_INFO("OPEN GRIPPER!");
+                    // Open gripper
+                    moveGripper(openGripperPositions_, "right");
+                    std::vector<std::string> objectIds;
+                    objectIds.push_back("object_" + std::to_string(sqCategories_[indexSqCategory_].idSq));
+                    planningSceneInterface_.removeCollisionObjects(objectIds);
+                    ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                    firstInState = true;
+                    state_ = APROACH_TO_GRASP;
+                }
+            }
+            break;
+            case APROACH_TO_GRASP:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("Aproaching to object .....");
+                    goToGraspingPose(graspingPoses_.poses[indexGraspingPose_]);
+                    firstInState = false;
+                }
+                else
+                {
+                    if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
+                    {
+                        state_ = CLOSE_GRIPPER;
+                        firstInState = true;
+                    }
+                }
+            }
+            break;
+            case CLOSE_GRIPPER:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("Closing gripper...");
+                    firstInState = true;
+                    moveGripper(closeGripperPositions_, "right");
+                    ros::Duration(0.1).sleep(); // sleep for 1 seconds
+                    state_ = GO_UP;
+                }
+            }
+            break;
+            case GO_UP:
+            {
+                goUp(groupRightArmTorsoPtr_, 0.2);
+                firstInState = true;
+                state_ = RELEASE_OBJECT;
+            }
+            break;
+            case RELEASE_OBJECT:
+            {
+                if (firstInState){
+                    firstInState = false;
+                    releaseGripper_ = false;
+                }
+                else
+                {
+                    if(!releaseGripper_)
+                    {
+                        ROS_INFO("Waiting for command to release the gripper...");
+                        ros::Duration(0.1).sleep(); // sleep for 1 seconds
+                    }else{
+
+                        moveGripper(openGripperPositions_, "right");
+                        ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                        firstInState = true;
+                        state_ = OBJECT_DELIVERED;
+
+                    }
+                }
+            }break;
+            case OBJECT_DELIVERED:
+            {
+                if(firstInState){
+                    ROS_INFO("OBJETC DELIVERED!");
+                    firstInState = false;
+                }
+
+            }break;
             case -1:
             {
                 ROS_INFO("YES!! KILLED COMPUTE GRASP POSES");
                 firstInState = true;
                 state_ = COMPUTE_GRASP_POSES;
+            }
+            break;
+            case UNABLE_TO_REACHING_GRASP_IK:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("Unable to found ik to any of the possible reaching poses. What now?");
+                    firstInState = false;
+                }
+            }
+            break;
+            case -3:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("Unable to plan a trajectory to reaching pose. What now?");
+                    firstInState = false;
+                }
             }
             break;
             }
@@ -783,7 +969,7 @@ namespace demo_sharon
         bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
         if (successPlanning)
         {
-            moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->execute(plan_);
+            moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->move();
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
                 ROS_INFO("[DemoSharon] Success in moving the grasped object up.");
@@ -1412,6 +1598,7 @@ namespace demo_sharon
                 {
                     ROS_INFO("[DemoSharon] ASR command received is the same: %s", asr_.c_str());
                     ROS_INFO("[DemoSharon] We continue to grasp the same object");
+                    waitingForAsrCommand_ = false;
                 }
                 else
                 {
@@ -1434,30 +1621,34 @@ namespace demo_sharon
                                 ROS_INFO("CANCELLING THREAD!");
                                 void *result;
                                 pthread_join(threadComputeGraspPoses_, &result);
-                                while (result != PTHREAD_CANCELED)
-                                {
-                                    ros::Duration(0.0001).sleep();
-                                }
                                 ROS_INFO("THREAD CANCELL");
+                                indexSqCategory_ = indexSqCategoryAsr_;
                             }
-                            else if(state_ == FIND_REACHING_GRASP_IK){
+                            else if (state_ == FIND_REACHING_GRASP_IK)
+                            {
                                 ROS_INFO("CANCELL THREAD FOR FINDING IK");
                                 pthread_cancel(threadFindReachGraspIK_);
                                 ROS_INFO("CANCELLING THREAD!");
-                                void *result;
-                                pthread_join(threadFindReachGraspIK_, &result);
-                                while (result != PTHREAD_CANCELED)
-                                {
-                                    ros::Duration(0.0001).sleep();
-                                }
-                                ROS_INFO("THREAD CANCELL");
+                                indexSqCategory_ = indexSqCategoryAsr_;
+                            }
+                            else if (state_ == PLAN_TO_REACHING_JOINTS)
+                            {
+                                indexSqCategory_ = indexSqCategoryAsr_;
+                            }
+                            else if (state_ == EXECUTE_PLAN_TO_REACHING_JOINTS)
+                            {
+                                indexSqCategory_ = indexSqCategoryAsr_;
+                                stopMotion_ = true;
+                            }
+                            else if (state_ == UNABLE_TO_REACHING_GRASP_IK)
+                            {
+                                indexSqCategory_ = indexSqCategoryAsr_;
                             }
                             break;
                         }
                     }
-                    if(indexSqCategoryAsr_ >= 0)
+                    if (indexSqCategoryAsr_ >= 0)
                     {
-                        indexSqCategory_ = indexSqCategoryAsr_;
                         state_ = -1;
                     }
                     else
@@ -1513,9 +1704,10 @@ namespace demo_sharon
     void *DemoSharon::computeGraspPosesThread(void *ptr)
     {
         pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+        graspingPoses_.poses.clear();
         ROS_INFO("This is the thread for computing the grasping poses.");
         ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
-        ROS_INFO("Compute grasping poses of %d ", sqCategories_[indexSqCategory_].idSq);
+        ROS_INFO("Compute grasping poses of %s %d ", sqCategories_[indexSqCategory_].category.c_str(), sqCategories_[indexSqCategory_].idSq);
         sharon_msgs::ComputeGraspPoses srvGraspingPoses;
         srvGraspingPoses.request.id = sqCategories_[indexSqCategory_].idSq;
         groupRightArmTorsoPtr_->setStartStateToCurrentState();
@@ -1537,6 +1729,7 @@ namespace demo_sharon
     void *DemoSharon::findReachGraspIKThread(void *ptr)
     {
         pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+        foundReachIk_ = false;
         ROS_INFO("This is the thread for computing the ik feasible poses.");
         robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
         kinematic_state->setToDefaultValues();
@@ -1553,8 +1746,7 @@ namespace demo_sharon
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            foundReachIk_ = kinematic_state->setFromIK(joint_model_group, reachingPose_, 0.1);
-
+            foundReachIk_ = kinematic_state->setFromIK(joint_model_group, reachingPose_, 0.01);
             //     geometry_msgs::PoseStamped goal_pose;
             // goal_pose.header.frame_id = "base_footprint";
             // goal_pose.pose = graspingPoses.poses[idx];
@@ -1563,9 +1755,30 @@ namespace demo_sharon
                 ROS_INFO("[DemoSharon] IK Found!");
                 reachJointValues_.clear();
                 kinematic_state->copyJointGroupPositions(joint_model_group, reachJointValues_);
+                indexGraspingPose_ = idx;
                 break;
             }
         }
+    }
+
+    void *DemoSharon::sendPlanToReachJointsThreadWrapper(void *object)
+    {
+        reinterpret_cast<DemoSharon *>(object)->planToReachJointsThread(NULL);
+        return 0;
+    }
+
+    void *DemoSharon::planToReachJointsThread(void *ptr)
+    {
+        pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+        successPlanning_ = false;
+        groupRightArmTorsoPtr_->setJointValueTarget(reachJointValues_);
+        ;
+        ROS_INFO("SET POSE TARGET");
+        robot_state::RobotState start_state(*groupRightArmTorsoPtr_->getCurrentState());
+        groupRightArmTorsoPtr_->setStartState(start_state);
+
+        moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
+        successPlanning_ = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
     }
 
     void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)

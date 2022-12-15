@@ -56,8 +56,15 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define WAIT_FOR_COMMAND 1
 #define COMPUTE_GRASP_POSES 2
 #define FIND_REACHING_GRASP_IK 3
-#define PLAN_AND_MOVE 4
-
+#define PLAN_TO_REACHING_JOINTS 4
+#define EXECUTE_PLAN_TO_REACHING_JOINTS 5
+#define OPEN_GRIPPER 6
+#define APROACH_TO_GRASP 7
+#define CLOSE_GRIPPER 8
+#define GO_UP 9
+#define RELEASE_OBJECT 10
+#define OBJECT_DELIVERED 11
+#define UNABLE_TO_REACHING_GRASP_IK -2
 namespace demo_sharon
 {
     struct SqCategory
@@ -131,6 +138,8 @@ namespace demo_sharon
         void * findReachGraspIKThread(void * ptr);
         static void * sendFindReachGraspIKThreadWrapper(void* object);
 
+        static void * sendPlanToReachJointsThreadWrapper(void *object);
+        void * planToReachJointsThread(void *ptr);
 
 
 
@@ -183,12 +192,13 @@ namespace demo_sharon
         bool useAsr_;
         bool waitingForAsrCommand_;
         bool waitingForGlassesCommand_;
+        bool successPlanning_;
 
         bool asrCommandReceived_;
         bool glassesCommandReceived_;
 
 
-        float openGripperPositions_[2] = {0.04, 0.04};
+        float openGripperPositions_[2] = {0.07, 0.07};
         float closeGripperPositions_[2] = {0.03, 0.03};
         float maxErrorJoints_;
         std::vector<float> initHeadPositions_;
@@ -214,7 +224,8 @@ namespace demo_sharon
         geometry_msgs::PoseArray graspingPoses_;
         std::vector<double> reachJointValues_;
         bool foundReachIk_;
-
+        bool stopMotion_;
+        int indexGraspingPose_;
 
 
 
@@ -227,5 +238,8 @@ namespace demo_sharon
         std::mutex mtxASR_;
         pthread_t threadComputeGraspPoses_;
         pthread_t threadFindReachGraspIK_;
+        pthread_t threadPlanToReachJoints_;
+        
+
     };
 }
