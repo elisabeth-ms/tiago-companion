@@ -104,6 +104,8 @@ namespace grasp_objects{
 
         bool createBoundingBox2DFromSuperquadric(const sharon_msgs::Superquadric &superq, sharon_msgs::BoundingBox & bbox);
 
+        void addPointsToObjectCloud(int idx, float minHeight, float distanceTop, float distanceBtwPoints);
+
         private:
         //! ROS node handle.
         ros::NodeHandle nodeHandle_;
@@ -111,6 +113,7 @@ namespace grasp_objects{
         image_transport::Subscriber compressedDepthImageSubscriber_;
         ros::Subscriber cameraInfoSubscriber_;
         ros::Publisher outPointCloudPublisher_;
+        ros::Publisher outPointCloudAddedPointsPublisher_;
         ros::Publisher outPointCloudSuperqsPublisher_;
         ros::Publisher superquadricsPublisher_;
         ros::Publisher graspPosesPublisher_;

@@ -77,10 +77,11 @@ namespace grasp_objects
 
         // pointCloudSubscriber_ = nodeHandle_.subscribe(pointCloudTopicName, 20, &GraspObjects::pointCloudCallback, this);
         // compressedDepthImageSubscriber_ = it.subscribe(compressedDepthImageTopicName, 10, &GraspObjects::compressedDepthImageCallback, this, image_transport::TransportHints("compressedDepth"));
-        
+
         compressedDepthImageSubscriber_ = it.subscribe(compressedDepthImageTopicName, 10, &GraspObjects::compressedDepthImageCallback, this, image_transport::TransportHints("raw"));
 
         outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud", 20);
+        outPointCloudAddedPointsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/added_points", 20);
         outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 20);
         superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 20);
         graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 20);
@@ -598,7 +599,6 @@ namespace grasp_objects
 
         pcl::PointCloud<pcl::PointXYZL>::Ptr sv_labeled_cloud = super.getLabeledCloud();
 
-
         // pcl::io::savePCDFile ("svcloud.pcd", *sv_centroid_normal_cloud, true);
 
         PCL_INFO("Starting Segmentation\n");
@@ -612,7 +612,6 @@ namespace grasp_objects
         lccp.setInputSupervoxels(supervoxel_clusters, supervoxel_adjacency);
         lccp.setMinSegmentSize(min_segment_size);
         lccp.segment();
-
 
         // lccp.getSegmentAdjacencyMap(supervoxel_adjacency);
 
@@ -635,29 +634,32 @@ namespace grasp_objects
         {
 
             uint32_t idx = lccp_labeled_cloud->points[i].label;
-
-            // in this way we enlarges the vector everytime we encounter a greater label. So we don't need to pass all
-            //  labeeld point cloud to see what is the greater label, and then to resize the vector.
-            if (idx >= detectedObjects_.size()) // keep in mind that there is also the label 0!
+            if (idx > 0)
             {
-                detectedObjects_.resize(idx + 1);
-            }
-            // if (detected_objects[idx].object_cloud.empty())
-            // {
-            //     detected_objects[idx].r = rand() % 256;
-            //     detected_objects[idx].g = rand() % 256;
-            //     detected_objects[idx].b = rand() % 256;
-            // }
-            pcl::PointXYZRGB tmp_point_rgb;
-            tmp_point_rgb.x = lccp_labeled_cloud->points[i].x;
-            tmp_point_rgb.y = lccp_labeled_cloud->points[i].y;
-            tmp_point_rgb.z = lccp_labeled_cloud->points[i].z;
-            tmp_point_rgb.r = rand() % 256;
-            tmp_point_rgb.g = rand() % 256;
-            tmp_point_rgb.b = rand() % 256;
 
-            detectedObjects_[idx].object_cloud.points.push_back(tmp_point_rgb);
-            detectedObjects_[idx].label = (int)idx;
+                // in this way we enlarges the vector everytime we encounter a greater label. So we don't need to pass all
+                //  labeeld point cloud to see what is the greater label, and then to resize the vector.
+                if (idx >= detectedObjects_.size()) // keep in mind that there is also the label 0!
+                {
+                    detectedObjects_.resize(idx + 1);
+                }
+                // if (detected_objects[idx].object_cloud.empty())
+                // {
+                //     detected_objects[idx].r = rand() % 256;
+                //     detected_objects[idx].g = rand() % 256;
+                //     detected_objects[idx].b = rand() % 256;
+                // }
+                pcl::PointXYZRGB tmp_point_rgb;
+                tmp_point_rgb.x = lccp_labeled_cloud->points[i].x;
+                tmp_point_rgb.y = lccp_labeled_cloud->points[i].y;
+                tmp_point_rgb.z = lccp_labeled_cloud->points[i].z;
+                tmp_point_rgb.r = rand() % 256;
+                tmp_point_rgb.g = rand() % 256;
+                tmp_point_rgb.b = rand() % 256;
+
+                detectedObjects_[idx].object_cloud.points.push_back(tmp_point_rgb);
+                detectedObjects_[idx].label = (int)idx;
+            }
         }
 
         // remove segments with too few points
@@ -778,9 +780,17 @@ namespace grasp_objects
                 updateDetectedObjectsPointCloud(lccp_labeled_cloud);
 
                 std::vector<std::vector<double>> graspingPoses;
+                pcl::PointCloud<pcl::PointXYZRGB>::Ptr allPoints;
 
                 for (unsigned int idx = 0; idx < detectedObjects_.size(); idx++)
                 {
+
+                    addPointsToObjectCloud(idx, 0.55, 0.02, 0.0005);
+                    // for(int i=0; i<detectedObjects_[idx].object_cloud.points.size(); i++){
+                    //     pcl::PointXYZRGB p = detectedObjects_[idx].object_cloud.points[i];
+                    //     allPoints->points.push_back(p);
+                    // }
+
                     SuperqModel::PointCloud point_cloud;
                     pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
                     ROS_INFO("pointCloud points: %d", point_cloud.n_points);
@@ -824,6 +834,54 @@ namespace grasp_objects
                 pcOutSupeqs.header.frame_id = "/base_footprint";
                 outPointCloudSuperqsPublisher_.publish(pcOutSupeqs);
                 superquadricsPublisher_.publish(superquadricsMsg_);
+
+                // Convert to ROS data type
+                // pcl::PCLPointCloud2 *allPointsPC2 = new pcl::PCLPointCloud2;
+                // pcl::toPCLPointCloud2(*allPoints, *allPointsPC2);
+                // sensor_msgs::PointCloud2 pcOutAllPoints;
+                // pcl_conversions::moveFromPCL(*allPointsPC2, pcOutAllPoints);
+                // pcOutAllPoints.header.frame_id = "/base_footprint";
+
+                // outPointCloudAddedPointsPublisher_.publish(pcOutAllPoints);
+            }
+        }
+    }
+
+    void GraspObjects::addPointsToObjectCloud(int idx, float minHeight, float distanceTop, float distanceBtwPoints)
+    {
+
+        pcl::PointXYZRGB minPt, maxPt;
+        pcl::getMinMax3D(detectedObjects_[idx].object_cloud, minPt, maxPt);
+        std::cout << "Max z: " << maxPt.z << std::endl;
+        std::cout << "Min z: " << minPt.z << std::endl;
+        std::vector<int> indexes;
+        if (maxPt.z > minHeight)
+        {
+            for (int i = 0; i < detectedObjects_[idx].object_cloud.size(); i++)
+            {
+                pcl::PointXYZRGB p = detectedObjects_[idx].object_cloud.points[i];
+                if (p.z >= (maxPt.z - distanceTop))
+                {
+                    indexes.push_back(i);
+                    // std::cout << "we have a point z: " << p.z << std::endl;
+                }
+            }
+            for (int j = 0; j < indexes.size(); j++)
+            {
+                pcl::PointXYZRGB auxp;
+                pcl::PointXYZRGB p = detectedObjects_[idx].object_cloud.points[indexes[j]];
+                auxp.x = p.x;
+                auxp.y = p.y;
+                auxp.z = p.z;
+                auxp.r = p.r;
+                auxp.g = p.g;
+                auxp.b = p.b;
+                auxp.z += 30*distanceBtwPoints;
+                while (auxp.z >= minHeight)
+                {
+                    detectedObjects_[idx].object_cloud.points.push_back(auxp);
+                    auxp.z -= distanceBtwPoints;
+                }
             }
         }
     }
