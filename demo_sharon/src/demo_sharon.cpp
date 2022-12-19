@@ -117,6 +117,8 @@ namespace demo_sharon
                              bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
 
                 sqCategories_.clear();
+                addSupequadricsPlanningScene();
+
                 darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
                 yoloBBoxesMsg_ = *darknetBBoxesMsg;
 
@@ -155,7 +157,6 @@ namespace demo_sharon
                     ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
                 }
 
-                addSupequadricsPlanningScene();
                 state_ = WAIT_FOR_COMMAND;
             }
             break;
@@ -365,34 +366,38 @@ namespace demo_sharon
             break;
             case RELEASE_OBJECT:
             {
-                if (firstInState){
+                if (firstInState)
+                {
                     firstInState = false;
                     releaseGripper_ = false;
                 }
                 else
                 {
-                    if(!releaseGripper_)
+                    if (!releaseGripper_)
                     {
                         ROS_INFO("Waiting for command to release the gripper...");
                         ros::Duration(0.1).sleep(); // sleep for 1 seconds
-                    }else{
+                    }
+                    else
+                    {
 
                         moveGripper(openGripperPositions_, "right");
                         ros::Duration(1.0).sleep(); // sleep for 1 seconds
                         firstInState = true;
                         state_ = OBJECT_DELIVERED;
-
                     }
                 }
-            }break;
+            }
+            break;
             case OBJECT_DELIVERED:
             {
-                if(firstInState){
+                if (firstInState)
+                {
                     ROS_INFO("OBJETC DELIVERED!");
                     firstInState = false;
                 }
-
-            }break;
+            }
+            break;
             case -1:
             {
                 ROS_INFO("YES!! KILLED COMPUTE GRASP POSES");
@@ -1144,6 +1149,7 @@ namespace demo_sharon
             Eigen::AngleAxisf pitchAngle(superquadric.yaw, Eigen::Vector3f::UnitZ());
 
             Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
+
             superquadricPose.orientation.x = q.x();
             superquadricPose.orientation.y = q.y();
             superquadricPose.orientation.z = q.z();
@@ -1155,9 +1161,9 @@ namespace demo_sharon
 
             shape_msgs::SolidPrimitive primitive;
 
-            if (superquadric.e1 < elimit1_)
+            if (abs(superquadric.e1 - superquadric.e2) < 0.15)
             {
-                if ((superquadric.e2 < elimit1_) || (superquadric.e2 >= elimit2_))
+                if (superquadric.e1 <= elimit1_)
                 {
                     // BOX
                     primitive.type = primitive.BOX;
@@ -1170,49 +1176,59 @@ namespace demo_sharon
                     collisionObject.operation = collisionObject.ADD;
                     collisionObjects.push_back(collisionObject);
                 }
-                if ((superquadric.e2 >= elimit1_) && (superquadric.e2 < elimit2_))
+                else
                 {
                     // CYLINDER
-
+                    int ax = 0;
                     int index_height = 0;
                     float height = superquadric.a1;
                     if (superquadric.a2 > height)
                     {
                         height = superquadric.a2;
+                        ax = 1;
                     }
                     if (superquadric.a3 > height)
                     {
                         height = superquadric.a3;
+                        ax = 2;
                     }
 
                     float radius = 0;
-                    if (superquadric.a1 > radius && superquadric.a1 < height)
+                    if (superquadric.a1 > radius && ax != 0)
                     {
                         radius = superquadric.a1;
                     }
-                    if (superquadric.a2 > radius && superquadric.a2 < height)
+                    if (superquadric.a2 > radius && ax != 1)
                     {
                         radius = superquadric.a2;
                     }
-                    if (superquadric.a3 > radius && superquadric.a3 < height)
+                    if (superquadric.a3 > radius && ax != 2)
                     {
                         radius = superquadric.a3;
                     }
+
+                    ROS_INFO("CYLINDER height: %f radius: %f", height, radius);
                     radius += inflateSize_;
                     height += inflateSize_;
 
                     primitive.type = primitive.CYLINDER;
                     primitive.dimensions.resize(2);
-                    primitive.dimensions[0] = radius;
-                    primitive.dimensions[1] = height;
+                    primitive.dimensions[0] = 2 * height;
+                    primitive.dimensions[1] = radius;
 
                     collisionObject.primitives.push_back(primitive);
+                    Eigen::AngleAxisf rot(M_PI / 2.0, Eigen::Vector3f::UnitY());
+                    q = q * rot;
+                    superquadricPose.orientation.x = q.x();
+                    superquadricPose.orientation.y = q.y();
+                    superquadricPose.orientation.z = q.z();
+                    superquadricPose.orientation.w = q.w();
                     collisionObject.primitive_poses.push_back(superquadricPose);
                     collisionObject.operation = collisionObject.ADD;
                     collisionObjects.push_back(collisionObject);
                 }
             }
-            else if (superquadric.e1 >= elimit1_)
+            else
             {
                 // BOX
                 primitive.type = primitive.BOX;
@@ -1225,6 +1241,131 @@ namespace demo_sharon
                 collisionObject.operation = collisionObject.ADD;
                 collisionObjects.push_back(collisionObject);
             }
+
+            //     if (superquadric.e1 < elimit1_)
+            //     {
+            //         if ((superquadric.e2 < elimit1_) || (superquadric.e2 >= elimit2_))
+            //         {
+            //             // BOX
+            //             primitive.type = primitive.BOX;
+            //             primitive.dimensions.resize(3);
+            //             primitive.dimensions[0] = 2 * superquadric.a1 + inflateSize_;
+            //             primitive.dimensions[1] = 2 * superquadric.a2 + inflateSize_;
+            //             primitive.dimensions[2] = 2 * superquadric.a3 + inflateSize_;
+            //             collisionObject.primitives.push_back(primitive);
+            //             collisionObject.primitive_poses.push_back(superquadricPose);
+            //             collisionObject.operation = collisionObject.ADD;
+            //             collisionObjects.push_back(collisionObject);
+            //         }
+            //         if ((superquadric.e2 >= elimit1_) && (superquadric.e2 < elimit2_))
+            //         {
+            //             // CYLINDER
+
+            //             int index_height = 0;
+            //             float height = superquadric.a1;
+            //             if (superquadric.a2 > height)
+            //             {
+            //                 height = superquadric.a2;
+            //             }
+            //             if (superquadric.a3 > height)
+            //             {
+            //                 height = superquadric.a3;
+            //             }
+
+            //             float radius = 0;
+            //             if (superquadric.a1 > radius && superquadric.a1 < height)
+            //             {
+            //                 radius = superquadric.a1;
+            //             }
+            //             if (superquadric.a2 > radius && superquadric.a2 < height)
+            //             {
+            //                 radius = superquadric.a2;
+            //             }
+            //             if (superquadric.a3 > radius && superquadric.a3 < height)
+            //             {
+            //                 radius = superquadric.a3;
+            //             }
+            //             radius += inflateSize_;
+            //             height += inflateSize_;
+
+            //             primitive.type = primitive.CYLINDER;
+            //             primitive.dimensions.resize(2);
+            //             primitive.dimensions[0] = radius;
+            //             primitive.dimensions[1] = height;
+
+            //             collisionObject.primitives.push_back(primitive);
+            //             collisionObject.primitive_poses.push_back(superquadricPose);
+            //             collisionObject.operation = collisionObject.ADD;
+            //             collisionObjects.push_back(collisionObject);
+            //         }
+            //     }
+            //     else if (superquadric.e1 >= elimit1_)
+            //     {
+            //         if (superquadric.e2 >= 0.8)
+            //         {
+            //             // BOX
+            //             primitive.type = primitive.BOX;
+            //             primitive.dimensions.resize(3);
+            //             primitive.dimensions[0] = 2 * superquadric.a1 + inflateSize_;
+            //             primitive.dimensions[1] = 2 * superquadric.a2 + inflateSize_;
+            //             primitive.dimensions[2] = 2 * superquadric.a3 + inflateSize_;
+            //             collisionObject.primitives.push_back(primitive);
+            //             collisionObject.primitive_poses.push_back(superquadricPose);
+            //             collisionObject.operation = collisionObject.ADD;
+            //             collisionObjects.push_back(collisionObject);
+            //         }
+            //         else
+            //         {
+            //             // CYLINDER
+            //             int ax = 0;
+            //             int index_height = 0;
+            //             float height = superquadric.a1;
+            //             if (superquadric.a2 > height)
+            //             {
+            //                 height = superquadric.a2;
+            //                 ax = 1;
+            //             }
+            //             if (superquadric.a3 > height)
+            //             {
+            //                 height = superquadric.a3;
+            //                 ax = 2;
+            //             }
+
+            //             float radius = 0;
+            //             if (superquadric.a1 > radius && ax != 0)
+            //             {
+            //                 radius = superquadric.a1;
+            //             }
+            //             if (superquadric.a2 > radius && ax != 1)
+            //             {
+            //                 radius = superquadric.a2;
+            //             }
+            //             if (superquadric.a3 > radius && ax != 2)
+            //             {
+            //                 radius = superquadric.a3;
+            //             }
+
+            //             ROS_INFO("CYLINDER height: %f radius: %f", height, radius);
+            //             radius += inflateSize_;
+            //             height += inflateSize_;
+
+            //             primitive.type = primitive.CYLINDER;
+            //             primitive.dimensions.resize(2);
+            //             primitive.dimensions[0] = 2 * height;
+            //             primitive.dimensions[1] = radius;
+
+            //             collisionObject.primitives.push_back(primitive);
+            //             Eigen::AngleAxisf rot(M_PI / 2.0, Eigen::Vector3f::UnitY());
+            //             q = q * rot;
+            //             superquadricPose.orientation.x = q.x();
+            //             superquadricPose.orientation.y = q.y();
+            //             superquadricPose.orientation.z = q.z();
+            //             superquadricPose.orientation.w = q.w();
+            //             collisionObject.primitive_poses.push_back(superquadricPose);
+            //             collisionObject.operation = collisionObject.ADD;
+            //             collisionObjects.push_back(collisionObject);
+            //         }
+            //     }
         }
         planningSceneInterface_.applyCollisionObjects(collisionObjects);
     }

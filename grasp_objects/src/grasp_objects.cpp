@@ -729,9 +729,17 @@ namespace grasp_objects
             pcl::PassThrough<pcl::PCLPointCloud2> pass;
             pass.setInputCloud(cloudFilteredPtr);
             pass.setFilterFieldName("x");
-            pass.setFilterLimits(0.0, 1.5);
+            pass.setFilterLimits(0.5, 1.5);
             // pass.setFilterLimitsNegative (true);
             pass.filter(*cloudFiltered);
+
+            // Create the filtering object
+            pcl::PassThrough<pcl::PCLPointCloud2> passZ;
+            passZ.setInputCloud(cloudFilteredPtr);
+            passZ.setFilterFieldName("z");
+            passZ.setFilterLimits(0.5, 1.5);
+            // pass.setFilterLimitsNegative (true);
+            passZ.filter(*cloudFiltered);
 
             pcl::fromPCLPointCloud2(*cloudFiltered, *cloud_without_table);
 
@@ -785,7 +793,7 @@ namespace grasp_objects
                 for (unsigned int idx = 0; idx < detectedObjects_.size(); idx++)
                 {
 
-                    addPointsToObjectCloud(idx, 0.55, 0.02, 0.0005);
+                    addPointsToObjectCloud(idx, 0.6, 0.02, 0.0005);
                     // for(int i=0; i<detectedObjects_[idx].object_cloud.points.size(); i++){
                     //     pcl::PointXYZRGB p = detectedObjects_[idx].object_cloud.points[i];
                     //     allPoints->points.push_back(p);
@@ -876,7 +884,7 @@ namespace grasp_objects
                 auxp.r = p.r;
                 auxp.g = p.g;
                 auxp.b = p.b;
-                auxp.z += 30*distanceBtwPoints;
+                auxp.z += 20*distanceBtwPoints;
                 while (auxp.z >= minHeight)
                 {
                     detectedObjects_[idx].object_cloud.points.push_back(auxp);
