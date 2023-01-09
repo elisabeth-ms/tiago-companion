@@ -139,7 +139,7 @@ namespace grasp_objects
 
         marker.type = visualization_msgs::Marker::LINE_LIST;
         marker.action = visualization_msgs::Marker::ADD;
-        marker.header.frame_id = "xtion_rgb_optical_frame";
+        marker.header.frame_id = "xtion_depth_optical_frame";
         marker.header.stamp = ros::Time::now();
 
         ROS_INFO("Bbox has %d points", bbox3d->points.size());
@@ -710,7 +710,7 @@ namespace grasp_objects
 
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZ>);
 
-            listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transformCameraWrtBase_);
+            listener_.lookupTransform("/base_footprint", "/xtion_depth_optical_frame", ros::Time(0), transformCameraWrtBase_);
 
             pcl_ros::transformPointCloud(std::string("/base_footprint"), transformCameraWrtBase_, *cloud_msg, pcOut);
 

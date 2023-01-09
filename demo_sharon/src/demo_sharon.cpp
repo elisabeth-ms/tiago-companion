@@ -166,7 +166,7 @@ namespace demo_sharon
                 waitingForAsrCommand_ = true;
                 foundGlasses_ = false;
                 indexGlassesSqCategory_ = -1;
-                ROS_INFO("[DemoSharon] Wait for user's command.");
+                // ROS_INFO("[DemoSharon] Wait for user's command.");
                 if (!glassesCommandReceived_ && asrCommandReceived_)
                 {
                     ROS_WARN("[DemoSharon] The gaze should be faster than the asr.");
@@ -196,9 +196,10 @@ namespace demo_sharon
                     }
                     else
                     {
-                        ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
+                        ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.");
                         waitingForGlassesCommand_ = true;
                         waitingForAsrCommand_ = true;
+                        glassesCommandReceived_ = false;
                     }
                 }
             }
@@ -894,23 +895,22 @@ namespace demo_sharon
             if (successGoToReaching)
             {
 
-                // Open gripper
-                moveGripper(openGripperPositions_, "right");
-                std::vector<std::string> objectIds;
-                objectIds.push_back("object_" + std::to_string(sqCategories_[indexSqCategoryAsr_].idSq));
-                planningSceneInterface_.removeCollisionObjects(objectIds);
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
-                goToGraspingPose(graspingPoses_.poses[indexFeasible]);
-                while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
-                {
-                    ROS_INFO("WAITING.....");
-                    ros::Duration(0.1).sleep();
-                }
-
-                ros::Duration(0.2).sleep(); // sleep for 1 seconds
-                moveGripper(closeGripperPositions_, "right");
-                ros::Duration(0.2).sleep(); // sleep for 1 seconds
-                goUp(groupRightArmTorsoPtr_, 0.1);
+                // // Open gripper
+                // moveGripper(openGripperPositions_, "right");
+                // std::vector<std::string> objectIds;
+                // objectIds.push_back("object_" + std::to_string(sqCategories_[indexSqCategoryAsr_].idSq));
+                // planningSceneInterface_.removeCollisionObjects(objectIds);
+                // ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                // goToGraspingPose(graspingPoses_.poses[indexFeasible]);
+                // while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
+                // {
+                //     ROS_INFO("WAITING.....");
+                //     ros::Duration(0.1).sleep();
+                // }
+       // ros::Duration(0.2).sleep(); // sleep for 1 seconds
+                // moveGripper(closeGripperPositions_, "right");
+                // ros::Duration(0.2).sleep(); // sleep for 1 seconds
+                // goUp(groupRightArmTorsoPtr_, 0.1);
 
                 releaseGripper_ = false;
                 while (ros::ok() && !releaseGripper_)
@@ -1734,16 +1734,80 @@ namespace demo_sharon
             foundAsr_ = false;
             if (useGlasses_)
             {
-                // Aqui se supone que ya tenemos el objeto que se quiere con la mirada
-                if (sqCategories_[indexGlassesSqCategory_].category.find(asr_, 0) != std::string::npos)
+                if (indexGlassesSqCategory_ >= 0)
                 {
-                    ROS_INFO("[DemoSharon] ASR command received is the same: %s", asr_.c_str());
-                    ROS_INFO("[DemoSharon] We continue to grasp the same object");
-                    waitingForAsrCommand_ = false;
-                }
-                else
-                {
-                    ROS_INFO("[DemoSharon] ASR command is different. Lets check if it's one of the detected objects by the robot.");
+                    // Aqui se supone que ya tenemos el objeto que se quiere con la mirada
+                    if (sqCategories_[indexGlassesSqCategory_].category.find(asr_, 0) != std::string::npos)
+                    {
+                        ROS_INFO("[DemoSharon] ASR command received is the same: %s", asr_.c_str());
+                        ROS_INFO("[DemoSharon] We continue to grasp the same object");
+                        waitingForAsrCommand_ = false;
+                    }
+                    else
+                    {
+                        ROS_INFO("[DemoSharon] ASR command is different. Lets check if it's one of the detected objects by the robot.");
+                        indexSqCategoryAsr_ = -1;
+                        for (int i = 0; i < sqCategories_.size(); i++)
+                        {
+                            ROS_INFO("%s %d", sqCategories_[i].category.c_str(), sqCategories_.size());
+                            if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
+                            {
+                                foundAsr_ = true;
+
+                                indexSqCategoryAsr_ = i;
+                                asrCommandReceived_ = true;
+                                waitingForAsrCommand_ = false;
+                                if (state_ == COMPUTE_GRASP_POSES)
+                                {
+                                    ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
+                                    pthread_cancel(threadComputeGraspPoses_);
+                                    ROS_INFO("CANCELLING THREAD!");
+                                    void *result;
+                                    pthread_join(threadComputeGraspPoses_, &result);
+                                    ROS_INFO("THREAD CANCELL");
+                                    indexSqCategory_ = indexSqCategoryAsr_;
+                                }
+                                else if (state_ == FIND_REACHING_GRASP_IK)
+                                {
+                                    ROS_INFO("CANCELL THREAD FOR FINDING IK");
+                                    pthread_cancel(threadFindReachGraspIK_);
+                                    ROS_INFO("CANCELLING THREAD!");
+                                    indexSqCategory_ = indexSqCategoryAsr_;
+                                }
+                                else if (state_ == PLAN_TO_REACHING_JOINTS)
+                                {
+                                    indexSqCategory_ = indexSqCategoryAsr_;
+                                }
+                                else if (state_ == EXECUTE_PLAN_TO_REACHING_JOINTS)
+                                {
+                                    indexSqCategory_ = indexSqCategoryAsr_;
+                                    stopMotion_ = true;
+                                }
+                                else if (state_ == UNABLE_TO_REACHING_GRASP_IK)
+                                {
+                                    indexSqCategory_ = indexSqCategoryAsr_;
+                                }
+                                break;
+                            }
+                        }
+                        if (indexSqCategoryAsr_ >= 0)
+                        {
+                            state_ = -1;
+                        }
+                        else
+                        {
+                            ROS_WARN("[DemoSharon] ASR request: %s NOT found.", asr_.c_str());
+                            // robot should say I don't recognize this object.
+                            if (state_ = COMPUTE_GRASP_POSES)
+                            {
+                                ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
+                                pthread_cancel(threadComputeGraspPoses_);
+                                state_ = -1;
+                            }
+                        }
+                    }
+                }else{
+                    ROS_WARN("[DemoSharon] Glasses command should be faster than asr command.");
                     indexSqCategoryAsr_ = -1;
                     for (int i = 0; i < sqCategories_.size(); i++)
                     {
@@ -1755,52 +1819,6 @@ namespace demo_sharon
                             indexSqCategoryAsr_ = i;
                             asrCommandReceived_ = true;
                             waitingForAsrCommand_ = false;
-                            if (state_ == COMPUTE_GRASP_POSES)
-                            {
-                                ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
-                                pthread_cancel(threadComputeGraspPoses_);
-                                ROS_INFO("CANCELLING THREAD!");
-                                void *result;
-                                pthread_join(threadComputeGraspPoses_, &result);
-                                ROS_INFO("THREAD CANCELL");
-                                indexSqCategory_ = indexSqCategoryAsr_;
-                            }
-                            else if (state_ == FIND_REACHING_GRASP_IK)
-                            {
-                                ROS_INFO("CANCELL THREAD FOR FINDING IK");
-                                pthread_cancel(threadFindReachGraspIK_);
-                                ROS_INFO("CANCELLING THREAD!");
-                                indexSqCategory_ = indexSqCategoryAsr_;
-                            }
-                            else if (state_ == PLAN_TO_REACHING_JOINTS)
-                            {
-                                indexSqCategory_ = indexSqCategoryAsr_;
-                            }
-                            else if (state_ == EXECUTE_PLAN_TO_REACHING_JOINTS)
-                            {
-                                indexSqCategory_ = indexSqCategoryAsr_;
-                                stopMotion_ = true;
-                            }
-                            else if (state_ == UNABLE_TO_REACHING_GRASP_IK)
-                            {
-                                indexSqCategory_ = indexSqCategoryAsr_;
-                            }
-                            break;
-                        }
-                    }
-                    if (indexSqCategoryAsr_ >= 0)
-                    {
-                        state_ = -1;
-                    }
-                    else
-                    {
-                        ROS_WARN("[DemoSharon] ASR request: %s NOT found.", asr_.c_str());
-                        // robot should say I don't recognize this object.
-                        if (state_ = COMPUTE_GRASP_POSES)
-                        {
-                            ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
-                            pthread_cancel(threadComputeGraspPoses_);
-                            state_ = -1;
                         }
                     }
                 }
