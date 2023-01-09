@@ -210,13 +210,19 @@ namespace demo_sharon
                 if (firstInState)
                 {
                     pthread_create(&threadComputeGraspPoses_, NULL, &this->sendcomputeGraspPosesThreadWrapper, this);
-                    pthread_join(threadComputeGraspPoses_, NULL);
-                    firstInState = false;
-                }
-                else
-                {
-                    firstInState = true;
-                    state_ = FIND_REACHING_GRASP_IK;
+                    void *result;
+                    pthread_join(threadComputeGraspPoses_, &result);
+                    if (result == PTHREAD_CANCELED)
+                    {
+                        firstInState = true;
+                        ROS_INFO("[DemoSharon] Gaze command category %s Asr command category: %s.", sqCategories_[indexGlassesSqCategory_].category.c_str(), sqCategories_[indexSqCategoryAsr_].category.c_str());
+                        state_ = -1;
+                    }
+                    else
+                    {
+                        firstInState = true;
+                        state_ = FIND_REACHING_GRASP_IK;
+                    }
                 }
             }
             break;
@@ -263,8 +269,8 @@ namespace demo_sharon
 
                     pthread_create(&threadPlanToReachJoints_, NULL, &this->sendPlanToReachJointsThreadWrapper, this);
                     void *result;
-                    ROS_INFO("WAIT IN FIND_REACHING_GRASP_IK");
-                    pthread_join(threadFindReachGraspIK_, &result);
+                    ROS_INFO("WAIT IN PLAN_TO_REACHING_JOINTS");
+                    pthread_join(threadPlanToReachJoints_, &result);
                     if (result == PTHREAD_CANCELED)
                     {
                         firstInState = true;
@@ -316,15 +322,24 @@ namespace demo_sharon
                 }
                 else
                 {
-                    ROS_INFO("OPEN GRIPPER!");
-                    // Open gripper
-                    moveGripper(openGripperPositions_, "right");
-                    std::vector<std::string> objectIds;
-                    objectIds.push_back("object_" + std::to_string(sqCategories_[indexSqCategory_].idSq));
-                    planningSceneInterface_.removeCollisionObjects(objectIds);
-                    ros::Duration(1.0).sleep(); // sleep for 1 seconds
-                    firstInState = true;
-                    state_ = APROACH_TO_GRASP;
+                    if (foundAsr_)
+                    {
+                        state_ = -1;
+                        firstInState = true;
+                        foundAsr_ = false;
+                    }
+                    else
+                    {
+                        ROS_INFO("OPEN GRIPPER!");
+                        // Open gripper
+                        moveGripper(openGripperPositions_, "right");
+                        std::vector<std::string> objectIds;
+                        objectIds.push_back("object_" + std::to_string(sqCategories_[indexSqCategory_].idSq));
+                        planningSceneInterface_.removeCollisionObjects(objectIds);
+                        ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                        firstInState = true;
+                        state_ = APROACH_TO_GRASP;
+                    }
                 }
             }
             break;
@@ -377,7 +392,7 @@ namespace demo_sharon
                     if (!releaseGripper_)
                     {
                         ROS_INFO("Waiting for command to release the gripper...");
-                        ros::Duration(0.1).sleep(); // sleep for 1 seconds
+                        ros::Duration(0.5).sleep(); // sleep for 1 seconds
                     }
                     else
                     {
@@ -397,11 +412,48 @@ namespace demo_sharon
                     ROS_INFO("OBJETC DELIVERED!");
                     firstInState = false;
                 }
+                else
+                {
+                    if (!moveToHomePosition_)
+                    {
+                        ROS_INFO("Waiting for command to move to home position...");
+                        ros::Duration(0.5).sleep(); // sleep for 1 seconds
+                    }
+                    else
+                    {
+                        if (!initializeRightArmPosition(initRightArmPositions_))
+                        {
+                            return;
+                        }
+
+                        if (!initializeLeftArmPosition(initLeftArmPositions_))
+                        {
+                            return;
+                        }
+
+                        initializeTorsoPosition(initTorsoPosition_);
+
+                        initializeHeadPosition(initHeadPositions_);
+
+                        ros::Duration(1.5).sleep(); // sleep for 2 seconds
+
+                        state_ = ROBOT_IN_HOME_POSITION;
+                        firstInState = true;
+                    }
+                }
             }
             break;
+            case ROBOT_IN_HOME_POSITION:{
+                if (firstInState)
+                {
+                    ROS_INFO("ROBOT IN HOME POSITION!");
+                    firstInState = false;
+                }
+            }break;
             case -1:
             {
-                ROS_INFO("YES!! KILLED COMPUTE GRASP POSES");
+                ROS_INFO("YES!! KILLED THE CURRENT EXECUTION THREAD");
+                indexSqCategory_ = indexSqCategoryAsr_;
                 firstInState = true;
                 state_ = COMPUTE_GRASP_POSES;
             }
@@ -410,8 +462,9 @@ namespace demo_sharon
             {
                 if (firstInState)
                 {
-                    ROS_INFO("Unable to found ik to any of the possible reaching poses. What now?");
+                    ROS_WARN("Unable to found ik to any of the possible reaching poses. What now?");
                     firstInState = false;
+                    return;
                 }
             }
             break;
@@ -907,7 +960,7 @@ namespace demo_sharon
                 //     ROS_INFO("WAITING.....");
                 //     ros::Duration(0.1).sleep();
                 // }
-       // ros::Duration(0.2).sleep(); // sleep for 1 seconds
+                // ros::Duration(0.2).sleep(); // sleep for 1 seconds
                 // moveGripper(closeGripperPositions_, "right");
                 // ros::Duration(0.2).sleep(); // sleep for 1 seconds
                 // goUp(groupRightArmTorsoPtr_, 0.1);
@@ -1506,6 +1559,7 @@ namespace demo_sharon
         asrSubscriber_ = nodeHandle_.subscribe("/asr_node/data", 10, &DemoSharon::asrCallback, this);
         glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoSharon::glassesDataCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo_sharon/release_gripper", &DemoSharon::releaseGripper, this);
+        serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo_sharon/move_to_home_position", &DemoSharon::moveToHomePosition, this);
 
         ros::param::get("demo_sharon/use_asr", useAsr_);
         ros::param::get("demo_sharon/use_glasses", useGlasses_);
@@ -1572,6 +1626,12 @@ namespace demo_sharon
     bool DemoSharon::releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
     {
         releaseGripper_ = true;
+        return true;
+    }
+
+    bool DemoSharon::moveToHomePosition(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+    {
+        moveToHomePosition_ = true;
         return true;
     }
 
@@ -1762,9 +1822,6 @@ namespace demo_sharon
                                     ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
                                     pthread_cancel(threadComputeGraspPoses_);
                                     ROS_INFO("CANCELLING THREAD!");
-                                    void *result;
-                                    pthread_join(threadComputeGraspPoses_, &result);
-                                    ROS_INFO("THREAD CANCELL");
                                     indexSqCategory_ = indexSqCategoryAsr_;
                                 }
                                 else if (state_ == FIND_REACHING_GRASP_IK)
@@ -1776,12 +1833,19 @@ namespace demo_sharon
                                 }
                                 else if (state_ == PLAN_TO_REACHING_JOINTS)
                                 {
+                                    ROS_INFO("CANCELL THREAD FOR PLAN_TO_REACHING_JOINTS");
+                                    pthread_cancel(threadFindReachGraspIK_);
+                                    ROS_INFO("CANCELLING THREAD!");
                                     indexSqCategory_ = indexSqCategoryAsr_;
                                 }
                                 else if (state_ == EXECUTE_PLAN_TO_REACHING_JOINTS)
                                 {
                                     indexSqCategory_ = indexSqCategoryAsr_;
                                     stopMotion_ = true;
+                                }
+                                else if (state_ == OPEN_GRIPPER)
+                                {
+                                    indexSqCategory_ = indexSqCategoryAsr_;
                                 }
                                 else if (state_ == UNABLE_TO_REACHING_GRASP_IK)
                                 {
@@ -1806,7 +1870,9 @@ namespace demo_sharon
                             }
                         }
                     }
-                }else{
+                }
+                else
+                {
                     ROS_WARN("[DemoSharon] Glasses command should be faster than asr command.");
                     indexSqCategoryAsr_ = -1;
                     for (int i = 0; i < sqCategories_.size(); i++)
@@ -1877,6 +1943,7 @@ namespace demo_sharon
             graspingPoses_ = srvGraspingPoses.response.poses;
         }
         ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses_.poses.size());
+        // ros::Duration(4.0).sleep();
     }
 
     void *DemoSharon::sendFindReachGraspIKThreadWrapper(void *object)
@@ -1918,6 +1985,7 @@ namespace demo_sharon
                 break;
             }
         }
+        // ros::Duration(4.0).sleep();
     }
 
     void *DemoSharon::sendPlanToReachJointsThreadWrapper(void *object)
@@ -1937,6 +2005,7 @@ namespace demo_sharon
         groupRightArmTorsoPtr_->setStartState(start_state);
 
         moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
+        // ros::Duration(4.0).sleep();
         successPlanning_ = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
     }
 

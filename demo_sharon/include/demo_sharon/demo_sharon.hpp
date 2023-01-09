@@ -64,6 +64,7 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define GO_UP 9
 #define RELEASE_OBJECT 10
 #define OBJECT_DELIVERED 11
+#define ROBOT_IN_HOME_POSITION 12
 #define UNABLE_TO_REACHING_GRASP_IK -2
 namespace demo_sharon
 {
@@ -109,6 +110,8 @@ namespace demo_sharon
         bool goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance);
 
         bool releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+
+        bool moveToHomePosition(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 
         bool getBoundingBoxesFromSupercuadrics();
 
@@ -161,10 +164,12 @@ namespace demo_sharon
         ros::ServiceClient clientGetBboxesSuperquadrics_;
 
         ros::ServiceServer serviceReleaseGripper_;
+        ros::ServiceServer serviceMoveToHomePosition_;
         ros::Subscriber asrSubscriber_;
         ros::Subscriber glassesDataSubscriber_;
         ros::Subscriber moveGroupStatusSubscriber_;
         bool releaseGripper_ = false;
+        bool moveToHomePosition_ = false;
         sharon_msgs::BoundingBoxes bboxesMsg_;
         darknet_ros_msgs::BoundingBoxes yoloBBoxesMsg_;
         geometry_msgs::Pose reachingPose_;
