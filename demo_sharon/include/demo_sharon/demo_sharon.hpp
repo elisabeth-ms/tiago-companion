@@ -51,7 +51,7 @@ typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction>
 typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_client_Ptr;
 
 // TODO: ADD AS ROS PARAMS
-#define DISTANCE_TOOL_LINK_GRIPPER_LINK 0.151
+#define DISTANCE_TOOL_LINK_GRIPPER_LINK 0.185
 #define INITIALIZE 0
 #define WAIT_FOR_COMMAND 1
 #define COMPUTE_GRASP_POSES 2
@@ -204,7 +204,7 @@ namespace demo_sharon
 
 
         float openGripperPositions_[2] = {0.07, 0.07};
-        float closeGripperPositions_[2] = {0.03, 0.03};
+        float closeGripperPositions_[2] = {0.010, 0.010};
         float maxErrorJoints_;
         std::vector<float> initHeadPositions_;
         float initTorsoPosition_;

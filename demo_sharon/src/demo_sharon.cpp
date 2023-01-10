@@ -298,9 +298,12 @@ namespace demo_sharon
                     {
                         state_ = OPEN_GRIPPER;
                         firstInState = true;
+			ROS_INFO("Done execution");
+			stopMotion_ = false;
                     }
                     if (stopMotion_)
                     {
+			ROS_INFO("Stop motion");
                         groupRightArmTorsoPtr_->stop();
                         state_ = -1;
                         firstInState = true;
@@ -1854,11 +1857,8 @@ namespace demo_sharon
                                 break;
                             }
                         }
-                        if (indexSqCategoryAsr_ >= 0)
-                        {
-                            state_ = -1;
-                        }
-                        else
+                       
+			 if (indexSqCategoryAsr_ <0)
                         {
                             ROS_WARN("[DemoSharon] ASR request: %s NOT found.", asr_.c_str());
                             // robot should say I don't recognize this object.
