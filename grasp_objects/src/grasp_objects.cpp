@@ -341,7 +341,7 @@ namespace grasp_objects
         KDL::Frame frame_grasping_wrt_world;
         std::cout << "axes length: " << 2 * params[0] << " " << 2 * params[1] << ": " << 2 * params[2] << std::endl;
 
-        float step = 0.025;
+        float step = 0.015;
         if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP)
         {
             KDL::Vector zobject;
