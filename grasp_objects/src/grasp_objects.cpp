@@ -525,7 +525,8 @@ namespace grasp_objects
 
         mtxActivate_.lock();
         activate_ = req.activate;
-        ROS_INFO("[GraspObjects] Activate superquadrics Computation: %d", activate_);
+        count_ = 0;
+	ROS_INFO("[GraspObjects] Activate superquadrics Computation: %d", activate_);
         res.success = true;
         mtxActivate_.unlock();
         return true;
@@ -692,8 +693,10 @@ namespace grasp_objects
         mtxActivate_.lock();
         activate = activate_;
         mtxActivate_.unlock();
-        if (activate)
+        if (activate && count_<2)
         {
+	    count_++;
+	    ROS_INFO("COUNT %d", count_);
             sensor_msgs::PointCloud2 pcOut;
 
             sensor_msgs::PointCloud2::Ptr cloud_msg(new sensor_msgs::PointCloud2);

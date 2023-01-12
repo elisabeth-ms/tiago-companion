@@ -108,6 +108,7 @@ namespace grasp_objects{
 
         private:
         //! ROS node handle.
+	int count_ = 0;
         ros::NodeHandle nodeHandle_;
         ros::Subscriber pointCloudSubscriber_;
         image_transport::Subscriber compressedDepthImageSubscriber_;
