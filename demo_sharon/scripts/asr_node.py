@@ -10,34 +10,44 @@ from std_msgs.msg import String
 from sharon_msgs.srv import ActivateASR
 
 
-word_dict = ['plate', 
-             'bowl', 
-             'cup', 
-             'fork', 
-             'spoon', 
-             'knife', 
-             'cutting board', 
-             'microwave', 
-             'toaster',
-             'fridge',
-             'sugar',
+word_dict = ['sugar',
              'cereals', 
-             'olive oil', 
-             'nesquick',
              'coffee',
-             'sliced bread',
-             'tomato sauce', 
-             'jam', 
-             'nutella',
-             'butter',
+             'bread',
              'milk',
              'water', 
-    	     'background', 
-             'start',
-             'end',
-             'training',
-             'grasping'
+             'please',
              ]
+
+# word_dict = ['plate', 
+#              'bowl', 
+#              'cup', 
+#              'fork', 
+#              'spoon', 
+#              'knife', 
+#              'cutting board', 
+#              'microwave', 
+#              'toaster',
+#              'fridge',
+#              'sugar',
+#              'cereals', 
+#              'olive oil', 
+#              'nesquick',
+#              'coffee',
+#              'sliced bread',
+#              'tomato sauce', 
+#              'jam', 
+#              'nutella',
+#              'butter',
+#              'milk',
+#              'water', 
+#     	     'background', 
+#              'start',
+#              'end',
+#              'training',
+#              'grasping'
+#              ]
+
 
 
 class ASR(object):
@@ -48,10 +58,12 @@ class ASR(object):
         self.device_id = None
         self.serviceActiveASR = rospy.Service('/asr_node/activate_asr', ActivateASR, self.activate_asr)
         self.activated = False
-        self.r.pause_threshold = 0.15
-        self.r.non_speaking_duration = 0.1
+        self.r = sr.Recognizer()
+        self.r.pause_threshold = 0.6
+        self.r.non_speaking_duration = 0.18
         mic_list = sr.Microphone.list_microphone_names()
-        mic_name = "Andrea Comm USB-SA Headset: Audio (hw:1,0)"
+        #mic_name = "Andrea Comm USB-SA Headset: Audio (hw:1,0)"
+        mic_name = "default"
         print(mic_list)
         for i, microphone_name in enumerate(mic_list):
             if microphone_name == mic_name:
@@ -174,12 +186,15 @@ class ASR(object):
         return closestWords
     
     def update(self):
-        self.r = sr.Recognizer()
 
         with sr.Microphone(device_index = self.device_id) as source:
             print("Adjusting ambient noise...")
-            self.r.adjust_for_ambient_noise(source, duration = 8.5)
-
+            self.r.adjust_for_ambient_noise(source, duration = 5.5)
+        self.r.energy_threshold = self.r.energy_threshold*1.2
+        
+        self.r.dynamic_energy_threshold = False
+        print(self.r.energy_threshold)
+        
         while not rospy.is_shutdown():
             
             if self.activated:
@@ -187,43 +202,69 @@ class ASR(object):
                 with sr.Microphone(device_index = self.device_id) as source:
                     print("Talk:")
                     audio_data = self.r.listen(source)
+                    print(audio_data)
                     print("Stop - Recognizing...\n")
                     
                     
                     try:
                         # esta pensado que se hable en inglés, si se quiere hablar en español r.recognize_google(audio_data,language="es-ES")
-                        text = self.r.recognize_google(audio_data)
+                        text = self.r.recognize_google(audio_data, language="en-us")
                         print("What you said: " + text)
                         words = text.split()
                 
                         text_list = []
-                        for word in words:
-                            print(word)
-                            word_dictionary_sound = self.calcDictDistance(nysiis(word), 1, self.sounds)
+                        
+                        if words[-1] == 'please':
+                            word_dictionary_sound = self.calcDictDistance(nysiis(words[-2]), 1, self.sounds)
+                        else:
+                            word_dictionary_sound = self.calcDictDistance(nysiis(words[-1]), 1, self.sounds)
+
                     
-                            # si se quiere hacer por similitud de palabras y no por similitud de sonido
-                            # word_dictionary = calcDictDistance(word, 1, word_dict)
-                            # print("Similar word: ", word_dictionary[0])
+                        #     # si se quiere hacer por similitud de palabras y no por similitud de sonido
+                        #     # word_dictionary = calcDictDistance(word, 1, word_dict)
+                        print("Similar word: ", word_dictionary_sound[0])
                     
-                            text_list.append(self.get_key(word_dictionary_sound[0]))
+                        text_list.append(self.get_key(word_dictionary_sound[0]))
                     
-                            # las palabras compuestas son casos especiales
-                            if self.get_key(word_dictionary_sound[0]) == 'cutting board':
-                                break;
-                            elif self.get_key(word_dictionary_sound[0]) == 'tomato sauce':
-                                break;
-                            elif self.get_key(word_dictionary_sound[0]) == 'sliced bread':
-                                break;
-                            elif self.get_key(word_dictionary_sound[0]) == 'olive oil':
-                                break;
+                        #     # las palabras compuestas son casos especiales
+                        #     if self.get_key(word_dictionary_sound[0]) == 'cutting board':
+                        #         break;
+                        #     elif self.get_key(word_dictionary_sound[0]) == 'tomato sauce':
+                        #         break;
+                        #     elif self.get_key(word_dictionary_sound[0]) == 'sliced bread':
+                        #         break;
+                        #     elif self.get_key(word_dictionary_sound[0]) == 'olive oil':
+                        #         break;
+                        
+                        
+                        
+                        # for word in words:
+                        #     print(word)
+                        #     word_dictionary_sound = self.calcDictDistance(nysiis(word), 1, self.sounds)
+                    
+                        #     # si se quiere hacer por similitud de palabras y no por similitud de sonido
+                        #     # word_dictionary = calcDictDistance(word, 1, word_dict)
+                        #     # print("Similar word: ", word_dictionary[0])
+                    
+                        #     text_list.append(self.get_key(word_dictionary_sound[0]))
+                    
+                        #     # las palabras compuestas son casos especiales
+                        #     if self.get_key(word_dictionary_sound[0]) == 'cutting board':
+                        #         break;
+                        #     elif self.get_key(word_dictionary_sound[0]) == 'tomato sauce':
+                        #         break;
+                        #     elif self.get_key(word_dictionary_sound[0]) == 'sliced bread':
+                        #         break;
+                        #     elif self.get_key(word_dictionary_sound[0]) == 'olive oil':
+                        #         break;
                     
                         save_text = ' '.join(text_list)
                         print("Autocorrection: ",save_text)
                         print("---------------------------------")
                         
-            
+                        words_after_correction = save_text.split()
                         msgText = String()
-                        msgText.data = save_text.lower()
+                        msgText.data = words_after_correction[-1].lower()
                         self.pubAsr.publish(msgText)
                         
                     except IndexError: # the API key didn't work
@@ -236,8 +277,7 @@ class ASR(object):
                         print("Google Speech Recognition could not understand audio")
                     except sr.RequestError as e:
                         print("Could not request results from Google Speech Recognition service; {0}".format(e))
-                    except:
-                        print('Sorry.. run again...')
+                    except:                        print('Sorry.. run again...')
             
 
 
