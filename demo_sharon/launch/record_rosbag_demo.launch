@@ -1,0 +1,15 @@
+<launch>
+  <node pkg="rosbag" type="record" name="rosbag_record_demo" args="record -o  /home/bags/ /asr_node/data  /comms_glasses_server/data /tf /tf_static 
+  /execute_trajectory/feedback /execute_trajectory/result /execute_trajectory/status /gripper_right_controller/follow_joint_trajectory/feedback 
+  /gripper_right_controller/follow_joint_trajectory/result/ gripper_right_controller/follow_joint_trajectory/status /head_controller/follow_joint_trajectory/feedback
+  /head_controller/follow_joint_trajectory/result /head_controller/follow_joint_trajectory/status /move_group/feedback /move_group/result
+  /move_group/status /torso_controller/follow_joint_trajectory/feedback /torso_controller/follow_joint_trajectory/result 
+  /torso_controller/follow_joint_trajectory/status /attached_collision_object /execute_trajectory/cancel /execute_trajectory/goal 
+  /gripper_right_controller/follow_joint_trajectory/cancel /gripper_right_controller/follow_joint_trajectory/goal 
+  /head_controller/follow_joint_trajectory/cancel /head_controller/follow_joint_trajectory/goal /move_group/cancel /move_group/goal 
+  /planning_scene /rosout /torso_controller/follow_joint_trajectory/cancel /torso_controller/follow_joint_trajectory/goal 
+  /trajectory_execution_event /added_points /grasp_objects/bbox3d /grasp_objects/poses /grasp_objects/superquadrics 
+  /grasp_objects/superquadrics_cloud /transformed_cloud /darknet_ros/bounding_boxes /darknet_ros/detection_image /darknet_ros/found_object 
+  /xtion/rgb/image_rect_color /xtion/depth_registered/image_raw /xtion/rgb/camera_info /xtion/rgb/image_raw /xtion/depth/camera_info 
+  comms_glasses_server/image comms_glasses_server/data comms_glasses_server/image_markers"/>
+</launch>

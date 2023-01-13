@@ -111,13 +111,12 @@ class CommsGlassesServer(object):
         print("Lets accept the connection")
         
 
-        print("Connection accept")
         ok = False
         
         while not rospy.is_shutdown():
             if self.wait_for_connection:
                 (self.connection, addr) = self.socket.accept()
-                
+                print("Connection accept")
                 self.wait_for_connection = False
             else:
                 try:
@@ -205,7 +204,7 @@ class CommsGlassesServer(object):
                     try:
                         self.connection.sendall(data_ok_cipher)
                     except:
-                        self.close_connections()
+                        # self.close_connections()
                         self.create_cipher_encrypt_decrypt()
                         self.listen(self.serverIp, self.port)
                         self.wait_for_connection = True

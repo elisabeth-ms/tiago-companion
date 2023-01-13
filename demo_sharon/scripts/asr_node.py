@@ -55,6 +55,7 @@ class ASR(object):
         
         rospy.loginfo("Initalizing asr_node...")
         self.pubAsr = rospy.Publisher('asr_node/data', String,queue_size=20)
+        self.pubAsrDetectsSound = rospy.Publisher('asr_node/detects_sound', String,queue_size=20)
         self.device_id = None
         self.serviceActiveASR = rospy.Service('/asr_node/activate_asr', ActivateASR, self.activate_asr)
         self.activated = False
@@ -223,8 +224,11 @@ class ASR(object):
                         #     # si se quiere hacer por similitud de palabras y no por similitud de sonido
                         #     # word_dictionary = calcDictDistance(word, 1, word_dict)
                         print("Similar word: ", word_dictionary_sound[0])
-                    
-                        text_list.append(self.get_key(word_dictionary_sound[0]))
+                        
+                        if  self.get_key(word_dictionary_sound[0]) == 'bread':
+                            text_list.append("sliced_bread")
+                        else:
+                            text_list.append(self.get_key(word_dictionary_sound[0]))
                     
                         #     # las palabras compuestas son casos especiales
                         #     if self.get_key(word_dictionary_sound[0]) == 'cutting board':
