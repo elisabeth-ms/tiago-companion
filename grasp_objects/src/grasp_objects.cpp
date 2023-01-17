@@ -33,7 +33,7 @@ namespace grasp_objects
         ros::param::get("grasp_objects/th_points", th_points_);
 
         nodeHandle_.param("subscribers/point_cloud/topic", pointCloudTopicName, std::string("/xtion/depth/points"));
-        nodeHandle_.param("subscribers/camera_info/topic", cameraInfoTopicName, std::string("/xtion/rgb/camera_info"));
+        nodeHandle_.param("subscribers/camera_info/topic", cameraInfoTopicName, std::string("/xtion/depth/camera_info"));
         // nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth/image_rect"));
         nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth_registered/image_raw"));
 
@@ -713,7 +713,7 @@ namespace grasp_objects
 
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZ>);
 
-            listener_.lookupTransform("/base_footprint", "/xtion_depth_optical_frame", ros::Time(0), transformCameraWrtBase_);
+            listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transformCameraWrtBase_);
 
             pcl_ros::transformPointCloud(std::string("/base_footprint"), transformCameraWrtBase_, *cloud_msg, pcOut);
 
