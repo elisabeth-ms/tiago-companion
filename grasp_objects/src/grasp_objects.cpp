@@ -341,7 +341,7 @@ namespace grasp_objects
         KDL::Frame frame_grasping_wrt_world;
         std::cout << "axes length: " << 2 * params[0] << " " << 2 * params[1] << ": " << 2 * params[2] << std::endl;
 
-        float step = 0.015;
+        float step = 0.008;
         if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP)
         {
             KDL::Vector zobject;
@@ -354,7 +354,7 @@ namespace grasp_objects
             for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
             {
                 yobject = KDL::Vector(0, yaxes, 0);
-                for (float x = 0; x <= params[0] / 2.0; x += step)
+                for (float x = 0; x <= params[0] / 1.4; x += step)
                 {
                     float xaxes = 1.0;
                     zobject = KDL::Vector(xaxes, 0.0, 0.0);
@@ -394,7 +394,7 @@ namespace grasp_objects
             for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
             {
                 xobject = KDL::Vector(xaxes, 0, 0);
-                for (float y = 0; y <= params[1] / 2.0; y += step)
+                for (float y = 0; y <= params[1] / 1.4; y += step)
                 // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
                 {
                     zobject = KDL::Vector(0, yaxes, 0.0);
@@ -442,7 +442,7 @@ namespace grasp_objects
             for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
             {
                 yobject = KDL::Vector(0, yaxes, 0);
-                for (float x = 0; x <= params[0] / 2.0; x += step)
+                for (float x = 0; x <= params[0] / 1.4; x += step)
                 {
                     float xaxes = -1.0;
                     zobject = KDL::Vector(0.0, 0.0, xaxes);
@@ -482,7 +482,7 @@ namespace grasp_objects
             for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
             {
                 xobject = KDL::Vector(xaxes, 0, 0);
-                for (float y = 0; y <= params[1] / 2.0; y += step)
+                for (float y = 0; y <= params[1] / 1.4; y += step)
                 // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
                 {
                     zobject = KDL::Vector(0, yaxes, 0.0);
@@ -518,6 +518,7 @@ namespace grasp_objects
                 }
             }
         }
+        
     }
 
     bool GraspObjects::activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request &req, sharon_msgs::ActivateSupercuadricsComputation::Response &res)
@@ -796,7 +797,8 @@ namespace grasp_objects
                 for (unsigned int idx = 0; idx < detectedObjects_.size(); idx++)
                 {
 
-                    addPointsToObjectCloud(idx, 0.6, 0.02, 0.0005);
+                    // addPointsToObjectCloud(idx, 0.5, 0.02, 0.0005);
+                    // ROS_INFO("addPointsToObjectCloud DONE");
                     // for(int i=0; i<detectedObjects_[idx].object_cloud.points.size(); i++){
                     //     pcl::PointXYZRGB p = detectedObjects_[idx].object_cloud.points[i];
                     //     allPoints->points.push_back(p);
@@ -836,6 +838,8 @@ namespace grasp_objects
                     superquadricObjects_.push_back(objectSuperquadric);
                     superquadricsMsg_.superquadrics.push_back(superquadric);
                 }
+
+                ROS_INFO("AQUI!!");
                 // Convert to ROS data type
                 sensor_msgs::PointCloud2 pcOutSupeqs;
                 pcl::PCLPointCloud2 *cloudAux = new pcl::PCLPointCloud2;
@@ -866,6 +870,8 @@ namespace grasp_objects
         std::cout << "Max z: " << maxPt.z << std::endl;
         std::cout << "Min z: " << minPt.z << std::endl;
         std::vector<int> indexes;
+        ROS_INFO("%d", detectedObjects_[idx].object_cloud.size());
+
         if (maxPt.z > minHeight)
         {
             for (int i = 0; i < detectedObjects_[idx].object_cloud.size(); i++)
@@ -874,7 +880,7 @@ namespace grasp_objects
                 if (p.z >= (maxPt.z - distanceTop))
                 {
                     indexes.push_back(i);
-                    // std::cout << "we have a point z: " << p.z << std::endl;
+                    std::cout << "we have a point z: " << p.z << std::endl;
                 }
             }
             for (int j = 0; j < indexes.size(); j++)
@@ -894,6 +900,7 @@ namespace grasp_objects
                     auxp.z -= distanceBtwPoints;
                 }
             }
+            ROS_INFO("%d", detectedObjects_[idx].object_cloud.size());
         }
     }
 

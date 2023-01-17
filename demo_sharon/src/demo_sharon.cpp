@@ -222,6 +222,7 @@ namespace demo_sharon
                     {
                         firstInState = true;
                         state_ = FIND_REACHING_GRASP_IK;
+                        indexGraspingPose_=-1;
                     }
                 }
             }
@@ -277,9 +278,15 @@ namespace demo_sharon
                         state_ = -1;
                     }
                     else
-                    {
-                        firstInState = true;
-                        state_ = EXECUTE_PLAN_TO_REACHING_JOINTS;
+                    {   if(successPlanning_){
+                            firstInState = true;
+                            state_ = EXECUTE_PLAN_TO_REACHING_JOINTS;
+                        }
+                        else{
+                            firstInState = true;
+                            state_ = FIND_REACHING_GRASP_IK;
+
+                        }
                     }
                 }
             }
@@ -1959,7 +1966,7 @@ namespace demo_sharon
         ROS_INFO("This is the thread for computing the ik feasible poses.");
         robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
         kinematic_state->setToDefaultValues();
-        for (int idx = 0; idx < graspingPoses_.poses.size(); idx++)
+        for (int idx = indexGraspingPose_+1; idx < graspingPoses_.poses.size(); idx++)
         {
             ROS_INFO("[DemoSharon] idx: %d", idx);
             ROS_INFO("Grasping Pose[%d]: %f %f %f", idx, graspingPoses_.poses[idx].position.x, graspingPoses_.poses[idx].position.y, graspingPoses_.poses[idx].position.z);

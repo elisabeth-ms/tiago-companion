@@ -39,7 +39,7 @@
 #include "sharon_msgs/GetBboxes.h"
 
 #define DEFAULT_MIN_NPOINTS 100
-#define MAX_OBJECT_WIDTH_GRASP 0.25
+#define MAX_OBJECT_WIDTH_GRASP 0.16
 
 using SuperVoxelAdjacencyList = pcl::LCCPSegmentation<pcl::PointXYZRGB>::SupervoxelAdjacencyList;
 namespace grasp_objects{
