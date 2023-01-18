@@ -20,7 +20,7 @@
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/MoveGroupAction.h>
-
+#include <moveit_visual_tools/moveit_visual_tools.h>
 #include <actionlib/client/simple_action_client.h>
 
 // KDL
@@ -149,13 +149,16 @@ namespace demo_sharon
 
     private:
         //! ROS node handle.
+        moveit_visual_tools::MoveItVisualToolsPtr visualTools_;
         ros::NodeHandle nodeHandle_;
+
         int state_;
         follow_joint_control_client_Ptr headClient_;
         follow_joint_control_client_Ptr torsoClient_;
         follow_joint_control_client_Ptr rightGripperClient_;
         follow_joint_control_client_Ptr leftGripperClient_;
         follow_joint_control_client_Ptr rightArmClient_;
+        follow_joint_control_client_Ptr torsoRightArmClient_;
         follow_joint_control_client_Ptr leftArmClient_;
 
         ros::ServiceClient clientActivateSuperquadricsComputation_;

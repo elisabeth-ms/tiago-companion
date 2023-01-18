@@ -222,7 +222,7 @@ namespace demo_sharon
                     {
                         firstInState = true;
                         state_ = FIND_REACHING_GRASP_IK;
-                        indexGraspingPose_=-1;
+                        indexGraspingPose_ = -1;
                     }
                 }
             }
@@ -278,14 +278,16 @@ namespace demo_sharon
                         state_ = -1;
                     }
                     else
-                    {   if(successPlanning_){
+                    {
+                        if (successPlanning_)
+                        {
                             firstInState = true;
                             state_ = EXECUTE_PLAN_TO_REACHING_JOINTS;
                         }
-                        else{
+                        else
+                        {
                             firstInState = true;
                             state_ = FIND_REACHING_GRASP_IK;
-
                         }
                     }
                 }
@@ -305,12 +307,12 @@ namespace demo_sharon
                     {
                         state_ = OPEN_GRIPPER;
                         firstInState = true;
-			ROS_INFO("Done execution");
-			stopMotion_ = false;
+                        ROS_INFO("Done execution");
+                        stopMotion_ = false;
                     }
                     if (stopMotion_)
                     {
-			ROS_INFO("Stop motion");
+                        ROS_INFO("Stop motion");
                         groupRightArmTorsoPtr_->stop();
                         state_ = -1;
                         firstInState = true;
@@ -453,13 +455,15 @@ namespace demo_sharon
                 }
             }
             break;
-            case ROBOT_IN_HOME_POSITION:{
+            case ROBOT_IN_HOME_POSITION:
+            {
                 if (firstInState)
                 {
                     ROS_INFO("ROBOT IN HOME POSITION!");
                     firstInState = false;
                 }
-            }break;
+            }
+            break;
             case -1:
             {
                 ROS_INFO("YES!! KILLED THE CURRENT EXECUTION THREAD");
@@ -1058,39 +1062,91 @@ namespace demo_sharon
 
     bool DemoSharon::goToGraspingPose(const geometry_msgs::Pose &graspingPose)
     {
+
         groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+        groupRightArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
+
+        geometry_msgs::PoseStamped currentPose = groupRightArmTorsoPtr_->getCurrentPose();
         KDL::Frame frameEndWrtBase;
-        tf::poseMsgToKDL(graspingPose, frameEndWrtBase);
+        tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
         KDL::Frame frameToolWrtEnd;
-        frameToolWrtEnd.p[0] = -DISTANCE_TOOL_LINK_GRIPPER_LINK;
+        frameToolWrtEnd.p[0] = + reachingDistance_;
         KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
 
         geometry_msgs::Pose toolPose;
-
         tf::poseKDLToMsg(frameToolWrtBase, toolPose);
-        groupRightArmTorsoPtr_->setPoseTarget(toolPose);
 
-        moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
-        bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        if (successPlanning)
-        {
-            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
-            if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-            {
-                ROS_INFO("[DemoSharon] Success in moving the robot to the grasping pose.");
-                return true;
-            }
-            else
-            {
-                ROS_INFO("[DemoSharon] Error in moving the robot to the grasping pose.");
-                return false;
-            }
+        std::vector<geometry_msgs::Pose> waypoints;
+        waypoints.push_back(toolPose);
+
+        groupRightArmTorsoPtr_->setStartStateToCurrentState();
+
+
+        moveit_msgs::RobotTrajectory trajectory;
+        const double jump_threshold = 0.0;
+        const double eef_step = 0.001;
+        double fraction = groupRightArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+        ROS_INFO_NAMED("tutorial", "Visualizing plan 4 (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+        
+        
+        for(int i=0; i<trajectory.joint_trajectory.points.size(); i++){
+            ROS_INFO_STREAM(trajectory.joint_trajectory.points[i]);
         }
-        else
-        {
-            ROS_INFO("[DemoSharon] No feasible grasping pose!");
-            return false;
-        }
+        
+        moveit::planning_interface::MoveGroupInterface::Plan planAproach;
+
+        planAproach.trajectory_ = trajectory;
+
+
+
+        moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->execute(planAproach);
+        sleep(5.0);
+
+        // moveit_visual_tools::MoveItVisualTools visual_tools("base_footprint");
+        // visual_tools.deleteAllMarkers();
+
+        // // Remote control is an introspection tool that allows users to step through a high level script
+        // // via buttons and keyboard shortcuts in RViz
+        // visual_tools.loadRemoteControl();
+
+        // visual_tools.trigger();
+
+        // Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
+        // text_pose.translation().z() = 1.0;
+
+        // visual_tools.deleteAllMarkers();
+        // visual_tools.publishText(text_pose, "Cartesian Path", rvt::WHITE, rvt::XLARGE);
+        // visual_tools.publishPath(waypoints, rvt::LIME_GREEN, rvt::SMALL);
+        // for (std::size_t i = 0; i < waypoints.size(); ++i)
+        //     visual_tools.publishAxisLabeled(waypoints[i], "pt" + std::to_string(i), rvt::SMALL);
+        // visual_tools.trigger();
+        // visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+        return true;
+        // tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+        // groupRightArmTorsoPtr_->setPoseTarget(toolPose);
+
+        // moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
+        // bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        // if (successPlanning)
+        // {
+        //     moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
+        //     if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        //     {
+        //         ROS_INFO("[DemoSharon] Success in moving the robot to the grasping pose.");
+        //         return true;
+        //     }
+        //     else
+        //     {
+        //         ROS_INFO("[DemoSharon] Error in moving the robot to the grasping pose.");
+        //         return false;
+        //     }
+        // }
+        // else
+        // {
+        //     ROS_INFO("[DemoSharon] No feasible grasping pose!");
+        //     return false;
+        // }
     }
 
     bool DemoSharon::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible)
@@ -1602,6 +1658,8 @@ namespace demo_sharon
         groupLeftArmPtr_ = new moveit::planning_interface::MoveGroupInterface(nameLeftArmGroup_);
         ROS_INFO("[DemoSharon] Move group interface %s", nameLeftArmGroup_.c_str());
 
+
+
         groupRightArmTorsoPtr_->setPlanningTime(1.5);
         groupRightArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
         groupRightArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
@@ -1625,6 +1683,8 @@ namespace demo_sharon
         createClient(headClient_, std::string("head"));
         createClient(torsoClient_, std::string("torso"));
         createClient(rightGripperClient_, std::string("gripper_right"));
+        // createClient(torsoClient_, std::string("torso"));
+
 
         robot_model_loader::RobotModelLoader robotModelLoader_("robot_description");
         kinematicModel_ = robotModelLoader_.getModel();
@@ -1864,8 +1924,8 @@ namespace demo_sharon
                                 break;
                             }
                         }
-                       
-			 if (indexSqCategoryAsr_ <0)
+
+                        if (indexSqCategoryAsr_ < 0)
                         {
                             ROS_WARN("[DemoSharon] ASR request: %s NOT found.", asr_.c_str());
                             // robot should say I don't recognize this object.
@@ -1966,7 +2026,7 @@ namespace demo_sharon
         ROS_INFO("This is the thread for computing the ik feasible poses.");
         robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
         kinematic_state->setToDefaultValues();
-        for (int idx = indexGraspingPose_+1; idx < graspingPoses_.poses.size(); idx++)
+        for (int idx = indexGraspingPose_ + 1; idx < graspingPoses_.poses.size(); idx++)
         {
             ROS_INFO("[DemoSharon] idx: %d", idx);
             ROS_INFO("Grasping Pose[%d]: %f %f %f", idx, graspingPoses_.poses[idx].position.x, graspingPoses_.poses[idx].position.y, graspingPoses_.poses[idx].position.z);

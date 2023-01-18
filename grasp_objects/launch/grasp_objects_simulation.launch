@@ -1,0 +1,4 @@
+<launch>
+    <remap from="/xtion/depth/camera_info" to="/xtion/depth_registered/camera_info"/>
+    <node name="grasp_objects_node" pkg="grasp_objects" type="grasp_objects_node" output="screen"/>
+</launch>
