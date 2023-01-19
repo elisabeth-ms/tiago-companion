@@ -365,6 +365,7 @@ namespace demo_sharon
                 }
                 else
                 {
+		    ROS_INFO("HERE!!!!!!!!!!......");
                     if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
                         state_ = CLOSE_GRIPPER;
@@ -1089,18 +1090,19 @@ namespace demo_sharon
         ROS_INFO_NAMED("tutorial", "Visualizing plan 4 (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
         
         
-        for(int i=0; i<trajectory.joint_trajectory.points.size(); i++){
-            ROS_INFO_STREAM(trajectory.joint_trajectory.points[i]);
-        }
+        // for(int i=0; i<trajectory.joint_trajectory.points.size(); i++){
+        //     ROS_INFO_STREAM(trajectory.joint_trajectory.points[i]);
+        // }
         
         moveit::planning_interface::MoveGroupInterface::Plan planAproach;
 
         planAproach.trajectory_ = trajectory;
 
+        sleep(1.0);
 
 
         moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->execute(planAproach);
-        sleep(5.0);
+        // sleep(5.0);
 
         // moveit_visual_tools::MoveItVisualTools visual_tools("base_footprint");
         // visual_tools.deleteAllMarkers();
@@ -1108,6 +1110,7 @@ namespace demo_sharon
         // // Remote control is an introspection tool that allows users to step through a high level script
         // // via buttons and keyboard shortcuts in RViz
         // visual_tools.loadRemoteControl();
+
 
         // visual_tools.trigger();
 

@@ -1,5 +1,5 @@
-eps_angle: 5.0
-distance_threshold: 0.01
+eps_angle: 6.0
+distance_threshold: 0.05
 tol_superq: 0.00001
 optimizer_points: 800
 random_sampling: true

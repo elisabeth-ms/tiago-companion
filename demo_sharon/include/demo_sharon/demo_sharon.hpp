@@ -20,7 +20,7 @@
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/MoveGroupAction.h>
-#include <moveit_visual_tools/moveit_visual_tools.h>
+//#include <moveit_visual_tools/moveit_visual_tools.h>
 #include <actionlib/client/simple_action_client.h>
 
 // KDL
@@ -149,7 +149,7 @@ namespace demo_sharon
 
     private:
         //! ROS node handle.
-        moveit_visual_tools::MoveItVisualToolsPtr visualTools_;
+	//  moveit_visual_tools::MoveItVisualToolsPtr visualTools_;
         ros::NodeHandle nodeHandle_;
 
         int state_;

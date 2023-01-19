@@ -21,7 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning_interface
   darknet_ros_msgs
   actionlib
-  moveit_visual_tools
+#  moveit_visual_tools
 )
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -116,7 +116,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
    INCLUDE_DIRS include
 #  LIBRARIES grasp_objects
-  CATKIN_DEPENDS roscpp rospy std_msgs sharon_msgs kdl_conversions nav_msgs darknet_ros_msgs moveit_visual_tools
+  CATKIN_DEPENDS roscpp rospy std_msgs sharon_msgs kdl_conversions nav_msgs darknet_ros_msgs
 #  DEPENDS system_lib
 )
 
