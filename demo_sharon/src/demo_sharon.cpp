@@ -48,7 +48,9 @@ namespace demo_sharon
 
             case INITIALIZE:
             {
-
+                std_msgs::String msg;
+                msg.data = "INITIALIZING";
+                statePublisher_.publish(msg);
                 waitingForGlassesCommand_ = false;
                 glassesCommandReceived_ = false;
 
@@ -104,6 +106,10 @@ namespace demo_sharon
                 { // If it's empty, there is no objects to grasp
                     return;
                 }
+
+                msg.data = "INITIALIZING Superquadrics Available";
+                statePublisher_.publish(msg);
+
                 ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
                 ros::Duration(0.5).sleep(); // sleep for 2 seconds
 
@@ -111,16 +117,28 @@ namespace demo_sharon
                 {
                     return;
                 }
+                msg.data = "INITIALIZING Superquadrics BBoxes";
+                statePublisher_.publish(msg);
+
                 for (int i = 0; i < bboxesMsg_.bounding_boxes.size(); i++)
                     ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
                              bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
                              bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
+                
+                superquadricsBBoxesPublisher_.publish(bboxesMsg_);
 
                 sqCategories_.clear();
                 addSupequadricsPlanningScene();
 
+                msg.data = "INITIALIZING Superquadrics Added to the planning scene";
+                statePublisher_.publish(msg);
+
+
                 darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
                 yoloBBoxesMsg_ = *darknetBBoxesMsg;
+
+                msg.data = "INITIALIZING Darknet detection done";
+                statePublisher_.publish(msg);
 
                 for (int i = 0; i < yoloBBoxesMsg_.bounding_boxes.size(); i++)
                 {
@@ -152,10 +170,19 @@ namespace demo_sharon
                     }
                 }
 
+                msg.data = "INITIALIZING Categories associated with superquadrics";
+                statePublisher_.publish(msg);
+
                 for (int idx = 0; idx < sqCategories_.size(); idx++)
                 {
                     ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
+                    std::stringstream ss;
+                    ss << "id: " <<  sqCategories_[idx].idSq<< " category: " << sqCategories_[idx].category;
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
                 }
+
+
 
                 state_ = WAIT_FOR_COMMAND;
             }
@@ -1629,6 +1656,9 @@ namespace demo_sharon
         glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoSharon::glassesDataCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo_sharon/release_gripper", &DemoSharon::releaseGripper, this);
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo_sharon/move_to_home_position", &DemoSharon::moveToHomePosition, this);
+        statePublisher_ = nodeHandle_.advertise<std_msgs::String>("/demo_sharon/state", 10);
+        superquadricsBBoxesPublisher_ = nodeHandle_.advertise<sharon_msgs::BoundingBoxes>("/demo_sharon/superquadrics_bboxes", 10);
+
 
         ros::param::get("demo_sharon/use_asr", useAsr_);
         ros::param::get("demo_sharon/use_glasses", useGlasses_);

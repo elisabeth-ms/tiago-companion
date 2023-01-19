@@ -171,6 +171,10 @@ namespace demo_sharon
         ros::Subscriber asrSubscriber_;
         ros::Subscriber glassesDataSubscriber_;
         ros::Subscriber moveGroupStatusSubscriber_;
+
+        ros::Publisher statePublisher_;
+        ros::Publisher superquadricsBBoxesPublisher_;
+
         bool releaseGripper_ = false;
         bool moveToHomePosition_ = false;
         sharon_msgs::BoundingBoxes bboxesMsg_;
