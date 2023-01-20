@@ -189,6 +189,11 @@ namespace demo_sharon
             break;
             case WAIT_FOR_COMMAND:
             {
+
+                std_msgs::String msg;
+                // msg.data = "WAIT_FOR_COMMAND";
+                // statePublisher_.publish(msg);
+
                 waitingForGlassesCommand_ = true;
                 waitingForAsrCommand_ = true;
                 foundGlasses_ = false;
@@ -197,12 +202,16 @@ namespace demo_sharon
                 if (!glassesCommandReceived_ && asrCommandReceived_)
                 {
                     ROS_WARN("[DemoSharon] The gaze should be faster than the asr.");
+                    msg.data = "asr command received first";
+                    statePublisher_.publish(msg);
                     return;
                 }
                 if (glassesCommandReceived_ && !asrCommandReceived_)
                 {
                     ROS_INFO("[DemoSharon] Gaze command received.");
                     // Además que el objeto sea uno de los detectados
+                    msg.data = "Gaze command received received first";
+                    statePublisher_.publish(msg);
 
                     for (int i = 0; i < sqCategories_.size(); i++)
                     {
@@ -217,6 +226,10 @@ namespace demo_sharon
                     if (indexGlassesSqCategory_ >= 0)
                     {
                         ROS_INFO("[DemoSharon] Gaze command category %s is  available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
+                        std::stringstream ss;
+                        ss << "Gaze command category: " <<  sqCategories_[indexGlassesSqCategory_].category<< " is  available in the table.";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
                         waitingForGlassesCommand_ = false;
                         waitingForAsrCommand_ = true;
                         state_ = COMPUTE_GRASP_POSES;
@@ -224,6 +237,10 @@ namespace demo_sharon
                     else
                     {
                         ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.");
+                        std::stringstream ss;
+                        ss << "Gaze command category: " <<  sqCategories_[indexGlassesSqCategory_].category<< " is NOT available in the table.";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
                         waitingForGlassesCommand_ = true;
                         waitingForAsrCommand_ = true;
                         glassesCommandReceived_ = false;
@@ -258,9 +275,16 @@ namespace demo_sharon
             {
                 if (firstInState)
                 {
+                    std_msgs::String msg;
+                    std::stringstream ss;
+                    ss << "FIND_REACHING_GRASP_IK";
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
+                    
                     pthread_create(&threadFindReachGraspIK_, NULL, &this->sendFindReachGraspIKThreadWrapper, this);
                     void *result;
                     ROS_INFO("WAIT IN FIND_REACHING_GRASP_IK");
+                    
                     pthread_join(threadFindReachGraspIK_, &result);
                     if (result == PTHREAD_CANCELED)
                     {
@@ -294,7 +318,12 @@ namespace demo_sharon
                 if (firstInState)
                 {
                     ROS_INFO("Plan to reaching joints");
-
+                    std_msgs::String msg;
+                    std::stringstream ss;
+                    ss << "PLAN_TO_REACHING_JOINTS";
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
+                    
                     pthread_create(&threadPlanToReachJoints_, NULL, &this->sendPlanToReachJointsThreadWrapper, this);
                     void *result;
                     ROS_INFO("WAIT IN PLAN_TO_REACHING_JOINTS");
@@ -308,11 +337,20 @@ namespace demo_sharon
                     {
                         if (successPlanning_)
                         {
+                            ss.clear();
+                            ss << "success planning";
+                            msg.data = ss.str();
+                            statePublisher_.publish(msg);
+                            
                             firstInState = true;
                             state_ = EXECUTE_PLAN_TO_REACHING_JOINTS;
                         }
                         else
                         {
+                            ss.clear();
+                            ss << "Unable to plan a trajectory";
+                            msg.data = ss.str();
+                            statePublisher_.publish(msg);
                             firstInState = true;
                             state_ = FIND_REACHING_GRASP_IK;
                         }
@@ -324,7 +362,13 @@ namespace demo_sharon
             {
                 if (firstInState)
                 {
-                    ROS_INFO("Executing planned trajectory to reaaching joints");
+                    ROS_INFO("Executing planned trajectory to reaching joints");
+                    std_msgs::String msg;
+                    std::stringstream ss;
+                    ss << "EXECUTE_PLAN_TO_REACHING_JOINTS";
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
+
                     firstInState = false;
                     moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
                 }
@@ -334,12 +378,25 @@ namespace demo_sharon
                     {
                         state_ = OPEN_GRIPPER;
                         firstInState = true;
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "Trajectory done";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+                        
                         ROS_INFO("Done execution");
                         stopMotion_ = false;
                     }
                     if (stopMotion_)
                     {
                         ROS_INFO("Stop motion");
+                        std::stringstream ss;
+                        ss.clear();
+                        std_msgs::String msg;
+                        ss<<"Stop motion";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+
                         groupRightArmTorsoPtr_->stop();
                         state_ = -1;
                         firstInState = true;
@@ -356,6 +413,12 @@ namespace demo_sharon
                     if (firstInState)
                     {
                         ROS_INFO("HEY! I'M WAITING FOR CONFIRMATION...");
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "Waiting for asr command";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+
                         firstInState = false;
                     }
                 }
@@ -370,6 +433,12 @@ namespace demo_sharon
                     else
                     {
                         ROS_INFO("OPEN GRIPPER!");
+
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "Open Gripper";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
                         // Open gripper
                         moveGripper(openGripperPositions_, "right");
                         std::vector<std::string> objectIds;
@@ -387,12 +456,17 @@ namespace demo_sharon
                 if (firstInState)
                 {
                     ROS_INFO("Aproaching to object .....");
+                    std_msgs::String msg;
+                    std::stringstream ss;
+                    ss << "Aproach to grasp";
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
                     goToGraspingPose(graspingPoses_.poses[indexGraspingPose_]);
                     firstInState = false;
                 }
                 else
                 {
-		    ROS_INFO("HERE!!!!!!!!!!......");
+		            ROS_INFO("HERE!!!!!!!!!!......");
                     if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
                         state_ = CLOSE_GRIPPER;
@@ -405,6 +479,12 @@ namespace demo_sharon
             {
                 if (firstInState)
                 {
+                    std_msgs::String msg;
+                    std::stringstream ss;
+                    ss << "Object grasped";
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
+
                     ROS_INFO("Closing gripper...");
                     firstInState = true;
                     moveGripper(closeGripperPositions_, "right");
@@ -415,6 +495,12 @@ namespace demo_sharon
             break;
             case GO_UP:
             {
+                std_msgs::String msg;
+                std::stringstream ss;
+                ss << "Go Up";
+                msg.data = ss.str();
+                statePublisher_.publish(msg);
+                
                 goUp(groupRightArmTorsoPtr_, 0.2);
                 firstInState = true;
                 state_ = RELEASE_OBJECT;
@@ -436,7 +522,12 @@ namespace demo_sharon
                     }
                     else
                     {
-
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "Release";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+                        
                         moveGripper(openGripperPositions_, "right");
                         ros::Duration(1.0).sleep(); // sleep for 1 seconds
                         firstInState = true;
@@ -461,6 +552,12 @@ namespace demo_sharon
                     }
                     else
                     {
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "Move to home position";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+
                         if (!initializeRightArmPosition(initRightArmPositions_))
                         {
                             return;
@@ -494,7 +591,7 @@ namespace demo_sharon
             break;
             case -1:
             {
-                ROS_INFO("YES!! KILLED THE CURRENT EXECUTION THREAD");
+
                 indexSqCategory_ = indexSqCategoryAsr_;
                 firstInState = true;
                 state_ = COMPUTE_GRASP_POSES;
@@ -1658,7 +1755,8 @@ namespace demo_sharon
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo_sharon/move_to_home_position", &DemoSharon::moveToHomePosition, this);
         statePublisher_ = nodeHandle_.advertise<std_msgs::String>("/demo_sharon/state", 10);
         superquadricsBBoxesPublisher_ = nodeHandle_.advertise<sharon_msgs::BoundingBoxes>("/demo_sharon/superquadrics_bboxes", 10);
-
+        reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::Pose>("/demo_sharon/reaching_pose", 10);
+        planPublisher_ = nodeHandle_.advertise<moveit_msgs::RobotTrajectory>("/demo_sharon/trajectory", 10);
 
         ros::param::get("demo_sharon/use_asr", useAsr_);
         ros::param::get("demo_sharon/use_glasses", useGlasses_);
@@ -1904,11 +2002,22 @@ namespace demo_sharon
                     {
                         ROS_INFO("[DemoSharon] ASR command received is the same: %s", asr_.c_str());
                         ROS_INFO("[DemoSharon] We continue to grasp the same object");
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "ASR command received is the same: " << asr_.c_str();
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
                         waitingForAsrCommand_ = false;
                     }
                     else
                     {
                         ROS_INFO("[DemoSharon] ASR command is different. Lets check if it's one of the detected objects by the robot.");
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "ASR command is different. Lets check if it's one of the detected objects by the robot";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+                        
                         indexSqCategoryAsr_ = -1;
                         for (int i = 0; i < sqCategories_.size(); i++)
                         {
@@ -1922,6 +2031,11 @@ namespace demo_sharon
                                 waitingForAsrCommand_ = false;
                                 if (state_ == COMPUTE_GRASP_POSES)
                                 {
+                                    ss.clear();
+                                    ss << "CANCELL THREAD FOR COMPUTE GRASP POSES";
+                                    msg.data = ss.str();
+                                    statePublisher_.publish(msg);
+                                    
                                     ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
                                     pthread_cancel(threadComputeGraspPoses_);
                                     ROS_INFO("CANCELLING THREAD!");
@@ -1932,6 +2046,12 @@ namespace demo_sharon
                                     ROS_INFO("CANCELL THREAD FOR FINDING IK");
                                     pthread_cancel(threadFindReachGraspIK_);
                                     ROS_INFO("CANCELLING THREAD!");
+
+                                    ss.clear();
+                                    ss << "CANCELL THREAD FOR FINDING IK";
+                                    msg.data = ss.str();
+                                    statePublisher_.publish(msg);
+
                                     indexSqCategory_ = indexSqCategoryAsr_;
                                 }
                                 else if (state_ == PLAN_TO_REACHING_JOINTS)
@@ -1940,11 +2060,18 @@ namespace demo_sharon
                                     pthread_cancel(threadFindReachGraspIK_);
                                     ROS_INFO("CANCELLING THREAD!");
                                     indexSqCategory_ = indexSqCategoryAsr_;
+                                    
+                                    ss.clear();
+                                    ss << "CANCELL THREAD FOR PLAN_TO_REACHING_JOINTS";
+                                    msg.data = ss.str();
+                                    statePublisher_.publish(msg);
+
                                 }
                                 else if (state_ == EXECUTE_PLAN_TO_REACHING_JOINTS)
                                 {
                                     indexSqCategory_ = indexSqCategoryAsr_;
                                     stopMotion_ = true;
+
                                 }
                                 else if (state_ == OPEN_GRIPPER)
                                 {
@@ -1961,6 +2088,11 @@ namespace demo_sharon
                         if (indexSqCategoryAsr_ < 0)
                         {
                             ROS_WARN("[DemoSharon] ASR request: %s NOT found.", asr_.c_str());
+                            ss.clear();
+                            ss << "ASR request: "<<asr_<<"NOT FOUND";
+                            msg.data = ss.str();
+                            statePublisher_.publish(msg);
+
                             // robot should say I don't recognize this object.
                             if (state_ = COMPUTE_GRASP_POSES)
                             {
@@ -2033,6 +2165,13 @@ namespace demo_sharon
         ROS_INFO("This is the thread for computing the grasping poses.");
         ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
         ROS_INFO("Compute grasping poses of %s %d ", sqCategories_[indexSqCategory_].category.c_str(), sqCategories_[indexSqCategory_].idSq);
+        
+        std_msgs::String msg;
+        std::stringstream ss;
+        ss << "Compute grasping poses of " << sqCategories_[indexSqCategory_].category<< " "<<sqCategories_[indexSqCategory_].idSq;
+        msg.data = ss.str();
+        statePublisher_.publish(msg);
+        
         sharon_msgs::ComputeGraspPoses srvGraspingPoses;
         srvGraspingPoses.request.id = sqCategories_[indexSqCategory_].idSq;
         groupRightArmTorsoPtr_->setStartStateToCurrentState();
@@ -2059,6 +2198,13 @@ namespace demo_sharon
         ROS_INFO("This is the thread for computing the ik feasible poses.");
         robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
         kinematic_state->setToDefaultValues();
+
+        std_msgs::String msg;
+        std::stringstream ss;
+        ss << "Find a feasible reaching pose";
+        msg.data = ss.str();
+        statePublisher_.publish(msg);
+
         for (int idx = indexGraspingPose_ + 1; idx < graspingPoses_.poses.size(); idx++)
         {
             ROS_INFO("[DemoSharon] idx: %d", idx);
@@ -2079,6 +2225,13 @@ namespace demo_sharon
             if (foundReachIk_)
             {
                 ROS_INFO("[DemoSharon] IK Found!");
+                ss.clear();
+                ss << "IK Found";
+                msg.data = ss.str();
+                statePublisher_.publish(msg);
+
+                reachingPosePublisher_.publish(reachingPose_);
+
                 reachJointValues_.clear();
                 kinematic_state->copyJointGroupPositions(joint_model_group, reachJointValues_);
                 indexGraspingPose_ = idx;
@@ -2107,6 +2260,8 @@ namespace demo_sharon
         moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
         // ros::Duration(4.0).sleep();
         successPlanning_ = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        if(successPlanning_)
+            planPublisher_.publish(plan_.trajectory_);
     }
 
     void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)
@@ -2123,8 +2278,13 @@ namespace demo_sharon
                 {
                     glassesCategory_ = glassesData->category;
                     glassesCommandReceived_ = true;
-
+                    std_msgs::String msg;
+                    std::stringstream ss;
+                    ss << "Glasses command to grasp " << glassesData->category;
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
                     ROS_INFO("[DemoSharon] Glasses command to grasp %s", glassesData->category.c_str());
+                    
                 }
             }
         }

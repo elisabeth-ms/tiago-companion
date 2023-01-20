@@ -174,6 +174,8 @@ namespace demo_sharon
 
         ros::Publisher statePublisher_;
         ros::Publisher superquadricsBBoxesPublisher_;
+        ros::Publisher reachingPosePublisher_;
+        ros::Publisher planPublisher_;
 
         bool releaseGripper_ = false;
         bool moveToHomePosition_ = false;

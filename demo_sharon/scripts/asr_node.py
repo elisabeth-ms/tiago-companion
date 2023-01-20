@@ -6,7 +6,7 @@ import datetime
 import numpy 
 from jellyfish import soundex, metaphone, nysiis
 import rospy
-from std_msgs.msg import String
+from std_msgs.msg import String, Empty, Bool
 from sharon_msgs.srv import ActivateASR
 
 
@@ -55,7 +55,7 @@ class ASR(object):
         
         rospy.loginfo("Initalizing asr_node...")
         self.pubAsr = rospy.Publisher('asr_node/data', String,queue_size=20)
-        self.pubAsrDetectsSound = rospy.Publisher('asr_node/detects_sound', String,queue_size=20)
+        self.pubAsrDetectsSound = rospy.Publisher('asr_node/detects_sound', Bool ,queue_size=20)
         self.device_id = None
         self.serviceActiveASR = rospy.Service('/asr_node/activate_asr', ActivateASR, self.activate_asr)
         self.activated = False
@@ -206,6 +206,9 @@ class ASR(object):
                     print(audio_data)
                     print("Stop - Recognizing...\n")
                     
+                    msgDetectedSound = Bool()
+                    msgDetectedSound.data = True
+                    self.pubAsrDetectsSound.publish(msgDetectedSound)
                     
                     try:
                         # esta pensado que se hable en inglés, si se quiere hablar en español r.recognize_google(audio_data,language="es-ES")
