@@ -370,11 +370,17 @@ namespace demo_sharon
                     statePublisher_.publish(msg);
 
                     firstInState = false;
-                    moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
+                    moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncExecute(plan_);
+                    const robot_state::RobotState & goalRobotState = groupRightArmTorsoPtr_->getJointValueTarget();
+                    goalJoints_.clear();
+                    goalRobotState.copyJointGroupPositions(jointModelGroupTorsoRightArm_, goalJoints_);
+
+
                 }
                 else
                 {
-                    if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
+                    if(goalReached(groupRightArmTorsoPtr_))
+                    // if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
                         state_ = OPEN_GRIPPER;
                         firstInState = true;
@@ -1087,22 +1093,6 @@ namespace demo_sharon
             if (successGoToReaching)
             {
 
-                // // Open gripper
-                // moveGripper(openGripperPositions_, "right");
-                // std::vector<std::string> objectIds;
-                // objectIds.push_back("object_" + std::to_string(sqCategories_[indexSqCategoryAsr_].idSq));
-                // planningSceneInterface_.removeCollisionObjects(objectIds);
-                // ros::Duration(1.0).sleep(); // sleep for 1 seconds
-                // goToGraspingPose(graspingPoses_.poses[indexFeasible]);
-                // while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
-                // {
-                //     ROS_INFO("WAITING.....");
-                //     ros::Duration(0.1).sleep();
-                // }
-                // ros::Duration(0.2).sleep(); // sleep for 1 seconds
-                // moveGripper(closeGripperPositions_, "right");
-                // ros::Duration(0.2).sleep(); // sleep for 1 seconds
-                // goUp(groupRightArmTorsoPtr_, 0.1);
 
                 releaseGripper_ = false;
                 while (ros::ok() && !releaseGripper_)
@@ -1121,6 +1111,23 @@ namespace demo_sharon
             ROS_INFO("[DemoSharon] Done!");
         }
     }
+
+
+    bool DemoSharon::goalReached(moveit::planning_interface::MoveGroupInterface *& groupArmTorsoPtr_){
+        std::vector< double> currentJoints = groupArmTorsoPtr_->getCurrentJointValues();
+
+        for(int i=0; i<currentJoints.size(); i++){
+            if((currentJoints[i]<(goalJoints_[i]-goalJointTolerance_)) || (currentJoints[i]>(goalJoints_[i]+goalJointTolerance_))){
+                // ROS_INFO("CURRENT JOINT %d: %f is NOT CLOSE ENOUCH TO THE GOAL JOINT %f",i, currentJoints[i],goalJoints_[i]);
+                return false;
+            }
+        }
+        // ROS_INFO("GOAL REACHED");
+        return true;
+
+
+    }
+
 
     void DemoSharon::moveGripper(const float positions[2], std::string name)
     {
@@ -1226,28 +1233,7 @@ namespace demo_sharon
 
 
         moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->execute(planAproach);
-        // sleep(5.0);
-
-        // moveit_visual_tools::MoveItVisualTools visual_tools("base_footprint");
-        // visual_tools.deleteAllMarkers();
-
-        // // Remote control is an introspection tool that allows users to step through a high level script
-        // // via buttons and keyboard shortcuts in RViz
-        // visual_tools.loadRemoteControl();
-
-
-        // visual_tools.trigger();
-
-        // Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
-        // text_pose.translation().z() = 1.0;
-
-        // visual_tools.deleteAllMarkers();
-        // visual_tools.publishText(text_pose, "Cartesian Path", rvt::WHITE, rvt::XLARGE);
-        // visual_tools.publishPath(waypoints, rvt::LIME_GREEN, rvt::SMALL);
-        // for (std::size_t i = 0; i < waypoints.size(); ++i)
-        //     visual_tools.publishAxisLabeled(waypoints[i], "pt" + std::to_string(i), rvt::SMALL);
-        // visual_tools.trigger();
-        // visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+       
 
         return true;
         // tf::poseKDLToMsg(frameToolWrtBase, toolPose);
@@ -1295,7 +1281,7 @@ namespace demo_sharon
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            bool found_ik = kinematic_state->setFromIK(joint_model_group, reachingPose_, 0.1);
+            bool found_ik = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.1);
 
             //     geometry_msgs::PoseStamped goal_pose;
             // goal_pose.header.frame_id = "base_footprint";
@@ -1488,130 +1474,7 @@ namespace demo_sharon
                 collisionObjects.push_back(collisionObject);
             }
 
-            //     if (superquadric.e1 < elimit1_)
-            //     {
-            //         if ((superquadric.e2 < elimit1_) || (superquadric.e2 >= elimit2_))
-            //         {
-            //             // BOX
-            //             primitive.type = primitive.BOX;
-            //             primitive.dimensions.resize(3);
-            //             primitive.dimensions[0] = 2 * superquadric.a1 + inflateSize_;
-            //             primitive.dimensions[1] = 2 * superquadric.a2 + inflateSize_;
-            //             primitive.dimensions[2] = 2 * superquadric.a3 + inflateSize_;
-            //             collisionObject.primitives.push_back(primitive);
-            //             collisionObject.primitive_poses.push_back(superquadricPose);
-            //             collisionObject.operation = collisionObject.ADD;
-            //             collisionObjects.push_back(collisionObject);
-            //         }
-            //         if ((superquadric.e2 >= elimit1_) && (superquadric.e2 < elimit2_))
-            //         {
-            //             // CYLINDER
-
-            //             int index_height = 0;
-            //             float height = superquadric.a1;
-            //             if (superquadric.a2 > height)
-            //             {
-            //                 height = superquadric.a2;
-            //             }
-            //             if (superquadric.a3 > height)
-            //             {
-            //                 height = superquadric.a3;
-            //             }
-
-            //             float radius = 0;
-            //             if (superquadric.a1 > radius && superquadric.a1 < height)
-            //             {
-            //                 radius = superquadric.a1;
-            //             }
-            //             if (superquadric.a2 > radius && superquadric.a2 < height)
-            //             {
-            //                 radius = superquadric.a2;
-            //             }
-            //             if (superquadric.a3 > radius && superquadric.a3 < height)
-            //             {
-            //                 radius = superquadric.a3;
-            //             }
-            //             radius += inflateSize_;
-            //             height += inflateSize_;
-
-            //             primitive.type = primitive.CYLINDER;
-            //             primitive.dimensions.resize(2);
-            //             primitive.dimensions[0] = radius;
-            //             primitive.dimensions[1] = height;
-
-            //             collisionObject.primitives.push_back(primitive);
-            //             collisionObject.primitive_poses.push_back(superquadricPose);
-            //             collisionObject.operation = collisionObject.ADD;
-            //             collisionObjects.push_back(collisionObject);
-            //         }
-            //     }
-            //     else if (superquadric.e1 >= elimit1_)
-            //     {
-            //         if (superquadric.e2 >= 0.8)
-            //         {
-            //             // BOX
-            //             primitive.type = primitive.BOX;
-            //             primitive.dimensions.resize(3);
-            //             primitive.dimensions[0] = 2 * superquadric.a1 + inflateSize_;
-            //             primitive.dimensions[1] = 2 * superquadric.a2 + inflateSize_;
-            //             primitive.dimensions[2] = 2 * superquadric.a3 + inflateSize_;
-            //             collisionObject.primitives.push_back(primitive);
-            //             collisionObject.primitive_poses.push_back(superquadricPose);
-            //             collisionObject.operation = collisionObject.ADD;
-            //             collisionObjects.push_back(collisionObject);
-            //         }
-            //         else
-            //         {
-            //             // CYLINDER
-            //             int ax = 0;
-            //             int index_height = 0;
-            //             float height = superquadric.a1;
-            //             if (superquadric.a2 > height)
-            //             {
-            //                 height = superquadric.a2;
-            //                 ax = 1;
-            //             }
-            //             if (superquadric.a3 > height)
-            //             {
-            //                 height = superquadric.a3;
-            //                 ax = 2;
-            //             }
-
-            //             float radius = 0;
-            //             if (superquadric.a1 > radius && ax != 0)
-            //             {
-            //                 radius = superquadric.a1;
-            //             }
-            //             if (superquadric.a2 > radius && ax != 1)
-            //             {
-            //                 radius = superquadric.a2;
-            //             }
-            //             if (superquadric.a3 > radius && ax != 2)
-            //             {
-            //                 radius = superquadric.a3;
-            //             }
-
-            //             ROS_INFO("CYLINDER height: %f radius: %f", height, radius);
-            //             radius += inflateSize_;
-            //             height += inflateSize_;
-
-            //             primitive.type = primitive.CYLINDER;
-            //             primitive.dimensions.resize(2);
-            //             primitive.dimensions[0] = 2 * height;
-            //             primitive.dimensions[1] = radius;
-
-            //             collisionObject.primitives.push_back(primitive);
-            //             Eigen::AngleAxisf rot(M_PI / 2.0, Eigen::Vector3f::UnitY());
-            //             q = q * rot;
-            //             superquadricPose.orientation.x = q.x();
-            //             superquadricPose.orientation.y = q.y();
-            //             superquadricPose.orientation.z = q.z();
-            //             superquadricPose.orientation.w = q.w();
-            //             collisionObject.primitive_poses.push_back(superquadricPose);
-            //             collisionObject.operation = collisionObject.ADD;
-            //             collisionObjects.push_back(collisionObject);
-            //         }
-            //     }
+           
         }
         planningSceneInterface_.applyCollisionObjects(collisionObjects);
     }
@@ -1771,9 +1634,12 @@ namespace demo_sharon
         ros::param::get("demo_sharon/table_position", tablePosition_);
         ros::param::get("demo_sharon/table_position2", tablePosition2_);
         ros::param::get("demo_sharon/table_dimensions2", tableDimensions2_);
-
         ros::param::get("demo_sharon/right_arm_joints_position_init", initRightArmPositions_);
         ros::param::get("demo_sharon/left_arm_joints_position_init", initLeftArmPositions_);
+        ros::param::get("demo_sharon/threshold_plan_trajectory", thresholdPlanTrajectory_);
+        ros::param::get("demo_sharon/threshold_execute_trajectory", thresholdExecuteTrajectory_);
+        ros::param::get("demo_sharon/goal_joint_tolerance", goalJointTolerance_);
+
 
         ROS_INFO("[DemoSharon] demo_sharon/reaching_distance set to %f", reachingDistance_);
 
@@ -1819,7 +1685,13 @@ namespace demo_sharon
 
         robot_model_loader::RobotModelLoader robotModelLoader_("robot_description");
         kinematicModel_ = robotModelLoader_.getModel();
-        joint_model_group = kinematicModel_->getJointModelGroup(nameTorsoRightArmGroup_);
+
+        jointModelGroupTorsoRightArm_ = kinematicModel_->getJointModelGroup(nameTorsoRightArmGroup_);
+        jointModelGroupTorsoLeftArm_ = kinematicModel_->getJointModelGroup(nameTorsoLeftArmGroup_);
+
+        // goalJointTolerance_ = groupRightArmTorsoPtr_->getGoalJointTolerance();
+        ROS_INFO("GOAL JOINT TOLERANCE: %f", goalJointTolerance_);
+
 
         return;
     }
@@ -2218,7 +2090,7 @@ namespace demo_sharon
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            foundReachIk_ = kinematic_state->setFromIK(joint_model_group, reachingPose_, 0.01);
+            foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.01);
             //     geometry_msgs::PoseStamped goal_pose;
             // goal_pose.header.frame_id = "base_footprint";
             // goal_pose.pose = graspingPoses.poses[idx];
@@ -2233,7 +2105,7 @@ namespace demo_sharon
                 reachingPosePublisher_.publish(reachingPose_);
 
                 reachJointValues_.clear();
-                kinematic_state->copyJointGroupPositions(joint_model_group, reachJointValues_);
+                kinematic_state->copyJointGroupPositions(jointModelGroupTorsoRightArm_, reachJointValues_);
                 indexGraspingPose_ = idx;
                 break;
             }

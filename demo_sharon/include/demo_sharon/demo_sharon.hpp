@@ -144,6 +144,7 @@ namespace demo_sharon
         static void * sendPlanToReachJointsThreadWrapper(void *object);
         void * planToReachJointsThread(void *ptr);
 
+        bool goalReached(moveit::planning_interface::MoveGroupInterface *& groupArmTorsoPtr_);
 
 
 
@@ -210,6 +211,9 @@ namespace demo_sharon
 
         bool asrCommandReceived_;
         bool glassesCommandReceived_;
+        float thresholdPlanTrajectory_;
+        float thresholdExecuteTrajectory_;
+        double goalJointTolerance_;
 
 
         float openGripperPositions_[2] = {0.07, 0.07};
@@ -237,6 +241,8 @@ namespace demo_sharon
         int indexSqCategoryAsr_ = -1;
         geometry_msgs::PoseArray graspingPoses_;
         std::vector<double> reachJointValues_;
+        std::vector<double> goalJoints_;
+
         bool foundReachIk_;
         bool stopMotion_;
         int indexGraspingPose_;
@@ -247,8 +253,9 @@ namespace demo_sharon
 
         robot_model::RobotModelPtr kinematicModel_;
         robot_state::RobotStatePtr kinematicState_;
-        const robot_state::JointModelGroup *joint_model_group;
-
+        const robot_state::JointModelGroup *jointModelGroupTorsoRightArm_;
+        const robot_state::JointModelGroup *jointModelGroupTorsoLeftArm_;
+        
         std::mutex mtxASR_;
         pthread_t threadComputeGraspPoses_;
         pthread_t threadFindReachGraspIK_;
