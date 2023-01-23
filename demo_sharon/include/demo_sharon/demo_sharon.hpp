@@ -66,12 +66,25 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define OBJECT_DELIVERED 11
 #define ROBOT_IN_HOME_POSITION 12
 #define UNABLE_TO_REACHING_GRASP_IK -2
+#define DEBUG_STATE -10
+#define WAIT_TO_EXECUTE 13
 namespace demo_sharon
 {
     struct SqCategory
     {
         int idSq;
         std::string category;
+    };
+
+    struct TrajectoryToGraspObject{
+        std::string category;
+        int idSq;
+        std::string arm; // "right" or "left"
+        geometry_msgs::Pose goalReachPose;
+        std::vector<double> goalReachJointValues;
+        geometry_msgs::Pose goalGraspPose;
+         moveit::planning_interface::MoveGroupInterface::Plan plan;
+
     };
 
     class DemoSharon
@@ -235,6 +248,8 @@ namespace demo_sharon
         bool foundAsr_ = false;
         bool foundGlasses_ = false;
         std::string glassesCategory_;
+        std::string prevGlassesCategory_;
+        float currentDecisionProb_;
 
         int indexSqCategory_ = -1;
         int indexGlassesSqCategory_ = -1;
@@ -261,6 +276,8 @@ namespace demo_sharon
         pthread_t threadFindReachGraspIK_;
         pthread_t threadPlanToReachJoints_;
         
+
+        std::vector<TrajectoryToGraspObject> listTrajectoriesToGraspObjects;
 
     };
 }
