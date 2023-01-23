@@ -180,21 +180,23 @@ namespace demo_sharon
                     msg.data = ss.str();
                     statePublisher_.publish(msg);
                 }
-
+                
+                foundGlasses_ = false;
+                indexGlassesSqCategory_ = -1;
+                waitingForGlassesCommand_ = true;
+                waitingForAsrCommand_ = true;
                 state_ = WAIT_FOR_COMMAND;
             }
             break;
             case WAIT_FOR_COMMAND:
             {
-
+                ROS_INFO("WAIT_FOR_COMMAND");
                 std_msgs::String msg;
                 // msg.data = "WAIT_FOR_COMMAND";
                 // statePublisher_.publish(msg);
 
-                waitingForGlassesCommand_ = true;
-                waitingForAsrCommand_ = true;
-                foundGlasses_ = false;
-                indexGlassesSqCategory_ = -1;
+
+               
                 // ROS_INFO("[DemoSharon] Wait for user's command.");
                 if (!glassesCommandReceived_ && asrCommandReceived_)
                 {
@@ -202,47 +204,6 @@ namespace demo_sharon
                     msg.data = "asr command received first";
                     statePublisher_.publish(msg);
                     return;
-                }
-                if (glassesCommandReceived_ && !asrCommandReceived_)
-                {
-                    ROS_INFO("[DemoSharon] Gaze command received.");
-
-                    // Además que el objeto sea uno de los detectados
-                    msg.data = "Gaze command received received first";
-                    statePublisher_.publish(msg);
-
-                    for (int i = 0; i < sqCategories_.size(); i++)
-                    {
-                        if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
-                        {
-                            foundGlasses_ = true;
-                            indexGlassesSqCategory_ = i;
-                            indexSqCategory_ = indexGlassesSqCategory_;
-                            break;
-                        }
-                    }
-                    if (indexGlassesSqCategory_ >= 0)
-                    {
-                        ROS_INFO("[DemoSharon] Gaze command category %s is  available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
-                        std::stringstream ss;
-                        ss << "Gaze command category: " << sqCategories_[indexGlassesSqCategory_].category << " is  available in the table.";
-                        msg.data = ss.str();
-                        statePublisher_.publish(msg);
-                        waitingForGlassesCommand_ = true;
-                        waitingForAsrCommand_ = true;
-                        state_ = COMPUTE_GRASP_POSES;
-                    }
-                    else
-                    {
-                        ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.");
-                        std::stringstream ss;
-                        ss << "Gaze command category: " << sqCategories_[indexGlassesSqCategory_].category << " is NOT available in the table.";
-                        msg.data = ss.str();
-                        statePublisher_.publish(msg);
-                        waitingForGlassesCommand_ = true;
-                        waitingForAsrCommand_ = true;
-                        glassesCommandReceived_ = false;
-                    }
                 }
             }
             break;
@@ -257,7 +218,6 @@ namespace demo_sharon
                     if (result == PTHREAD_CANCELED)
                     {
                         firstInState = true;
-                        ROS_INFO("[DemoSharon] Gaze command category %s Asr command category: %s.", sqCategories_[indexGlassesSqCategory_].category.c_str(), sqCategories_[indexSqCategoryAsr_].category.c_str());
                         state_ = -1;
                     }
                     else
@@ -362,6 +322,11 @@ namespace demo_sharon
                         }
                     }
                 }
+            }
+            break;
+            case WAIT_TO_EXECUTE:
+            {
+                ROS_INFO("We have some trajectories stored");
             }
             break;
             case EXECUTE_PLAN_TO_REACHING_JOINTS:
@@ -603,7 +568,7 @@ namespace demo_sharon
             case -1:
             {
 
-                indexSqCategory_ = indexSqCategoryAsr_;
+                // indexSqCategory_ = indexSqCategoryAsr_;
                 firstInState = true;
                 state_ = COMPUTE_GRASP_POSES;
             }
@@ -2072,8 +2037,8 @@ namespace demo_sharon
 
         for (int idx = indexGraspingPose_ + 1; idx < graspingPoses_.poses.size(); idx++)
         {
-            ROS_INFO("[DemoSharon] idx: %d", idx);
-            ROS_INFO("Grasping Pose[%d]: %f %f %f", idx, graspingPoses_.poses[idx].position.x, graspingPoses_.poses[idx].position.y, graspingPoses_.poses[idx].position.z);
+            // ROS_INFO("[DemoSharon] idx: %d", idx);
+            // ROS_INFO("Grasping Pose[%d]: %f %f %f", idx, graspingPoses_.poses[idx].position.x, graspingPoses_.poses[idx].position.y, graspingPoses_.poses[idx].position.z);
 
             KDL::Frame frameEndWrtBase;
             tf::poseMsgToKDL(graspingPoses_.poses[idx], frameEndWrtBase);
@@ -2132,8 +2097,11 @@ namespace demo_sharon
     void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)
     {
 
+        std_msgs::String msg;
+
         if (waitingForGlassesCommand_)
-        {
+        {   
+            ROS_INFO("waitingForGlassesCommand_");
             std::vector<double> decisionVector = glassesData->decision_vector;
 
             double key = 1.0;
@@ -2145,6 +2113,7 @@ namespace demo_sharon
                     currentDecisionProb_ = *itr;
                     if (currentDecisionProb_ > thresholdPlanTrajectory_)
                     {
+                        ROS_INFO("[DemoSharon] Glasses command to grasp %s prob: %f", glassesData->category.c_str(), currentDecisionProb_);
                         prevGlassesCategory_ = glassesCategory_;
                         glassesCategory_ = glassesData->category;
 
@@ -2154,25 +2123,85 @@ namespace demo_sharon
                             if (listTrajectoriesToGraspObjects[i].category.find(glassesCategory_, 0) != std::string::npos)
                             {
                                 ROS_INFO("We already have a trajectory so we should move to the execute trajectory");
-                                state_ = DEBUG_STATE;
+                                state_ = WAIT_TO_EXECUTE;
                                 alreadyAvailable = true;
                             }
                         }
                         if (!alreadyAvailable)
                         {
-                            ROS_INFO("NOT IN THE LIST, WE NEED TO COMPUTE THE TRAJECTORY");
-                            if (glassesCategory_ == prevGlassesCategory_)
+                            if (glassesCategory_ != prevGlassesCategory_)
                             {
-                                ROS_INFO("Eyy we are detecting the same category from the glasses. Keep it where it was.");
-                                glassesCommandReceived_ = true;
+                                for (int i = 0; i < sqCategories_.size(); i++)
+                                {
+                                    if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
+                                    {
+                                        foundGlasses_ = true;
+                                        indexGlassesSqCategory_ = i;
+                                        indexSqCategory_ = indexGlassesSqCategory_;
+                                        break;
+                                    }
+                                }
+
+                                if (indexGlassesSqCategory_ >= 0)
+                                {
+                                    ROS_INFO("[DemoSharon] Gaze command category %s is  available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
+                                    std::stringstream ss;
+                                    ss << "Gaze command category: " << sqCategories_[indexGlassesSqCategory_].category << " is  available in the table.";
+                                    msg.data = ss.str();
+                                    statePublisher_.publish(msg);
+                                    waitingForGlassesCommand_ = true;
+                                    waitingForAsrCommand_ = true;
+
+                                    if (state_ == COMPUTE_GRASP_POSES)
+                                    {
+
+                                        ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
+                                        pthread_cancel(threadComputeGraspPoses_);
+                                        ROS_INFO("CANCELLING THREAD!");
+                                        indexSqCategory_ = indexGlassesSqCategory_;
+                                    }
+                                    else if (state_ == FIND_REACHING_GRASP_IK)
+                                    {
+                                        ROS_INFO("CANCELL THREAD FOR FINDING IK");
+                                        pthread_cancel(threadFindReachGraspIK_);
+                                        ROS_INFO("CANCELLING THREAD!");
+
+                                        ss.clear();
+                                        ss << "CANCELL THREAD FOR FINDING IK";
+                                        msg.data = ss.str();
+                                        statePublisher_.publish(msg);
+
+                                        indexSqCategory_ = indexGlassesSqCategory_;
+                                    }
+                                    else if (state_ == PLAN_TO_REACHING_JOINTS)
+                                    {
+                                        ROS_INFO("CANCELL THREAD FOR PLAN_TO_REACHING_JOINTS");
+                                        pthread_cancel(threadFindReachGraspIK_);
+                                        ROS_INFO("CANCELLING THREAD!");
+                                        indexSqCategory_ = indexGlassesSqCategory_;
+
+                                        ss.clear();
+                                        ss << "CANCELL THREAD FOR PLAN_TO_REACHING_JOINTS";
+                                        msg.data = ss.str();
+                                        statePublisher_.publish(msg);
+                                    }
+
+                                    state_ = -1;
+                                }
+                                else
+                                {
+
+                                    ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.");
+                                    std::stringstream ss;
+                                    ss << "Gaze command category: " << sqCategories_[indexGlassesSqCategory_].category << " is NOT available in the table.";
+                                    // msg.data = ss.str();
+                                    // statePublisher_.publish(msg);
+                                    // waitingForGlassesCommand_ = true;
+                                    // waitingForAsrCommand_ = true;
+                                    // glassesCommandReceived_ = false;
+                                }
                             }
                         }
-                        // std_msgs::String msg;
-                        // std::stringstream ss;
-                        // ss << "Glasses command to grasp " << glassesData->category;
-                        // msg.data = ss.str();
-                        // statePublisher_.publish(msg);
-                        ROS_INFO("[DemoSharon] Glasses command to grasp %s prob: %f", glassesData->category.c_str(), currentDecisionProb_);
                     }
                 }
             }

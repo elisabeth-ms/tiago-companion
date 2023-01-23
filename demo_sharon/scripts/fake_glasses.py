@@ -5,17 +5,19 @@ import numpy as np
 import sys
 from sharon_msgs.msg import GlassesData
 
-freq = 60.0
+freq = 10.0
 number_categories = 1
 category0 = 'background'
 category1 = 'milk'
 decision = 0.0
+category2 = 'cereals'
 
 execute_plan_threshold = 0.8
 max_decision = 1.0
 count_max_decision = 30
 decision_background = 0.4
 count_background = 0
+global_count = 0
 if __name__ == '__main__':
     rospy.init_node('fake_glasses')
     print(sys.path[0])
@@ -47,18 +49,7 @@ if __name__ == '__main__':
                 elif count_background == 100:
                     up = True
                     count_background = 0
-
-            if decision> decision_background:
-                glassesData.category = category1
-                index = np.where(categories == category1)[0][0]
-                glassesData.decision_vector[index] = decision
-            else:
-                glassesData.category = category0
-                index = np.where(categories == category0)[0][0]
-                glassesData.decision_vector[index] = decision_background
-            
-            pubGlassesData.publish(glassesData)
-            
+                    
             if (decision<max_decision and count<count_max_decision):
                 decision = decision + 1/(20.0*freq)
             elif (decision>=max_decision and count<count_max_decision):
@@ -68,7 +59,31 @@ if __name__ == '__main__':
                 decision = decision - 1/(20.0*freq)
                 if decision<0:
                     decision = 0.0
-                    
+
+            if decision> decision_background:
+                index = 0
+                if global_count <3:
+                    glassesData.category = category1
+                    index = np.where(categories == category1)[0][0]
+                elif global_count >=3 and global_count<6:
+                    glassesData.category = category2
+                    index = np.where(categories == category2)[0][0]
+                
+
+                # index = np.where(categories == category1)[0][0]
+                glassesData.decision_vector[index] = decision
+            else:
+                glassesData.category = category0
+                index = np.where(categories == category0)[0][0]
+                glassesData.decision_vector[index] = decision_background
+            
+            pubGlassesData.publish(glassesData)
+            
+            global_count += 1
+            if global_count == 6:
+                global_count = 0
+            
+            
     
                     
                 

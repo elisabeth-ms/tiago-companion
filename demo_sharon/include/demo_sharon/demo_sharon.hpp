@@ -68,6 +68,7 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define UNABLE_TO_REACHING_GRASP_IK -2
 #define DEBUG_STATE -10
 #define WAIT_TO_EXECUTE 13
+#define NEW_GAZE 14
 namespace demo_sharon
 {
     struct SqCategory
