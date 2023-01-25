@@ -4,6 +4,9 @@
 // Boost headers
 #include <boost/shared_ptr.hpp>
 #include <boost/thread/thread.hpp>
+#include <sys/stat.h>
+#include <boost/filesystem.hpp>
+
 // ROS headers
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
@@ -45,6 +48,10 @@
 #include <mutex>
 
 #include <pthread.h>
+
+// write && read csv files
+#include <iostream>
+#include <fstream>
 
 // Action interface type for moving TIAGo, provided as a typedef for convenience
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
@@ -279,6 +286,22 @@ namespace demo_sharon
         
 
         std::vector<TrajectoryToGraspObject> listTrajectoriesToGraspObjects;
+
+        bool alreadyAvailable_;
+        int indexListTrajectories_;
+
+        ros::Time gazeCommandTime_;
+        ros::Time startDemoTime_;
+        ros::Time computeGraspPosesTime_;
+        ros::Time feasibleReachingPoseTime_;
+        ros::Time planTrajectoryReachingPoseTime_;
+        ros::Time startExecutionTrajectoryTime_;
+        ros::Time decisisionProbGreaterExecuteThreshold_;
+        bool firstInState;
+
+        std::ofstream timesFile_;
+        std::mutex mtxWriteFile_;
+
 
     };
 }

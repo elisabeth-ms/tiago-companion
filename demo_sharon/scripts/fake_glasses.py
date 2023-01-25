@@ -5,14 +5,14 @@ import numpy as np
 import sys
 from sharon_msgs.msg import GlassesData
 
-freq = 10.0
+freq = 6.0
 number_categories = 1
 category0 = 'background'
-category1 = 'milk'
+category1 = 'cereals'
 decision = 0.0
-category2 = 'cereals'
+category2 = 'milk'
 
-execute_plan_threshold = 0.8
+execute_plan_threshold = 0.82
 max_decision = 1.0
 count_max_decision = 30
 decision_background = 0.4
@@ -36,27 +36,27 @@ if __name__ == '__main__':
             glassesData.decision_vector = [0]*len(categories)
             
             if up:
-                if count_background < 100:
+                if count_background < 50:
                     decision_background = decision_background + 1/(30.0*freq)
                     count_background += 1
-                elif count_background == 100:
+                elif count_background == 50:
                     up = False
                     count_background = 0
             else:
-                if count_background < 100:
+                if count_background < 50:
                     decision_background = decision_background - 1/(30.0*freq)
                     count_background += 1
-                elif count_background == 100:
+                elif count_background == 50:
                     up = True
                     count_background = 0
                     
             if (decision<max_decision and count<count_max_decision):
-                decision = decision + 1/(20.0*freq)
+                decision = decision + 1/(5.0*freq)
             elif (decision>=max_decision and count<count_max_decision):
                 decision = max_decision
                 count+=1
             elif count>=count_max_decision:
-                decision = decision - 1/(20.0*freq)
+                decision = decision - 1/(5.0*freq)
                 if decision<0:
                     decision = 0.0
 
