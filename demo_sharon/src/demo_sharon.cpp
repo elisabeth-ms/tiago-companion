@@ -308,7 +308,7 @@ namespace demo_sharon
                                        << ","
                                        << ","
                                        << ","
-                                       << ",Seconds from demo start time," << t_from_start << ",Seconds from gaze," << (feasibleReachingPoseTime_ - gazeCommandTime_).toSec() << "\n";
+                                       << ",Seconds from demo start time," << t_from_start << "\n";
                             mtxWriteFile_.unlock();
                             state_ = PLAN_TO_REACHING_JOINTS;
                         }
@@ -388,7 +388,7 @@ namespace demo_sharon
                                        << ","
                                        << ","
                                        << ","
-                                       << ",Seconds from demo start time," << (feasibleReachingPoseTime_ - startDemoTime_).toSec() << ",Seconds from gaze," << (planTrajectoryReachingPoseTime_ - gazeCommandTime_).toSec() << "\n";
+                                       << ",Seconds from demo start time," << (feasibleReachingPoseTime_ - startDemoTime_).toSec() << "\n";
                             mtxWriteFile_.unlock();
                             firstInState = true;
                             state_ = -3;
@@ -456,7 +456,7 @@ namespace demo_sharon
                                << ","
                                << ","
                                << ","
-                               << ",Seconds from demo start time," << (startExecutionTrajectoryTime_ - startDemoTime_).toSec() << ",Seconds from decision Prob. > execute threshold," << (startExecutionTrajectoryTime_ - decisisionProbGreaterExecuteThreshold_).toSec() << "\n";
+                               << ",Seconds from demo start time," << (startExecutionTrajectoryTime_ - startDemoTime_).toSec() << "\n";
                     mtxWriteFile_.unlock();
 
                     ROS_INFO("Executing planned trajectory to reaching joints");
@@ -493,7 +493,7 @@ namespace demo_sharon
                                    << ","
                                    << ","
                                    << ","
-                                   << ",Seconds from demo start time," << (reachingPoseTime_ - startDemoTime_).toSec() << ",Seconds from decision Prob. > execute threshold," << (reachingPoseTime_ - decisisionProbGreaterExecuteThreshold_).toSec() << "\n";
+                                   << ",Seconds from demo start time," << (reachingPoseTime_ - startDemoTime_).toSec() << "\n";
                         mtxWriteFile_.unlock();
                         stopMotion_ = false;
                     }
@@ -558,7 +558,7 @@ namespace demo_sharon
                         // Open gripper
                         moveGripper(openGripperPositions_, "right");
                         std::vector<std::string> objectIds;
-                        objectIds.push_back("object_" + std::to_string(sqCategories_[indexSqCategory_].idSq));
+                        objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
                         planningSceneInterface_.removeCollisionObjects(objectIds);
                         ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
@@ -579,7 +579,7 @@ namespace demo_sharon
                     ss << "Aproach to grasp";
                     msg.data = ss.str();
                     statePublisher_.publish(msg);
-                    goToGraspingPose(graspingPoses_.poses[indexGraspingPose_]);
+                    goToGraspingPose(listTrajectoriesToGraspObjects[indexListTrajectories_].goalGraspPose);
                     firstInState = false;
                 }
                 else
@@ -1711,7 +1711,7 @@ namespace demo_sharon
             ROS_INFO("The path is valid!");
         else
         {
-            timesFile_.open(date + ".csv");
+            timesFile_.open("/home/catkin_ws/src/tiago-sharon/demo_sharon/csv/"+date + ".csv");
             ROS_INFO("The Path is invalid!");
         }
         return;
@@ -1905,7 +1905,7 @@ namespace demo_sharon
                                    << ","
                                    << ","
                                    << ","
-                                   << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << ",Seconds from gaze," << (asrTime_ - gazeCommandTime_).toSec() << "\n";
+                                   << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
                         mtxWriteFile_.unlock();
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
@@ -1941,7 +1941,7 @@ namespace demo_sharon
                                            << ","
                                            << ","
                                            << ","
-                                           << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << ",Seconds from gaze," << (asrTime_ - gazeCommandTime_).toSec() << "\n";
+                                           << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
                                 mtxWriteFile_.unlock();
 
                                 if (state_ == COMPUTE_GRASP_POSES)
@@ -2016,7 +2016,7 @@ namespace demo_sharon
                                        << ","
                                        << ","
                                        << ","
-                                       << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << ",Seconds from gaze," << (asrTime_ - gazeCommandTime_).toSec() << "\n";
+                                       << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
                             mtxWriteFile_.unlock();
 
                             // robot should say I don't recognize this object.
@@ -2136,7 +2136,7 @@ namespace demo_sharon
                    << ","
                    << ","
                    << ","
-                   << ",Seconds from demo start time," << (gazeCommandTime_ - startDemoTime_).toSec() << ",Seconds from gaze," << (computeGraspPosesTime_ - gazeCommandTime_).toSec() << "\n";
+                   << ",Seconds from demo start time," << (gazeCommandTime_ - startDemoTime_).toSec() << "\n";
         mtxWriteFile_.unlock();
         // ros::Duration(4.0).sleep();
     }
