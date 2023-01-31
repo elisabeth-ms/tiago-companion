@@ -242,6 +242,7 @@ namespace demo_sharon
         float thresholdExecuteTrajectory_;
         double goalJointTolerance_;
 
+        std::string arm_;
 
         float openGripperPositions_[2] = {0.07, 0.07};
         float closeGripperPositions_[2] = {0.010, 0.010};
@@ -253,6 +254,9 @@ namespace demo_sharon
 
         std::vector<float> tableDimensions2_;
         std::vector<float> tablePosition2_;
+
+        std::vector<float> tableDimensions3_;
+        std::vector<float> tablePosition3_;
 
         std::vector<double> initRightArmPositions_;
         std::vector<double> initLeftArmPositions_;

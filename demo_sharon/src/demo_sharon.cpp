@@ -84,6 +84,11 @@ namespace demo_sharon
                 tablePose.position.z = tablePosition2_[2];
                 addTablePlanningScene(tableDimensions2_, tablePose, "table2");
 
+                tablePose.position.x = tablePosition3_[0];
+                tablePose.position.y = tablePosition3_[1];
+                tablePose.position.z = tablePosition3_[2];
+                addTablePlanningScene(tableDimensions3_, tablePose, "table3");
+
                 if (!initializeRightArmPosition(initRightArmPositions_))
                 {
                     return;
@@ -383,7 +388,7 @@ namespace demo_sharon
                             TrajectoryToGraspObject trajectoryToGraspObject;
                             trajectoryToGraspObject.category = sqCategories_[indexSqCategory_].category;
                             trajectoryToGraspObject.idSq = sqCategories_[indexSqCategory_].idSq;
-                            trajectoryToGraspObject.arm = "right";
+                            trajectoryToGraspObject.arm = arm_;
                             trajectoryToGraspObject.goalReachPose = reachingPose_;
                             trajectoryToGraspObject.goalReachJointValues = reachJointValues_;
                             trajectoryToGraspObject.goalGraspPose = graspingPoses_.poses[indexGraspingPose_];
@@ -392,8 +397,8 @@ namespace demo_sharon
                             mtxWriteFile_.lock();
                             planTrajectoryReachingPoseTime_ = ros::Time::now();
                             timesFile_ << "Plan trajectory reaching pose for object," << sqCategories_[indexSqCategory_].category << ","
-                                       << ","
-                                       << ","
+                                       << "arm,"
+                                       << arm_<<","
                                        << ","
                                        << ",Seconds from demo start time," << (feasibleReachingPoseTime_ - startDemoTime_).toSec() << "\n";
                             mtxWriteFile_.unlock();
@@ -460,8 +465,8 @@ namespace demo_sharon
                     mtxWriteFile_.lock();
                     startExecutionTrajectoryTime_ = ros::Time::now();
                     timesFile_ << "Start Execution trajectory to reach," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
-                               << ","
-                               << ","
+                               << "arm,"
+                               << listTrajectoriesToGraspObjects[indexListTrajectories_].arm<<","
                                << ","
                                << ",Seconds from demo start time," << (startExecutionTrajectoryTime_ - startDemoTime_).toSec() << "\n";
                     mtxWriteFile_.unlock();
@@ -474,7 +479,12 @@ namespace demo_sharon
                     statePublisher_.publish(msg);
 
                     firstInState = false;
-                    moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncExecute(listTrajectoriesToGraspObjects[indexListTrajectories_].plan);
+
+                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                        moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncExecute(listTrajectoriesToGraspObjects[indexListTrajectories_].plan);
+                    else{
+                        moveit::planning_interface::MoveItErrorCode e = groupLeftArmTorsoPtr_->asyncExecute(listTrajectoriesToGraspObjects[indexListTrajectories_].plan);
+                    }
                     // const robot_state::RobotState &goalRobotState = groupRightArmTorsoPtr_->getJointValueTarget();
                     goalJoints_.clear();
                     goalJoints_ = listTrajectoriesToGraspObjects[indexListTrajectories_].goalReachJointValues;
@@ -482,7 +492,13 @@ namespace demo_sharon
                 }
                 else
                 {
-                    if (goalReached(groupRightArmTorsoPtr_))
+                    bool inGoal = false;
+                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                        inGoal = goalReached(groupRightArmTorsoPtr_);
+                    else{
+                        inGoal = goalReached(groupLeftArmTorsoPtr_);
+                    }
+                    if (inGoal)
                     // if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
                         state_ = OPEN_GRIPPER;
@@ -497,8 +513,8 @@ namespace demo_sharon
                         mtxWriteFile_.lock();
                         reachingPoseTime_ = ros::Time::now();
                         timesFile_ << "Robot in reaching Pose trajectory," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
-                                   << ","
-                                   << ","
+                                   << "arm,"
+                                   << listTrajectoriesToGraspObjects[indexListTrajectories_].arm<<","
                                    << ","
                                    << ",Seconds from demo start time," << (reachingPoseTime_ - startDemoTime_).toSec() << "\n";
                         mtxWriteFile_.unlock();
@@ -513,10 +529,14 @@ namespace demo_sharon
                         ss << "Stop motion";
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
-                        groupRightArmTorsoPtr_->stop();
 
+                        if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                            groupRightArmTorsoPtr_->stop();
+                        else{
+                            groupLeftArmTorsoPtr_->stop();
+                        }
 
-
+                        // I need to clear the whole list since the planners include the torso
                         listTrajectoriesToGraspObjects.clear();
 
                         state_ = -1;
@@ -563,7 +583,7 @@ namespace demo_sharon
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
                         // Open gripper
-                        moveGripper(openGripperPositions_, "right");
+                        moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
                         std::vector<std::string> objectIds;
                         objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
                         planningSceneInterface_.removeCollisionObjects(objectIds);
@@ -591,9 +611,15 @@ namespace demo_sharon
                 }
                 else
                 {
+                    moveit::planning_interface::MoveGroupInterface * groupAuxArmTorsoPtr_;
+                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
+                        groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+                    }else{
+                        groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
+                    }
 
                     ROS_INFO("HERE!!!!!!!!!!......");
-                    if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
+                    if (groupAuxArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
                         state_ = CLOSE_GRIPPER;
                         firstInState = true;
@@ -614,8 +640,8 @@ namespace demo_sharon
 
                     ROS_INFO("Closing gripper...");
                     firstInState = true;
-                    moveGripper(closeGripperPositions_, "right");
-                    ros::Duration(0.1).sleep(); // sleep for 1 seconds
+                    moveGripper(closeGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
+                    ros::Duration(0.2).sleep(); // sleep for 1 seconds
 
                     mtxWriteFile_.lock();
                     objectGrasppedTime_ = ros::Time::now();
@@ -638,7 +664,14 @@ namespace demo_sharon
                 msg.data = ss.str();
                 statePublisher_.publish(msg);
 
-                goUp(groupRightArmTorsoPtr_, 0.2);
+                moveit::planning_interface::MoveGroupInterface * groupAuxArmTorsoPtr_;
+                if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
+                    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+                }else{
+                    groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
+                }
+                goUp(groupAuxArmTorsoPtr_, 0.2);
+
                 firstInState = true;
                 state_ = RELEASE_OBJECT;
 
@@ -675,7 +708,7 @@ namespace demo_sharon
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
 
-                        moveGripper(openGripperPositions_, "right");
+                        moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
                         ros::Duration(1.0).sleep(); // sleep for 1 seconds
                         firstInState = true;
                         state_ = OBJECT_DELIVERED;
@@ -1178,7 +1211,7 @@ namespace demo_sharon
             auxGripperClient = leftGripperClient_;
         }
         control_msgs::FollowJointTrajectoryGoal gripperGoal;
-        ROS_INFO("Setting gripper position: (%f ,%f)", positions[0], positions[1]);
+        ROS_INFO("Setting gripper %s position: (%f ,%f)", name.c_str(), positions[0], positions[1]);
         waypointGripperGoal(name, gripperGoal, positions, 0.5);
 
         // Sends the command to start the given trajectory now
@@ -1230,11 +1263,17 @@ namespace demo_sharon
 
     bool DemoSharon::goToGraspingPose(const geometry_msgs::Pose &graspingPose)
     {
+        moveit::planning_interface::MoveGroupInterface * groupAuxArmTorsoPtr_;
+        if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
+            groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+        }else{
+            groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
 
-        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
-        groupRightArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
+        }
+        groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+        groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
 
-        geometry_msgs::PoseStamped currentPose = groupRightArmTorsoPtr_->getCurrentPose();
+        geometry_msgs::PoseStamped currentPose = groupAuxArmTorsoPtr_->getCurrentPose();
         KDL::Frame frameEndWrtBase;
         tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
         KDL::Frame frameToolWrtEnd;
@@ -1247,12 +1286,12 @@ namespace demo_sharon
         std::vector<geometry_msgs::Pose> waypoints;
         waypoints.push_back(toolPose);
 
-        groupRightArmTorsoPtr_->setStartStateToCurrentState();
+        groupAuxArmTorsoPtr_->setStartStateToCurrentState();
 
         moveit_msgs::RobotTrajectory trajectory;
         const double jump_threshold = 0.0;
         const double eef_step = 0.001;
-        double fraction = groupRightArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+        double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
         ROS_INFO_NAMED("tutorial", "Visualizing plan 4 (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
 
         // for(int i=0; i<trajectory.joint_trajectory.points.size(); i++){
@@ -1265,7 +1304,7 @@ namespace demo_sharon
 
         sleep(1.0);
 
-        moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->execute(planAproach);
+        moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
 
         return true;
         // tf::poseKDLToMsg(frameToolWrtBase, toolPose);
@@ -1670,6 +1709,8 @@ namespace demo_sharon
         ros::param::get("demo_sharon/table_position", tablePosition_);
         ros::param::get("demo_sharon/table_position2", tablePosition2_);
         ros::param::get("demo_sharon/table_dimensions2", tableDimensions2_);
+        ros::param::get("demo_sharon/table_position3", tablePosition3_);
+        ros::param::get("demo_sharon/table_dimensions3", tableDimensions3_);
         ros::param::get("demo_sharon/right_arm_joints_position_init", initRightArmPositions_);
         ros::param::get("demo_sharon/left_arm_joints_position_init", initLeftArmPositions_);
         ros::param::get("demo_sharon/threshold_plan_trajectory", thresholdPlanTrajectory_);
@@ -1713,6 +1754,8 @@ namespace demo_sharon
         createClient(headClient_, std::string("head"));
         createClient(torsoClient_, std::string("torso"));
         createClient(rightGripperClient_, std::string("gripper_right"));
+        createClient(leftGripperClient_, std::string("gripper_left"));
+
         // createClient(torsoClient_, std::string("torso"));
 
         robot_model_loader::RobotModelLoader robotModelLoader_("robot_description");
@@ -2162,6 +2205,7 @@ namespace demo_sharon
             graspingPoses_ = srvGraspingPoses.response.poses;
         }
         ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses_.poses.size());
+        
         mtxWriteFile_.lock();
         computeGraspPosesTime_ = ros::Time::now();
         timesFile_ << "Compute grasp poses object," << sqCategories_[indexSqCategory_].category << ","
@@ -2170,6 +2214,8 @@ namespace demo_sharon
                    << ","
                    << ",Seconds from demo start time," << (gazeCommandTime_ - startDemoTime_).toSec() << "\n";
         mtxWriteFile_.unlock();
+        
+        
         // ros::Duration(4.0).sleep();
     }
 
@@ -2193,6 +2239,8 @@ namespace demo_sharon
         msg.data = ss.str();
         statePublisher_.publish(msg);
 
+
+        
         for (int idx = indexGraspingPose_ + 1; idx < graspingPoses_.poses.size(); idx++)
         {
             // ROS_INFO("[DemoSharon] idx: %d", idx);
@@ -2206,7 +2254,17 @@ namespace demo_sharon
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.01);
+            if(graspingPoses_.poses[idx].position.y < 0.1){
+                arm_ = "right";
+            }else{
+                arm_ = "left";
+            }
+
+            if(arm_ =="right")
+                foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.01);
+            else{
+                foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoLeftArm_, reachingPose_, 0.01);
+            }
             //     geometry_msgs::PoseStamped goal_pose;
             // goal_pose.header.frame_id = "base_footprint";
             // goal_pose.pose = graspingPoses.poses[idx];
@@ -2221,7 +2279,12 @@ namespace demo_sharon
                 reachingPosePublisher_.publish(reachingPose_);
 
                 reachJointValues_.clear();
-                kinematic_state->copyJointGroupPositions(jointModelGroupTorsoRightArm_, reachJointValues_);
+
+                if(arm_ == "right"){
+                    kinematic_state->copyJointGroupPositions(jointModelGroupTorsoRightArm_, reachJointValues_);
+                }else{
+                    kinematic_state->copyJointGroupPositions(jointModelGroupTorsoLeftArm_, reachJointValues_);
+                }
                 indexGraspingPose_ = idx;
                 break;
             }
@@ -2239,16 +2302,31 @@ namespace demo_sharon
     {
         pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
         successPlanning_ = false;
-        groupRightArmTorsoPtr_->setJointValueTarget(reachJointValues_);
-        ;
-        ROS_INFO("SET POSE TARGET");
-        robot_state::RobotState start_state(*groupRightArmTorsoPtr_->getCurrentState());
-        groupRightArmTorsoPtr_->setStartState(start_state);
-        moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
-        // ros::Duration(4.0).sleep();
-        successPlanning_ = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        if (successPlanning_)
-            planPublisher_.publish(plan_.trajectory_);
+
+        if(arm_ == "right"){
+            groupRightArmTorsoPtr_->setJointValueTarget(reachJointValues_);
+        
+            ROS_INFO("SET POSE TARGET");
+            robot_state::RobotState start_state(*groupRightArmTorsoPtr_->getCurrentState());
+            groupRightArmTorsoPtr_->setStartState(start_state);
+            moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
+            // ros::Duration(4.0).sleep();
+            successPlanning_ = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+            if (successPlanning_)
+                planPublisher_.publish(plan_.trajectory_);
+        }else{
+            groupLeftArmTorsoPtr_->setJointValueTarget(reachJointValues_);
+        
+            ROS_INFO("SET POSE TARGET");
+            robot_state::RobotState start_state(*groupLeftArmTorsoPtr_->getCurrentState());
+            groupLeftArmTorsoPtr_->setStartState(start_state);
+            moveit::planning_interface::MoveItErrorCode code = groupLeftArmTorsoPtr_->plan(plan_);
+            // ros::Duration(4.0).sleep();
+            successPlanning_ = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+            if (successPlanning_)
+                planPublisher_.publish(plan_.trajectory_);
+        }
+       
     }
 
     void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)
