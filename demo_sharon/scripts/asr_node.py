@@ -15,7 +15,9 @@ word_dict = ['sugar',
              'coffee',
              'bread',
              'milk',
-             'water', 
+             'water',
+             'butter',
+             'Nesquick', 
              'please',
              ]
 
