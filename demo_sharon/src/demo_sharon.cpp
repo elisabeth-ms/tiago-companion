@@ -193,6 +193,14 @@ namespace demo_sharon
                     statePublisher_.publish(msg);
                 }
 
+                pal_interaction_msgs::TtsGoal goal;
+                goal.rawtext.text = "What would you like to eat?";
+                goal.rawtext.lang_id = "en_GB";
+
+                acPtr_->sendGoal(goal);
+
+                ros::Duration(1.5).sleep();
+
                 foundGlasses_ = false;
                 indexGlassesSqCategory_ = -1;
                 waitingForGlassesCommand_ = true;
@@ -1625,6 +1633,12 @@ namespace demo_sharon
         reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::Pose>("/demo_sharon/reaching_pose", 10);
         planPublisher_ = nodeHandle_.advertise<moveit_msgs::RobotTrajectory>("/demo_sharon/trajectory", 10);
 
+        acPtr_ = new actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction>("tts",true);
+
+        ROS_INFO("Waiting for /tts action server to start.");
+        acPtr_->waitForServer();
+        ROS_INFO("/tts action server started.");
+
         ros::param::get("demo_sharon/use_asr", useAsr_);
         ros::param::get("demo_sharon/use_glasses", useGlasses_);
         ros::param::get("demo_sharon/reaching_distance", reachingDistance_);
@@ -2226,7 +2240,7 @@ namespace demo_sharon
 
         if (waitingForGlassesCommand_)
         {
-            ROS_INFO("waitingForGlassesCommand_");
+            // ROS_INFO("waitingForGlassesCommand_");
             std::vector<double> decisionVector = glassesData->decision_vector;
 
             double key = 1.0;

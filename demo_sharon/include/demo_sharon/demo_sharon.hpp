@@ -41,6 +41,10 @@
 #include "sharon_msgs/GetBboxes.h"
 #include "sharon_msgs/GlassesData.h"
 
+// Speech
+#include <actionlib/client/simple_action_client.h>
+#include <pal_interaction_msgs/TtsAction.h>
+#include <pal_interaction_msgs/TtsGoal.h>
 // darknet_ros
 #include "darknet_ros_msgs/BoundingBoxes.h"
 
@@ -198,6 +202,8 @@ namespace demo_sharon
         ros::Publisher superquadricsBBoxesPublisher_;
         ros::Publisher reachingPosePublisher_;
         ros::Publisher planPublisher_;
+
+        actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction> * acPtr_;
 
         bool releaseGripper_ = false;
         bool moveToHomePosition_ = false;
