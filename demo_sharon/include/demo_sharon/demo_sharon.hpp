@@ -45,6 +45,10 @@
 #include <actionlib/client/simple_action_client.h>
 #include <pal_interaction_msgs/TtsAction.h>
 #include <pal_interaction_msgs/TtsGoal.h>
+
+//Asr 
+#include "sharon_msgs/ActivateASR.h"
+
 // darknet_ros
 #include "darknet_ros_msgs/BoundingBoxes.h"
 
@@ -188,6 +192,8 @@ namespace demo_sharon
         follow_joint_control_client_Ptr leftArmClient_;
 
         ros::ServiceClient clientActivateSuperquadricsComputation_;
+        ros::ServiceClient clientActivateAsr_;
+
         ros::ServiceClient clientComputeGraspPoses_;
         ros::ServiceClient clientGetSuperquadrics_;
         ros::ServiceClient clientGetBboxesSuperquadrics_;

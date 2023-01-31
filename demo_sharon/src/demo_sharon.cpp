@@ -63,6 +63,15 @@ namespace demo_sharon
                 std_msgs::String msg;
                 msg.data = "INITIALIZING";
                 statePublisher_.publish(msg);
+
+                sharon_msgs::ActivateASR srvActivateAsr;
+                srvActivateAsr.request.activate = false;
+
+                if (clientActivateAsr_.call(srvActivateAsr))
+                {
+                    ROS_INFO("[DemoSharon] ActivateASR: %d", (bool)srvActivateAsr.request.activate);
+                }
+
                 waitingForGlassesCommand_ = false;
                 glassesCommandReceived_ = false;
 
@@ -204,6 +213,13 @@ namespace demo_sharon
 
                 acPtr_->sendGoal(goal);
                 ros::Duration(1.5).sleep();
+
+                srvActivateAsr.request.activate = true;
+
+                if (clientActivateAsr_.call(srvActivateAsr))
+                {
+                    ROS_INFO("[DemoSharon] ActivateASR: %d", (bool)srvActivateAsr.request.activate);
+                }
 
                 foundGlasses_ = false;
                 indexGlassesSqCategory_ = -1;
@@ -783,7 +799,7 @@ namespace demo_sharon
             break;
             case UNABLE_TO_REACHING_GRASP_IK:
             {
-                ROS_INFO("I'M IN UNABLE_TO_REACHING_GRASP_IK");
+                // ROS_INFO("I'M IN UNABLE_TO_REACHING_GRASP_IK");
                 if (firstInState)
                 {
                     ROS_WARN("Unable to found ik to any of the possible reaching poses. What now?");
@@ -1690,6 +1706,7 @@ namespace demo_sharon
         reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::Pose>("/demo_sharon/reaching_pose", 10);
         planPublisher_ = nodeHandle_.advertise<moveit_msgs::RobotTrajectory>("/demo_sharon/trajectory", 10);
 
+        clientActivateAsr_ = nodeHandle_.serviceClient<sharon_msgs::ActivateASR>("/asr_node/activate_asr");
         acPtr_ = new actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction>("tts",true);
 
         ROS_INFO("Waiting for /tts action server to start.");
@@ -2254,7 +2271,7 @@ namespace demo_sharon
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            if(graspingPoses_.poses[idx].position.y < 0.1){
+            if(graspingPoses_.poses[idx].position.y < 0.05){
                 arm_ = "right";
             }else{
                 arm_ = "left";
