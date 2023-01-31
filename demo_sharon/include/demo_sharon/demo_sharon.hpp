@@ -297,6 +297,8 @@ namespace demo_sharon
         ros::Time planTrajectoryReachingPoseTime_;
         ros::Time startExecutionTrajectoryTime_;
         ros::Time decisisionProbGreaterExecuteThreshold_;
+        ros::Time reachingPoseTime_;
+        ros::Time asrTime_;
         bool firstInState;
 
         std::ofstream timesFile_;
