@@ -305,6 +305,9 @@ namespace demo_sharon
         ros::Time decisisionProbGreaterExecuteThreshold_;
         ros::Time reachingPoseTime_;
         ros::Time asrTime_;
+        ros::Time objectGrasppedTime_;
+        ros::Time objectUpTime_;
+
         bool firstInState;
 
         std::ofstream timesFile_;

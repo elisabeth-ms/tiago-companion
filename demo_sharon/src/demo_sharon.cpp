@@ -198,7 +198,6 @@ namespace demo_sharon
                 goal.rawtext.lang_id = "en_GB";
 
                 acPtr_->sendGoal(goal);
-
                 ros::Duration(1.5).sleep();
 
                 foundGlasses_ = false;
@@ -592,6 +591,7 @@ namespace demo_sharon
                 }
                 else
                 {
+
                     ROS_INFO("HERE!!!!!!!!!!......");
                     if (groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
@@ -616,6 +616,15 @@ namespace demo_sharon
                     firstInState = true;
                     moveGripper(closeGripperPositions_, "right");
                     ros::Duration(0.1).sleep(); // sleep for 1 seconds
+
+                    mtxWriteFile_.lock();
+                    objectGrasppedTime_ = ros::Time::now();
+                    timesFile_ << "Object grasped," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
+                                   << ","
+                                   << ","
+                                   << ","
+                                   << ",Seconds from demo start time," << (objectGrasppedTime_ - startDemoTime_).toSec() << "\n";
+                    mtxWriteFile_.unlock();
                     state_ = GO_UP;
                 }
             }
@@ -632,6 +641,15 @@ namespace demo_sharon
                 goUp(groupRightArmTorsoPtr_, 0.2);
                 firstInState = true;
                 state_ = RELEASE_OBJECT;
+
+                mtxWriteFile_.lock();
+                objectUpTime_ = ros::Time::now();
+                timesFile_ << "Object up," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
+                                   << ","
+                                   << ","
+                                   << ","
+                                   << ",Seconds from demo start time," << (objectUpTime_ - startDemoTime_).toSec() << "\n";
+                mtxWriteFile_.unlock();
             }
             break;
             case RELEASE_OBJECT:
