@@ -12,7 +12,7 @@ import sys
 import os
 import rospkg
 import io
-from PIL import Image, ImageDraw, UnidentifiedImageError
+from PIL import Image, ImageDraw
 from io import BytesIO
 from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Point 
@@ -126,7 +126,7 @@ class CommsGlassesServer(object):
                         print("Image data received")
                         try:
                             image = Image.open(io.BytesIO(image_data))
-                        except UnidentifiedImageError:
+                        except:
                             print("eoopoo")
 
               

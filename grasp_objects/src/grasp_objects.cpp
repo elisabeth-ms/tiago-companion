@@ -733,7 +733,7 @@ namespace grasp_objects
             pcl::PassThrough<pcl::PCLPointCloud2> pass;
             pass.setInputCloud(cloudFilteredPtr);
             pass.setFilterFieldName("x");
-            pass.setFilterLimits(0.5, 1.5);
+            pass.setFilterLimits(0.3, 1.6);
             // pass.setFilterLimitsNegative (true);
             pass.filter(*cloudFiltered);
 
@@ -741,7 +741,7 @@ namespace grasp_objects
             pcl::PassThrough<pcl::PCLPointCloud2> passZ;
             passZ.setInputCloud(cloudFilteredPtr);
             passZ.setFilterFieldName("z");
-            passZ.setFilterLimits(0.5, 1.5);
+            passZ.setFilterLimits(0.3, 1.6);
             // pass.setFilterLimitsNegative (true);
             passZ.filter(*cloudFiltered);
 

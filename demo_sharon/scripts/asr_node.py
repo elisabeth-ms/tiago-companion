@@ -286,7 +286,8 @@ class ASR(object):
                         print("Google Speech Recognition could not understand audio")
                     except sr.RequestError as e:
                         print("Could not request results from Google Speech Recognition service; {0}".format(e))
-                    except:                        print('Sorry.. run again...')
+                    except:                        
+                        print('Sorry.. run again...')
             
 
 

@@ -244,9 +244,9 @@ namespace demo_sharon
                 if (!glassesCommandReceived_ && asrCommandReceived_)
                 {
                     ROS_WARN("[DemoSharon] The gaze should be faster than the asr.");
-                    msg.data = "asr command received first";
-                    statePublisher_.publish(msg);
-                    return;
+                    state_ = COMPUTE_GRASP_POSES;
+                    firstInState = true;
+
                 }
             }
             break;
@@ -416,7 +416,7 @@ namespace demo_sharon
                                        << "arm,"
                                        << arm_<<","
                                        << ","
-                                       << ",Seconds from demo start time," << (feasibleReachingPoseTime_ - startDemoTime_).toSec() << "\n";
+                                       << ",Seconds from demo start time," << (planTrajectoryReachingPoseTime_ - startDemoTime_).toSec() << "\n";
                             mtxWriteFile_.unlock();
                             firstInState = true;
                             state_ = -3;
@@ -2153,8 +2153,14 @@ namespace demo_sharon
                         if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
                         {
                             foundAsr_ = true;
-
+                            asrTime_ = ros::Time::now();
+                            timesFile_ << "Asr command to grasp object," << asr_ << ",same"
+                                   << ","
+                                   << ","
+                                   << ","
+                                   << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
                             indexSqCategoryAsr_ = i;
+                            indexSqCategory_ = indexSqCategoryAsr_;
                             asrCommandReceived_ = true;
                             waitingForAsrCommand_ = false;
                         }
