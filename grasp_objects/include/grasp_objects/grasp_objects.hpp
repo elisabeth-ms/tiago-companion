@@ -107,6 +107,8 @@ namespace grasp_objects{
 
         void addPointsToObjectCloud(int idx, float minHeight, float distanceTop, float distanceBtwPoints);
 
+        void addGraspPoses(geometry_msgs::PoseArray &graspingPoses, const  KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp, 
+                                     const KDL::Vector &xgrasp, const std::string ax_line_grasp, const Vector11d &params, const float &step, const std::string &side);
         private:
         //! ROS node handle.
 	int count_ = 0;
