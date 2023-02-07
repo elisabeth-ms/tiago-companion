@@ -40,6 +40,7 @@
 
 #define DEFAULT_MIN_NPOINTS 100
 #define MAX_OBJECT_WIDTH_GRASP 0.16
+#define MIN_OBJECT_WIDTH_GRASP 0.05
 
 using SuperVoxelAdjacencyList = pcl::LCCPSegmentation<pcl::PointXYZRGB>::SupervoxelAdjacencyList;
 namespace grasp_objects{
@@ -119,6 +120,7 @@ namespace grasp_objects{
         ros::Publisher superquadricsPublisher_;
         ros::Publisher graspPosesPublisher_;
         ros::Publisher bbox3dPublisher_;
+        ros::Publisher objectPosePublisher_;
 
 
         ros::ServiceServer serviceActivateSuperquadricsComputation_; 

@@ -86,6 +86,7 @@ namespace grasp_objects
         superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 20);
         graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 20);
         bbox3dPublisher_ = nodeHandle_.advertise<visualization_msgs::MarkerArray>("/grasp_objects/bbox3d", 20);
+        objectPosePublisher_ = nodeHandle_.advertise<geometry_msgs::PoseStamped>("/grasp_objects/object_pose", 20);
 
         serviceActivateSuperquadricsComputation_ = nodeHandle_.advertiseService("/grasp_objects/activate_superquadrics_computation", &GraspObjects::activateSuperquadricsComputation, this);
         serviceComputeGraspPoses_ = nodeHandle_.advertiseService("/grasp_objects/compute_grasp_poses", &GraspObjects::computeGraspPoses, this);
@@ -342,184 +343,420 @@ namespace grasp_objects
         std::cout << "axes length: " << 2 * params[0] << " " << 2 * params[1] << ": " << 2 * params[2] << std::endl;
 
         float step = 0.008;
-        if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP)
+        geometry_msgs::Pose objectPose;
+        tf::poseKDLToMsg(frame_object_wrt_world, objectPose);
+
+        geometry_msgs::PoseStamped objectPoseStamped;
+        objectPoseStamped.header.frame_id = "base_footprint";
+        objectPoseStamped.header.stamp = ros::Time::now();
+        objectPoseStamped.pose = objectPose;
+
+        objectPosePublisher_.publish(objectPoseStamped);
+
+        if (2 * params[1] <= MAX_OBJECT_WIDTH_GRASP && 2 * params[1] >= MIN_OBJECT_WIDTH_GRASP)
         {
-            KDL::Vector zobject;
-            KDL::Vector yobject;
-            KDL::Vector xobject;
+            ROS_INFO("Grasping with z axes == params[1]");
+            KDL::Vector zgrasp;
+            KDL::Vector ygrasp;
+            KDL::Vector xgrasp;
             KDL::Rotation rot;
             KDL::Frame frameTCP, frame_grasping_wrt_object;
             std::vector<double> tcpX;
 
-            for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
+            for (float zaxes = -1.0; zaxes <= 1; zaxes += 2)
             {
-                yobject = KDL::Vector(0, yaxes, 0);
-                for (float x = 0; x <= params[0] / 1.4; x += step)
+                zgrasp = KDL::Vector(0, zaxes, 0);
+                xgrasp = KDL::Vector(0, 0, -1.0);
+                ygrasp = zgrasp * xgrasp;
+                for (float z = -params[0] / 1.8; z <= params[0] / 1.8; z += step)
                 {
-                    float xaxes = 1.0;
-                    zobject = KDL::Vector(xaxes, 0.0, 0.0);
-                    xobject = yobject * zobject;
-                    rot = KDL::Rotation(xobject, yobject, zobject);
-                    frameTCP = KDL::Frame(rot);
-                    frameTCP = KDL::Frame(KDL::Rotation::RotZ(M_PI / 2.0)) * frameTCP;
-                    frameTCP = KDL::Frame(KDL::Rotation::RotX(M_PI / 2.0)) * frameTCP;
-                    frame_grasping_wrt_object = frameTCP;
-                    for (int sign = 1.0; sign >= -1; sign -= 2.0)
-                    {
-                        frame_grasping_wrt_object.p[0] = sign * x;
-                        frame_grasping_wrt_object.p[1] = -yaxes * params[1];
-                        frame_grasping_wrt_object.p[2] = 0;
-                        frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
-                        // Check if is trying to grasp from the bottom of the objet
-                        KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
-                        KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
-                        KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(z, 0, params[2]));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
 
-                        KDL::Vector axesz(1, 0, 0);
-                        float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
-                        // printf("angle: %f\n", angle * M_1_PI / 180.0);
-                        if (angle > 20 * M_PI / 180.0)
-                        {
-                            geometry_msgs::Pose pose;
-                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
-                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                            graspingPoses.poses.push_back(pose);
-                        }
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
+                    {
+
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
                     }
                 }
             }
 
-            float yaxes = 1.0;
-
-            for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
+            for (float zaxes = -1.0; zaxes <= 1; zaxes += 2)
             {
-                xobject = KDL::Vector(xaxes, 0, 0);
-                for (float y = 0; y <= params[1] / 1.4; y += step)
-                // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
+                zgrasp = KDL::Vector(0, zaxes, 0);
+                xgrasp = KDL::Vector(0, 0, 1.0);
+                ygrasp = zgrasp * xgrasp;
+                for (float z = -params[0] / 1.8; z <= params[0] / 1.8; z += step)
                 {
-                    zobject = KDL::Vector(0, yaxes, 0.0);
-                    yobject = zobject * xobject;
-                    rot = KDL::Rotation(xobject, yobject, zobject);
-                    frameTCP = KDL::Frame(rot);
-                    frameTCP = KDL::Frame(KDL::Rotation::RotX(-M_PI / 2.0)) * frameTCP;
-
-                    for (int sign = 1; sign >= -1; sign -= 2)
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    // KDL::Frame displacements_(KDL::Rotation::Identity(), KDL::Vector(0, z, params[2]));
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(z, 0, -params[2]));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
                     {
-                        frame_grasping_wrt_object = frameTCP;
-                        frame_grasping_wrt_object.p[0] = -xaxes * params[0];
-                        frame_grasping_wrt_object.p[1] = sign * y;
-                        frame_grasping_wrt_object.p[2] = 0;
-                        frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
-                        // Check if is trying to grasp from the bottom of the objet
-                        KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
-                        KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
-                        KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
 
-                        KDL::Vector axesz(1, 0, 0);
-                        float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
-                        // printf("angle: %f\n", angle * 180.0 / M_PI);
-                        if (angle > 20 * M_PI / 180.0)
-                        {
-                            geometry_msgs::Pose pose;
-                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
-                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                            graspingPoses.poses.push_back(pose);
-                        }
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
+                    };
+                }
+            }
+
+            for (float zaxes = -1.0; zaxes <= 1; zaxes += 2)
+            {
+                zgrasp = KDL::Vector(0, zaxes, 0);
+                xgrasp = KDL::Vector(1.0, 0, 0.0);
+                ygrasp = zgrasp * xgrasp;
+                for (float z = -params[2] / 1.8; z <= params[2] / 1.8; z += step)
+                {
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    // KDL::Frame displacements_(KDL::Rotation::Identity(), KDL::Vector(0, z, params[2]));
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(-params[0], 0, -z));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
+                    {
+
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
+                    }
+                }
+            }
+
+            for (float zaxes = -1.0; zaxes <= 1; zaxes += 2)
+            {
+                zgrasp = KDL::Vector(0, zaxes, 0);
+                xgrasp = KDL::Vector(-1.0, 0, 0.0);
+                ygrasp = zgrasp * xgrasp;
+                for (float z = -params[2] / 1.8; z <= params[2] / 1.8; z += step)
+                {
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    // KDL::Frame displacements_(KDL::Rotation::Identity(), KDL::Vector(0, z, params[2]));
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(params[0], 0, -z));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
+                    {
+
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
                     }
                 }
             }
         }
 
-        if (2 * params[1] <= MAX_OBJECT_WIDTH_GRASP)
+        if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP && 2 * params[2] >= MIN_OBJECT_WIDTH_GRASP)
         {
-            KDL::Vector zobject;
-            KDL::Vector yobject;
-            KDL::Vector xobject;
+            ROS_INFO("Grasping with y axes == params[2]");
+            KDL::Vector zgrasp;
+            KDL::Vector ygrasp;
+            KDL::Vector xgrasp;
             KDL::Rotation rot;
             KDL::Frame frameTCP, frame_grasping_wrt_object;
             std::vector<double> tcpX;
 
-            for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
+            for (float yaxes = -1.0; yaxes <= 1; yaxes += 2)
             {
-                yobject = KDL::Vector(0, yaxes, 0);
-                for (float x = 0; x <= params[0] / 1.4; x += step)
+                zgrasp = KDL::Vector(0, 0, yaxes);
+                xgrasp = KDL::Vector(0, -1, 0);
+                ygrasp = zgrasp * xgrasp;
+                for (float y = -params[0] / 1.8; y <= params[0] / 1.8; y += step)
                 {
-                    float xaxes = -1.0;
-                    zobject = KDL::Vector(0.0, 0.0, xaxes);
-                    xobject = yobject * zobject;
-                    rot = KDL::Rotation(xobject, yobject, zobject);
-                    frameTCP = KDL::Frame(rot);
-                    frameTCP = KDL::Frame(KDL::Rotation::RotZ(M_PI / 2.0)) * frameTCP;
-                    frameTCP = KDL::Frame(KDL::Rotation::RotX(M_PI / 2.0)) * frameTCP;
-                    frame_grasping_wrt_object = frameTCP;
-                    for (int sign = 1.0; sign >= -1; sign -= 2.0)
-                    {
-                        frame_grasping_wrt_object.p[0] = sign * x;
-                        frame_grasping_wrt_object.p[1] = 0;
-                        frame_grasping_wrt_object.p[2] = yaxes * params[2];
-                        frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
-                        // Check if is trying to grasp from the bottom of the objet
-                        KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
-                        KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
-                        KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    // KDL::Frame displacements_(KDL::Rotation::Identity(), KDL::Vector(0, z, params[2]));
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(y, params[1], 0));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
 
-                        KDL::Vector axesz(1, 0, 0);
-                        float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
-                        // printf("angle: %f\n", angle * M_1_PI / 180.0);
-                        if (angle > 20 * M_PI / 180.0)
-                        {
-                            geometry_msgs::Pose pose;
-                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
-                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                            graspingPoses.poses.push_back(pose);
-                        }
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
+                    {
+
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
                     }
                 }
             }
 
-            float yaxes = 1.0;
-
-            for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
+            for (float yaxes = -1.0; yaxes <= 1; yaxes += 2)
             {
-                xobject = KDL::Vector(xaxes, 0, 0);
-                for (float y = 0; y <= params[1] / 1.4; y += step)
-                // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
+                zgrasp = KDL::Vector(0, 0, yaxes);
+                xgrasp = KDL::Vector(0, 1, 0);
+                ygrasp = zgrasp * xgrasp;
+                for (float y = -params[0] / 1.8; y <= params[0] / 1.8; y += step)
                 {
-                    zobject = KDL::Vector(0, yaxes, 0.0);
-                    yobject = zobject * xobject;
-                    rot = KDL::Rotation(xobject, yobject, zobject);
-                    frameTCP = KDL::Frame(rot);
-                    frameTCP = KDL::Frame(KDL::Rotation::RotX(-M_PI / 2.0)) * frameTCP;
-
-                    for (int sign = 1; sign >= -1; sign -= 2)
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    // KDL::Frame displacements_(KDL::Rotation::Identity(), KDL::Vector(0, z, params[2]));
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(y, -params[1], 0));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+                    // frameTCP = frame_grasping_wrt_world * frameTCP_wrt_grasping;
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
                     {
-                        frame_grasping_wrt_object = frameTCP;
-                        frame_grasping_wrt_object.p[0] = -xaxes * params[0];
-                        frame_grasping_wrt_object.p[1] = sign * y;
-                        frame_grasping_wrt_object.p[2] = 0;
-                        frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
-                        // Check if is trying to grasp from the bottom of the objet
-                        KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
-                        KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
-                        KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
 
-                        KDL::Vector axesz(1, 0, 0);
-                        float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
-                        printf("angle: %f\n", angle * 180.0 / M_PI);
-                        if (angle > 20 * M_PI / 180.0)
-                        {
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
+                    }
+                }
+            }
 
-                            geometry_msgs::Pose pose;
-                            tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
-                            // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
-                            graspingPoses.poses.push_back(pose);
-                        }
+            for (float yaxes = -1.0; yaxes <= 1; yaxes += 2)
+            {
+                zgrasp = KDL::Vector(0, 0, yaxes);
+                xgrasp = KDL::Vector(-1, 0, 0);
+                ygrasp = zgrasp * xgrasp;
+                for (float y = -params[1] / 1.8; y <= params[1] / 1.8; y += step)
+                {
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    // KDL::Frame displacements_(KDL::Rotation::Identity(), KDL::Vector(0, z, params[2]));
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(params[0], y, 0));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+                    // frameTCP = frame_grasping_wrt_world * frameTCP_wrt_grasping;
+
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
+                    {
+
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
+                    }
+                }
+            }
+
+            for (float yaxes = -1.0; yaxes <= 1; yaxes += 2)
+            {
+                zgrasp = KDL::Vector(0, 0, yaxes);
+                xgrasp = KDL::Vector(1, 0, 0);
+                ygrasp = zgrasp * xgrasp;
+                for (float y = -params[1] / 1.8; y <= params[1] / 1.8; y += step)
+                {
+                    rot = KDL::Rotation(xgrasp, ygrasp, zgrasp);
+                    // KDL::Frame displacements_(KDL::Rotation::Identity(), KDL::Vector(0, z, params[2]));
+                    frame_grasping_wrt_object = KDL::Frame(rot, KDL::Vector(-params[0], y, 0));
+                    frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+
+                    KDL::Vector axesz(0, 0, 1);
+                    KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+                    float angle = atan2((unitx * axesz).Norm(), dot(unitx, axesz));
+                    if (angle > 20 * M_PI / 180.0)
+                    {
+
+                        geometry_msgs::Pose pose;
+                        tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+                        // std::cout << "pose: " << pose << std::endl;
+                        graspingPoses.poses.push_back(pose);
                     }
                 }
             }
         }
-        
     }
+
+    // if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP)
+    // {
+    //     KDL::Vector zobject;
+    //     KDL::Vector yobject;
+    //     KDL::Vector xobject;
+    //     KDL::Rotation rot;
+    //     KDL::Frame frameTCP, frame_grasping_wrt_object;
+    //     std::vector<double> tcpX;
+
+    //     for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
+    //     {
+    //         yobject = KDL::Vector(0, yaxes, 0);
+    //         for (float x = 0; x <= params[0] / 1.4; x += step)
+    //         {
+    //             float xaxes = 1.0;
+    //             zobject = KDL::Vector(xaxes, 0.0, 0.0);
+    //             xobject = yobject * zobject;
+    //             rot = KDL::Rotation(xobject, yobject, zobject);
+    //             frameTCP = KDL::Frame(rot);
+    //             frameTCP = KDL::Frame(KDL::Rotation::RotZ(M_PI / 2.0)) * frameTCP;
+    //             frameTCP = KDL::Frame(KDL::Rotation::RotX(M_PI / 2.0)) * frameTCP;
+    //             frame_grasping_wrt_object = frameTCP;
+    //             for (int sign = 1.0; sign >= -1; sign -= 2.0)
+    //             {
+    //                 frame_grasping_wrt_object.p[0] = sign * x;
+    //                 frame_grasping_wrt_object.p[1] = -yaxes * params[1];
+    //                 frame_grasping_wrt_object.p[2] = 0;
+    //                 frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+    //                 // Check if is trying to grasp from the bottom of the objet
+    //                 KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+    //                 KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
+    //                 KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
+
+    //                 KDL::Vector axesz(1, 0, 0);
+    //                 float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
+    //                 // printf("angle: %f\n", angle * M_1_PI / 180.0);
+    //                 if (angle > 20 * M_PI / 180.0)
+    //                 {
+    //                     geometry_msgs::Pose pose;
+    //                     tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+    //                     // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+    //                     graspingPoses.poses.push_back(pose);
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     float yaxes = 1.0;
+
+    //     for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
+    //     {
+    //         xobject = KDL::Vector(xaxes, 0, 0);
+    //         for (float y = 0; y <= params[1] / 1.4; y += step)
+    //         // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
+    //         {
+    //             zobject = KDL::Vector(0, yaxes, 0.0);
+    //             yobject = zobject * xobject;
+    //             rot = KDL::Rotation(xobject, yobject, zobject);
+    //             frameTCP = KDL::Frame(rot);
+    //             frameTCP = KDL::Frame(KDL::Rotation::RotX(-M_PI / 2.0)) * frameTCP;
+
+    //             for (int sign = 1; sign >= -1; sign -= 2)
+    //             {
+    //                 frame_grasping_wrt_object = frameTCP;
+    //                 frame_grasping_wrt_object.p[0] = -xaxes * params[0];
+    //                 frame_grasping_wrt_object.p[1] = sign * y;
+    //                 frame_grasping_wrt_object.p[2] = 0;
+    //                 frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+    //                 // Check if is trying to grasp from the bottom of the objet
+    //                 KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+    //                 KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
+    //                 KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
+
+    //                 KDL::Vector axesz(1, 0, 0);
+    //                 float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
+    //                 // printf("angle: %f\n", angle * 180.0 / M_PI);
+    //                 if (angle > 20 * M_PI / 180.0)
+    //                 {
+    //                     geometry_msgs::Pose pose;
+    //                     tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+    //                     // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+    //                     graspingPoses.poses.push_back(pose);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    // if (2 * params[1] <= MAX_OBJECT_WIDTH_GRASP)
+    // {
+    //     KDL::Vector zobject;
+    //     KDL::Vector yobject;
+    //     KDL::Vector xobject;
+    //     KDL::Rotation rot;
+    //     KDL::Frame frameTCP, frame_grasping_wrt_object;
+    //     std::vector<double> tcpX;
+
+    //     for (float yaxes = -1.0; yaxes <= 1.0; yaxes += 2)
+    //     {
+    //         yobject = KDL::Vector(0, yaxes, 0);
+    //         for (float x = 0; x <= params[0] / 1.4; x += step)
+    //         {
+    //             float xaxes = -1.0;
+    //             zobject = KDL::Vector(0.0, 0.0, xaxes);
+    //             xobject = yobject * zobject;
+    //             rot = KDL::Rotation(xobject, yobject, zobject);
+    //             frameTCP = KDL::Frame(rot);
+    //             frameTCP = KDL::Frame(KDL::Rotation::RotZ(M_PI / 2.0)) * frameTCP;
+    //             frameTCP = KDL::Frame(KDL::Rotation::RotX(M_PI / 2.0)) * frameTCP;
+    //             frame_grasping_wrt_object = frameTCP;
+    //             for (int sign = 1.0; sign >= -1; sign -= 2.0)
+    //             {
+    //                 frame_grasping_wrt_object.p[0] = sign * x;
+    //                 frame_grasping_wrt_object.p[1] = 0;
+    //                 frame_grasping_wrt_object.p[2] = yaxes * params[2];
+    //                 frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+    //                 // Check if is trying to grasp from the bottom of the objet
+    //                 KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+    //                 KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
+    //                 KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
+
+    //                 KDL::Vector axesz(1, 0, 0);
+    //                 float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
+    //                 // printf("angle: %f\n", angle * M_1_PI / 180.0);
+    //                 if (angle > 20 * M_PI / 180.0)
+    //                 {
+    //                     geometry_msgs::Pose pose;
+    //                     tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+    //                     // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+    //                     graspingPoses.poses.push_back(pose);
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     float yaxes = 1.0;
+
+    //     for (float xaxes = -1.0; xaxes <= 1.0; xaxes += 2)
+    //     {
+    //         xobject = KDL::Vector(xaxes, 0, 0);
+    //         for (float y = 0; y <= params[1] / 1.4; y += step)
+    //         // for (float y = -params[1] / 2.0; y <= params[1] / 2.0; y += step)
+    //         {
+    //             zobject = KDL::Vector(0, yaxes, 0.0);
+    //             yobject = zobject * xobject;
+    //             rot = KDL::Rotation(xobject, yobject, zobject);
+    //             frameTCP = KDL::Frame(rot);
+    //             frameTCP = KDL::Frame(KDL::Rotation::RotX(-M_PI / 2.0)) * frameTCP;
+
+    //             for (int sign = 1; sign >= -1; sign -= 2)
+    //             {
+    //                 frame_grasping_wrt_object = frameTCP;
+    //                 frame_grasping_wrt_object.p[0] = -xaxes * params[0];
+    //                 frame_grasping_wrt_object.p[1] = sign * y;
+    //                 frame_grasping_wrt_object.p[2] = 0;
+    //                 frame_grasping_wrt_world = frame_object_wrt_world * frame_grasping_wrt_object;
+    //                 // Check if is trying to grasp from the bottom of the objet
+    //                 KDL::Vector unitx = frame_grasping_wrt_world.M.UnitX();
+    //                 KDL::Vector unity = frame_grasping_wrt_world.M.UnitY();
+    //                 KDL::Vector unitz = frame_grasping_wrt_world.M.UnitZ();
+
+    //                 KDL::Vector axesz(1, 0, 0);
+    //                 float angle = atan2((unitz * axesz).Norm(), dot(unitz, axesz));
+    //                 printf("angle: %f\n", angle * 180.0 / M_PI);
+    //                 if (angle > 20 * M_PI / 180.0)
+    //                 {
+
+    //                     geometry_msgs::Pose pose;
+    //                     tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
+    //                     // printf("%f %f %f %f %f %f\n", tcpX[0], tcpX[1], tcpX[2], tcpX[3], tcpX[4], tcpX[5]);
+    //                     graspingPoses.poses.push_back(pose);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     bool GraspObjects::activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request &req, sharon_msgs::ActivateSupercuadricsComputation::Response &res)
     {
@@ -527,7 +764,7 @@ namespace grasp_objects
         mtxActivate_.lock();
         activate_ = req.activate;
         count_ = 0;
-	ROS_INFO("[GraspObjects] Activate superquadrics Computation: %d", activate_);
+        ROS_INFO("[GraspObjects] Activate superquadrics Computation: %d", activate_);
         res.success = true;
         mtxActivate_.unlock();
         return true;
@@ -694,10 +931,10 @@ namespace grasp_objects
         mtxActivate_.lock();
         activate = activate_;
         mtxActivate_.unlock();
-        if (activate && count_<2)
+        if (activate && count_ < 2)
         {
-	    count_++;
-	    ROS_INFO("COUNT %d", count_);
+            count_++;
+            ROS_INFO("COUNT %d", count_);
             sensor_msgs::PointCloud2 pcOut;
 
             sensor_msgs::PointCloud2::Ptr cloud_msg(new sensor_msgs::PointCloud2);
@@ -893,7 +1130,7 @@ namespace grasp_objects
                 auxp.r = p.r;
                 auxp.g = p.g;
                 auxp.b = p.b;
-                auxp.z += 20*distanceBtwPoints;
+                auxp.z += 20 * distanceBtwPoints;
                 while (auxp.z >= minHeight)
                 {
                     detectedObjects_[idx].object_cloud.points.push_back(auxp);
