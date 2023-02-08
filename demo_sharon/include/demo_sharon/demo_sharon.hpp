@@ -99,8 +99,8 @@ namespace demo_sharon
         geometry_msgs::Pose goalReachPose;
         std::vector<double> goalReachJointValues;
         geometry_msgs::Pose goalGraspPose;
-         moveit::planning_interface::MoveGroupInterface::Plan plan;
-
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        float closeGripperPositions[2] = {0.0,0.0};
     };
 
     class DemoSharon
@@ -278,13 +278,21 @@ namespace demo_sharon
         int indexSqCategory_ = -1;
         int indexGlassesSqCategory_ = -1;
         int indexSqCategoryAsr_ = -1;
+        
         geometry_msgs::PoseArray graspingPoses_;
+        std::vector<float> width_;
         std::vector<double> reachJointValues_;
         std::vector<double> goalJoints_;
 
         bool foundReachIk_;
         bool stopMotion_;
         int indexGraspingPose_;
+
+        float closeLeftGripperDeviation_[2] = {0.033, 0.033};
+        float closeRightGripperDeviation_[2] = {0.033, 0.027};
+
+        float closeMorePosition = 0.02;
+
 
 
 

@@ -409,6 +409,16 @@ namespace demo_sharon
                             trajectoryToGraspObject.goalReachJointValues = reachJointValues_;
                             trajectoryToGraspObject.goalGraspPose = graspingPoses_.poses[indexGraspingPose_];
                             trajectoryToGraspObject.plan = plan_;
+                            if (arm_ == "right"){
+                                for(int i=0; i<=1; i++){
+                                    trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_]/2.0-closeRightGripperDeviation_[i]-closeMorePosition;
+                                }
+                            }else{
+                                for(int i=0; i<=1; i++){
+                                    trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_]/2.0-closeLeftGripperDeviation_[i]-closeMorePosition;
+                                }
+                            }
+
                             listTrajectoriesToGraspObjects.push_back(trajectoryToGraspObject);
                             mtxWriteFile_.lock();
                             planTrajectoryReachingPoseTime_ = ros::Time::now();
@@ -656,7 +666,7 @@ namespace demo_sharon
 
                     ROS_INFO("Closing gripper...");
                     firstInState = true;
-                    moveGripper(closeGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
+                    moveGripper(listTrajectoriesToGraspObjects[indexListTrajectories_].closeGripperPositions, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
                     ros::Duration(0.2).sleep(); // sleep for 1 seconds
 
                     mtxWriteFile_.lock();
@@ -2226,6 +2236,7 @@ namespace demo_sharon
         {
             ROS_INFO("[DemoSharon] ComputeGraspPoses: %d", (bool)srvGraspingPoses.response.success);
             graspingPoses_ = srvGraspingPoses.response.poses;
+            width_ = srvGraspingPoses.response.width;
         }
         ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses_.poses.size());
         
