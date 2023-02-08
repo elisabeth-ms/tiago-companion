@@ -40,7 +40,7 @@
 
 #define DEFAULT_MIN_NPOINTS 100
 #define MAX_OBJECT_WIDTH_GRASP 0.16
-#define MIN_OBJECT_WIDTH_GRASP 0.05
+#define MIN_OBJECT_WIDTH_GRASP 0.04
 
 using SuperVoxelAdjacencyList = pcl::LCCPSegmentation<pcl::PointXYZRGB>::SupervoxelAdjacencyList;
 namespace grasp_objects{
@@ -97,7 +97,7 @@ namespace grasp_objects{
 
         bool computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request & req, sharon_msgs::ComputeGraspPoses::Response & res);
 
-        void computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses);
+        void computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses, std::vector<float> & width);
 
         bool getSuperquadrics(sharon_msgs::GetSuperquadrics::Request &req, sharon_msgs::GetSuperquadrics::Response &res);
 
@@ -107,7 +107,7 @@ namespace grasp_objects{
 
         void addPointsToObjectCloud(int idx, float minHeight, float distanceTop, float distanceBtwPoints);
 
-        void addGraspPoses(geometry_msgs::PoseArray &graspingPoses, const  KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp, 
+        void addGraspPoses(geometry_msgs::PoseArray &graspingPoses,std::vector<float>&width, const  KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp, 
                                      const KDL::Vector &xgrasp, const std::string ax_line_grasp, const Vector11d &params, const float &step, const std::string &side);
         private:
         //! ROS node handle.

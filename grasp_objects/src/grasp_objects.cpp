@@ -291,6 +291,7 @@ namespace grasp_objects
     {
         ROS_INFO("[GraspObjects] computeGraspPoses().");
         geometry_msgs::PoseArray graspingPoses;
+        std::vector<float> width; 
 
         int idx = -1;
         ROS_INFO("superquadricObjects_.size(): %d", superquadricObjects_.size());
@@ -309,8 +310,9 @@ namespace grasp_objects
         }
         else
         {
-            computeGraspingPosesObject(superquadricObjects_[idx].superqs, graspingPoses);
+            computeGraspingPosesObject(superquadricObjects_[idx].superqs, graspingPoses, width);
             res.poses = graspingPoses;
+            res.width = width;
             res.success = true;
         }
 
@@ -319,7 +321,7 @@ namespace grasp_objects
         return true;
     }
 
-    void GraspObjects::addGraspPoses(geometry_msgs::PoseArray &graspingPoses, const KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp,
+    void GraspObjects::addGraspPoses(geometry_msgs::PoseArray &graspingPoses, std::vector<float>&width, const KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp,
                                      const KDL::Vector &xgrasp, const std::string ax_line_grasp,  const Vector11d &params, const float &step, const std::string &side
                                      )
     {
@@ -404,6 +406,11 @@ namespace grasp_objects
                         tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
                         // std::cout << "pose: " << pose << std::endl;
                         graspingPoses.poses.push_back(pose);
+                        if(zgrasp.y() == 1){
+                            width.push_back(2*params[1]);
+                        }else if(zgrasp.z() == 1){
+                            width.push_back(2*params[2]);
+                        }
                     }
 
 
@@ -417,7 +424,7 @@ namespace grasp_objects
         
     }
 
-    void GraspObjects::computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses)
+    void GraspObjects::computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses, std::vector<float> &width)
     {
 
         graspingPoses.header.frame_id = "base_footprint";
@@ -454,17 +461,17 @@ namespace grasp_objects
         if (2 * params[1] <= MAX_OBJECT_WIDTH_GRASP && 2 * params[1] >= MIN_OBJECT_WIDTH_GRASP)
         {
             KDL::Vector grasp_point(0, 0, params[2]);
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(0, 0, -1.0), "x", params, step, "z+");
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(0, 0, 1.0), "x", params, step, "z-");
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(-1.0, 0, 0.0), "z", params, step, "x+");
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(1.0, 0, 0.0), "z", params, step, "x-");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(0, 0, -1.0), "x", params, step, "z+");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(0, 0, 1.0), "x", params, step, "z-");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(-1.0, 0, 0.0), "z", params, step, "x+");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 1, 0), KDL::Vector(1.0, 0, 0.0), "z", params, step, "x-");
         }
         if (2 * params[2] <= MAX_OBJECT_WIDTH_GRASP && 2 * params[2] >= MIN_OBJECT_WIDTH_GRASP)
         {
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(0, -1, 0.0), "x", params, step, "y+");
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(0, 1, 0.0), "x", params, step, "y-");
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(-1, 0, 0.0), "y", params, step, "x+");
-            addGraspPoses(graspingPoses, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(1, 0, 0.0), "y", params, step, "x-");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(0, -1, 0.0), "x", params, step, "y+");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(0, 1, 0.0), "x", params, step, "y-");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(-1, 0, 0.0), "y", params, step, "x+");
+            addGraspPoses(graspingPoses, width, frame_object_wrt_world, KDL::Vector(0, 0, 1), KDL::Vector(1, 0, 0.0), "y", params, step, "x-");
 
         }
 

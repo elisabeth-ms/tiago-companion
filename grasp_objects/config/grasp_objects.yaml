@@ -1,6 +1,6 @@
 eps_angle: 6.0
 distance_threshold: 0.05
-tol_superq: 0.00001
+tol_superq: 0.000001
 optimizer_points: 800
 random_sampling: true
 max_iter: 10000000
