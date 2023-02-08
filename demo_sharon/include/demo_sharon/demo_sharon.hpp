@@ -251,7 +251,7 @@ namespace demo_sharon
         std::string arm_;
 
         float openGripperPositions_[2] = {0.07, 0.07};
-        float closeGripperPositions_[2] = {0.010, 0.010};
+        float closeGripperPositions_[2] = {0.013, 0.013};
         float maxErrorJoints_;
         std::vector<float> initHeadPositions_;
         float initTorsoPosition_;

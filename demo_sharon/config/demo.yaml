@@ -3,7 +3,7 @@ use_asr: true
 reaching_distance: 0.15
 elimit1: 0.2
 elimit2: 0.7
-inflate_size: 0.028
+inflate_size: 0.035
 max_error_joints: 0.01
 head_joints_position_init: [0, -0.68]
 torso_joint_position_init: 0.3
