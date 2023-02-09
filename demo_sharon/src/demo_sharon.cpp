@@ -11,31 +11,11 @@ namespace demo_sharon
         spinner.start();
         init(); // Tiagos head and torso are at the initial positions
         startDemoTime_ = ros::Time::now();
-        if (useAsr_ && !useGlasses_)
-        {
-            timesFile_ << "Use Glasses," << 0 << "\n";
-            timesFile_ << "Use ASR," << 1 << "\n";
-            demoOnlyASR();
-        }
 
-        else if (!useAsr_ && useGlasses_)
-        {
-            timesFile_ << "Use Glasses," << 1 << "\n";
-            timesFile_ << "Use ASR," << 0 << "\n";
-            timesFile_ << "Plan trajectory threshold," << thresholdPlanTrajectory_ << "\n";
-            timesFile_ << "Execute trajectory threshold," << thresholdExecuteTrajectory_ << "\n";
+        timesFile_ << "Use Glasses," << useGlasses_ << "\n";
+        timesFile_ << "Use ASR," << useAsr_ << "\n";
 
-            demoOnlyGlasses();
-        }
-        else if (useAsr_ && useGlasses_)
-        {
-            timesFile_ << "Use Glasses," << 1 << "\n";
-            timesFile_ << "Use ASR," << 1 << "\n";
-            timesFile_ << "Plan trajectory threshold," << thresholdPlanTrajectory_ << "\n";
-            timesFile_ << "Execute trajectory threshold," << thresholdExecuteTrajectory_ << "\n";
-            timesFile_ << std::fixed << std::setprecision(10) << std::endl;
-            demoGlassesASR();
-        }
+        demoGlassesASR();
     }
 
     DemoSharon::~DemoSharon()
@@ -246,7 +226,6 @@ namespace demo_sharon
                     ROS_WARN("[DemoSharon] The gaze should be faster than the asr.");
                     state_ = COMPUTE_GRASP_POSES;
                     firstInState = true;
-
                 }
             }
             break;
@@ -409,13 +388,18 @@ namespace demo_sharon
                             trajectoryToGraspObject.goalReachJointValues = reachJointValues_;
                             trajectoryToGraspObject.goalGraspPose = graspingPoses_.poses[indexGraspingPose_];
                             trajectoryToGraspObject.plan = plan_;
-                            if (arm_ == "right"){
-                                for(int i=0; i<=1; i++){
-                                    trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_]/2.0-closeRightGripperDeviation_[i]-closeMorePosition;
+                            if (arm_ == "right")
+                            {
+                                for (int i = 0; i <= 1; i++)
+                                {
+                                    trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_] / 2.0 - closeRightGripperDeviation_[i] - closeMorePosition;
                                 }
-                            }else{
-                                for(int i=0; i<=1; i++){
-                                    trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_]/2.0-closeLeftGripperDeviation_[i]-closeMorePosition;
+                            }
+                            else
+                            {
+                                for (int i = 0; i <= 1; i++)
+                                {
+                                    trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_] / 2.0 - closeLeftGripperDeviation_[i] - closeMorePosition;
                                 }
                             }
 
@@ -424,7 +408,7 @@ namespace demo_sharon
                             planTrajectoryReachingPoseTime_ = ros::Time::now();
                             timesFile_ << "Plan trajectory reaching pose for object," << sqCategories_[indexSqCategory_].category << ","
                                        << "arm,"
-                                       << arm_<<","
+                                       << arm_ << ","
                                        << ","
                                        << ",Seconds from demo start time," << (planTrajectoryReachingPoseTime_ - startDemoTime_).toSec() << "\n";
                             mtxWriteFile_.unlock();
@@ -492,7 +476,7 @@ namespace demo_sharon
                     startExecutionTrajectoryTime_ = ros::Time::now();
                     timesFile_ << "Start Execution trajectory to reach," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
                                << "arm,"
-                               << listTrajectoriesToGraspObjects[indexListTrajectories_].arm<<","
+                               << listTrajectoriesToGraspObjects[indexListTrajectories_].arm << ","
                                << ","
                                << ",Seconds from demo start time," << (startExecutionTrajectoryTime_ - startDemoTime_).toSec() << "\n";
                     mtxWriteFile_.unlock();
@@ -506,9 +490,10 @@ namespace demo_sharon
 
                     firstInState = false;
 
-                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                    if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
                         moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncExecute(listTrajectoriesToGraspObjects[indexListTrajectories_].plan);
-                    else{
+                    else
+                    {
                         moveit::planning_interface::MoveItErrorCode e = groupLeftArmTorsoPtr_->asyncExecute(listTrajectoriesToGraspObjects[indexListTrajectories_].plan);
                     }
                     // const robot_state::RobotState &goalRobotState = groupRightArmTorsoPtr_->getJointValueTarget();
@@ -519,9 +504,10 @@ namespace demo_sharon
                 else
                 {
                     bool inGoal = false;
-                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                    if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
                         inGoal = goalReached(groupRightArmTorsoPtr_);
-                    else{
+                    else
+                    {
                         inGoal = goalReached(groupLeftArmTorsoPtr_);
                     }
                     if (inGoal)
@@ -540,7 +526,7 @@ namespace demo_sharon
                         reachingPoseTime_ = ros::Time::now();
                         timesFile_ << "Robot in reaching Pose trajectory," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
                                    << "arm,"
-                                   << listTrajectoriesToGraspObjects[indexListTrajectories_].arm<<","
+                                   << listTrajectoriesToGraspObjects[indexListTrajectories_].arm << ","
                                    << ","
                                    << ",Seconds from demo start time," << (reachingPoseTime_ - startDemoTime_).toSec() << "\n";
                         mtxWriteFile_.unlock();
@@ -556,9 +542,10 @@ namespace demo_sharon
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
 
-                        if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                        if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
                             groupRightArmTorsoPtr_->stop();
-                        else{
+                        else
+                        {
                             groupLeftArmTorsoPtr_->stop();
                         }
 
@@ -568,7 +555,6 @@ namespace demo_sharon
                         state_ = -1;
                         firstInState = true;
                         stopMotion_ = false;
-                        
                     }
                 }
             }
@@ -601,22 +587,22 @@ namespace demo_sharon
                     // }
                     // else
                     // {
-                        ROS_INFO("OPEN GRIPPER!");
+                    ROS_INFO("OPEN GRIPPER!");
 
-                        std_msgs::String msg;
-                        std::stringstream ss;
-                        ss << "Open Gripper";
-                        msg.data = ss.str();
-                        statePublisher_.publish(msg);
-                        // Open gripper
-                        moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
-                        std::vector<std::string> objectIds;
-                        objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
-                        planningSceneInterface_.removeCollisionObjects(objectIds);
-                        ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                    std_msgs::String msg;
+                    std::stringstream ss;
+                    ss << "Open Gripper";
+                    msg.data = ss.str();
+                    statePublisher_.publish(msg);
+                    // Open gripper
+                    moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
+                    std::vector<std::string> objectIds;
+                    objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
+                    planningSceneInterface_.removeCollisionObjects(objectIds);
+                    ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
-                        firstInState = true;
-                        state_ = APROACH_TO_GRASP;
+                    firstInState = true;
+                    state_ = APROACH_TO_GRASP;
                     // }
                 }
             }
@@ -637,10 +623,13 @@ namespace demo_sharon
                 }
                 else
                 {
-                    moveit::planning_interface::MoveGroupInterface * groupAuxArmTorsoPtr_;
-                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
+                    moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+                    if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                    {
                         groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
-                    }else{
+                    }
+                    else
+                    {
                         groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
                     }
 
@@ -672,10 +661,10 @@ namespace demo_sharon
                     mtxWriteFile_.lock();
                     objectGrasppedTime_ = ros::Time::now();
                     timesFile_ << "Object grasped," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
-                                   << ","
-                                   << ","
-                                   << ","
-                                   << ",Seconds from demo start time," << (objectGrasppedTime_ - startDemoTime_).toSec() << "\n";
+                               << ","
+                               << ","
+                               << ","
+                               << ",Seconds from demo start time," << (objectGrasppedTime_ - startDemoTime_).toSec() << "\n";
                     mtxWriteFile_.unlock();
                     state_ = GO_UP;
                 }
@@ -690,10 +679,13 @@ namespace demo_sharon
                 msg.data = ss.str();
                 statePublisher_.publish(msg);
 
-                moveit::planning_interface::MoveGroupInterface * groupAuxArmTorsoPtr_;
-                if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
+                moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+                if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                {
                     groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
-                }else{
+                }
+                else
+                {
                     groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
                 }
                 goUp(groupAuxArmTorsoPtr_, 0.2);
@@ -704,10 +696,10 @@ namespace demo_sharon
                 mtxWriteFile_.lock();
                 objectUpTime_ = ros::Time::now();
                 timesFile_ << "Object up," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
-                                   << ","
-                                   << ","
-                                   << ","
-                                   << ",Seconds from demo start time," << (objectUpTime_ - startDemoTime_).toSec() << "\n";
+                           << ","
+                           << ","
+                           << ","
+                           << ",Seconds from demo start time," << (objectUpTime_ - startDemoTime_).toSec() << "\n";
                 mtxWriteFile_.unlock();
             }
             break;
@@ -744,18 +736,17 @@ namespace demo_sharon
             break;
             case OBJECT_DELIVERED:
             {
-                ROS_INFO("I'M IN OBJECT_DELIVERED");
 
                 if (firstInState)
                 {
-                    ROS_INFO("OBJETC DELIVERED!");
+                    ROS_INFO("[DemoSharon] Object delivered!");
+                    ROS_INFO("[DemoSharon] Waiting for command to move to home position...");
                     firstInState = false;
                 }
                 else
                 {
                     if (!moveToHomePosition_)
                     {
-                        ROS_INFO("Waiting for command to move to home position...");
                         ros::Duration(0.5).sleep(); // sleep for 1 seconds
                     }
                     else
@@ -765,6 +756,10 @@ namespace demo_sharon
                         ss << "Move to home position";
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
+
+                        float closeGripperPositions[2] = {0.0, 0.0};
+                        moveGripper(closeGripperPositions, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
+                        ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
                         if (!initializeRightArmPosition(initRightArmPositions_))
                         {
@@ -790,17 +785,16 @@ namespace demo_sharon
             break;
             case ROBOT_IN_HOME_POSITION:
             {
-                ROS_INFO("I'M IN ROBOT_IN_HOME_POSITION");
                 if (firstInState)
                 {
-                    ROS_INFO("ROBOT IN HOME POSITION!");
+                    ROS_INFO("[DemoSharon] Robor in home position!");
                     firstInState = false;
                 }
             }
             break;
             case -1:
             {
-                ROS_INFO("I'M IN -1");
+                ROS_INFO("[DemoSharon] I'M IN -1");
 
                 // indexSqCategory_ = indexSqCategoryAsr_;
                 firstInState = true;
@@ -812,7 +806,7 @@ namespace demo_sharon
                 // ROS_INFO("I'M IN UNABLE_TO_REACHING_GRASP_IK");
                 if (firstInState)
                 {
-                    ROS_WARN("Unable to found ik to any of the possible reaching poses. What now?");
+                    ROS_WARN("[DemoSharon] Unable to found ik to any of the possible reaching poses. What now?");
                     firstInState = false;
                 }
             }
@@ -822,18 +816,18 @@ namespace demo_sharon
 
                 if (firstInState)
                 {
-                    ROS_INFO("I'M IN -3");
+                    ROS_INFO("[DemoSharon] I'M IN -3");
                     firstInState = false;
-                    ROS_INFO("I'm waiting, waiting... uoo!");
 
-                    if(foundAsr_){
+                    if (foundAsr_)
+                    {
                         bool available = false;
                         for (int i = 0; i < listTrajectoriesToGraspObjects.size(); i++)
                         {
-                            ROS_INFO("listTrajectoriesToGraspObjects %d category %s", i, listTrajectoriesToGraspObjects[i].category.c_str());
+                            ROS_INFO("[DemoSharon] listTrajectoriesToGraspObjects %d category %s", i, listTrajectoriesToGraspObjects[i].category.c_str());
                             if (listTrajectoriesToGraspObjects[i].category.find(asr_, 0) != std::string::npos)
                             {
-                                ROS_INFO("We already have a trajectory % s, so we should move to the execute trajectory", glassesCategory_.c_str());
+                                ROS_INFO("[DemoSharon] We already have a trajectory % s, so we should move to the execute trajectory", glassesCategory_.c_str());
                                 indexListTrajectories_ = i;
                                 available = true;
                                 break;
@@ -841,370 +835,17 @@ namespace demo_sharon
                         }
                         state_ = -4;
                     }
-
                 }
-            }break;
+            }
+            break;
             case -4:
             {
                 state_ = EXECUTE_PLAN_TO_REACHING_JOINTS;
                 firstInState = true;
                 stopMotion_ = false;
-
-
-
             }
             break;
             }
-        }
-    }
-
-    void DemoSharon::demoOnlyGlasses()
-    {
-
-        waitingForGlassesCommand_ = false;
-        glassesCommandReceived_ = false;
-
-        removeCollisionObjectsPlanningScene();
-
-        geometry_msgs::Pose tablePose;
-        tablePose.orientation.w = 1.0;
-        tablePose.position.x = tablePosition_[0];
-        tablePose.position.y = tablePosition_[1];
-        tablePose.position.z = tablePosition_[2];
-
-        addTablePlanningScene(tableDimensions_, tablePose, "table1");
-
-        if (!initializeRightArmPosition(initRightArmPositions_))
-        {
-            return;
-        }
-
-        if (!initializeLeftArmPosition(initLeftArmPositions_))
-        {
-            return;
-        }
-
-        initializeTorsoPosition(initTorsoPosition_);
-
-        initializeHeadPosition(initHeadPositions_);
-
-        ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
-        // Start computation of the superquadrics from the pointcloud
-        activateSuperquadricsComputation(true);
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
-        // continuously recompute the superquadrics
-        ROS_INFO("[DemoSharon] Stop the computation of the superquadrics.");
-        activateSuperquadricsComputation(false);
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        ROS_INFO("[DemoSharon] Get the computed superquadrics.");
-        // Get the previously computed superquadrics
-        if (!getSuperquadrics())
-        { // If it's empty, there is no objects to grasp
-            return;
-        }
-        ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        if (!getBoundingBoxesFromSupercuadrics())
-        {
-            return;
-        }
-        for (int i = 0; i < bboxesMsg_.bounding_boxes.size(); i++)
-            ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
-                     bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
-                     bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
-
-        sqCategories_.clear();
-        darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
-        yoloBBoxesMsg_ = *darknetBBoxesMsg;
-
-        for (int i = 0; i < yoloBBoxesMsg_.bounding_boxes.size(); i++)
-        {
-            darknet_ros_msgs::BoundingBox bboxMsg = yoloBBoxesMsg_.bounding_boxes[i];
-            std::array<int, 4> bboxYolo = {(int)bboxMsg.xmin, (int)bboxMsg.ymin, (int)bboxMsg.xmax, (int)bboxMsg.ymax};
-            float IoU = 0.0;
-            int currentSqId = -1;
-            for (int j = 0; j < bboxesMsg_.bounding_boxes.size(); j++)
-            {
-                std::array<int, 4> bboxSq = {bboxesMsg_.bounding_boxes[j].tlx, bboxesMsg_.bounding_boxes[j].tly,
-                                             bboxesMsg_.bounding_boxes[j].brx, bboxesMsg_.bounding_boxes[j].bry};
-
-                ROS_INFO("yolo: %d superq: %d", i, j);
-                float currentIoU = 0.0;
-                computeIntersectionOverUnion(bboxYolo, bboxSq, currentIoU);
-
-                if (currentIoU > IoU)
-                {
-                    IoU = currentIoU;
-                    currentSqId = bboxesMsg_.bounding_boxes[j].id;
-                }
-            }
-            if (IoU > 0)
-            {
-                SqCategory sqCategory;
-                sqCategory.idSq = currentSqId;
-                sqCategory.category = bboxMsg.Class;
-                sqCategories_.push_back(sqCategory);
-            }
-        }
-
-        for (int idx = 0; idx < sqCategories_.size(); idx++)
-        {
-            ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
-        }
-
-        addSupequadricsPlanningScene();
-
-        waitingForGlassesCommand_ = true;
-        ROS_INFO("[DemoSharon] Wait for message in /comms_glasses_server/data");
-        while (!glassesCommandReceived_ && ros::ok())
-        {
-        }
-
-        if (glassesCommandReceived_)
-        {
-            // Además que el objeto sea uno de los detectados
-            waitingForGlassesCommand_ = false;
-
-            foundGlasses_ = false;
-            for (int i = 0; i < sqCategories_.size(); i++)
-            {
-                if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
-                {
-                    foundGlasses_ = true;
-                    indexGlassesSqCategory_ = i;
-                    break;
-                }
-            }
-        }
-
-        if (indexGlassesSqCategory_ >= 0)
-        {
-
-            ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
-
-            sharon_msgs::ComputeGraspPoses srvGraspingPoses;
-            srvGraspingPoses.request.id = sqCategories_[indexGlassesSqCategory_].idSq;
-            groupRightArmTorsoPtr_->setStartStateToCurrentState();
-
-            if (clientComputeGraspPoses_.call(srvGraspingPoses))
-            {
-                ROS_INFO("[DemoSharon] ComputeGraspPoses: %d", (bool)srvGraspingPoses.response.success);
-                graspingPoses_ = srvGraspingPoses.response.poses;
-            }
-            ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses_.poses.size());
-
-            int indexFeasible = -1;
-            bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses_, indexFeasible);
-
-            while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
-            {
-                ROS_INFO("WAITING.....");
-            }
-
-            if (successGoToReaching)
-            {
-
-                // Open gripper
-                moveGripper(openGripperPositions_, "right");
-                std::vector<std::string> objectIds;
-                objectIds.push_back("object_" + std::to_string(sqCategories_[indexGlassesSqCategory_].idSq));
-                planningSceneInterface_.removeCollisionObjects(objectIds);
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
-
-                goToGraspingPose(graspingPoses_.poses[indexFeasible]);
-                while (!groupRightArmTorsoPtr_->getMoveGroupClient().getState().isDone() && ros::ok())
-                {
-                    ROS_INFO("WAITING.....");
-                }
-
-                // ros::Duration(1.0).sleep(); // sleep for 1 seconds
-                moveGripper(closeGripperPositions_, "right");
-                ros::Duration(0.1).sleep(); // sleep for 1 seconds
-                goUp(groupRightArmTorsoPtr_, 0.2);
-
-                releaseGripper_ = false;
-                while (ros::ok() && !releaseGripper_)
-                {
-                    ROS_INFO("Waiting for command to release the gripper...");
-                    ros::Duration(0.1).sleep(); // sleep for 1 seconds
-                }
-                moveGripper(openGripperPositions_, "right");
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
-            }
-
-            ROS_INFO("[DemoSharon] Done!");
-        }
-    }
-
-    void DemoSharon::demoOnlyASR()
-    {
-
-        waitingForAsrCommand_ = false;
-        asrCommandReceived_ = false;
-        removeCollisionObjectsPlanningScene();
-
-        geometry_msgs::Pose tablePose;
-        tablePose.orientation.w = 1.0;
-        tablePose.position.x = tablePosition_[0];
-        tablePose.position.y = tablePosition_[1];
-        tablePose.position.z = tablePosition_[2];
-
-        addTablePlanningScene(tableDimensions_, tablePose, "table1");
-
-        tablePose.position.x = tablePosition2_[0];
-        tablePose.position.y = tablePosition2_[1];
-        tablePose.position.z = tablePosition2_[2];
-        addTablePlanningScene(tableDimensions2_, tablePose, "table2");
-
-        if (!initializeRightArmPosition(initRightArmPositions_))
-        {
-            return;
-        }
-
-        if (!initializeLeftArmPosition(initLeftArmPositions_))
-        {
-            return;
-        }
-
-        initializeTorsoPosition(initTorsoPosition_);
-
-        initializeHeadPosition(initHeadPositions_);
-
-        ros::Duration(1.5).sleep(); // sleep for 2 seconds
-
-        ROS_INFO("[DemoSharon] Start the computation of the superquadrics.");
-        // Start computation of the superquadrics from the pointcloud
-        activateSuperquadricsComputation(true);
-        ros::Duration(3.5).sleep(); // sleep for 2 seconds
-
-        // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
-        // continuously recompute the superquadrics
-        ROS_INFO("[DemoSharon] Stop the computation of the superquadrics.");
-        activateSuperquadricsComputation(false);
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        ROS_INFO("[DemoSharon] Get the computed superquadrics.");
-        // Get the previously computed superquadrics
-        if (!getSuperquadrics())
-        { // If it's empty, there is no objects to grasp
-            return;
-        }
-        ROS_INFO("[DemoSharon] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
-        ros::Duration(0.5).sleep(); // sleep for 2 seconds
-
-        if (!getBoundingBoxesFromSupercuadrics())
-        {
-            return;
-        }
-        for (int i = 0; i < bboxesMsg_.bounding_boxes.size(); i++)
-            ROS_INFO("id: %d tlx: %d tly: %d brx: %d bry:%d", bboxesMsg_.bounding_boxes[i].id,
-                     bboxesMsg_.bounding_boxes[i].tlx, bboxesMsg_.bounding_boxes[i].tly,
-                     bboxesMsg_.bounding_boxes[i].brx, bboxesMsg_.bounding_boxes[i].bry);
-
-        sqCategories_.clear();
-        darknet_ros_msgs::BoundingBoxesConstPtr darknetBBoxesMsg = ros::topic::waitForMessage<darknet_ros_msgs::BoundingBoxes>("/darknet_ros/bounding_boxes");
-        yoloBBoxesMsg_ = *darknetBBoxesMsg;
-
-        for (int i = 0; i < yoloBBoxesMsg_.bounding_boxes.size(); i++)
-        {
-            darknet_ros_msgs::BoundingBox bboxMsg = yoloBBoxesMsg_.bounding_boxes[i];
-            std::array<int, 4> bboxYolo = {(int)bboxMsg.xmin, (int)bboxMsg.ymin, (int)bboxMsg.xmax, (int)bboxMsg.ymax};
-            float IoU = 0.0;
-            int currentSqId = -1;
-            for (int j = 0; j < bboxesMsg_.bounding_boxes.size(); j++)
-            {
-                std::array<int, 4> bboxSq = {bboxesMsg_.bounding_boxes[j].tlx, bboxesMsg_.bounding_boxes[j].tly,
-                                             bboxesMsg_.bounding_boxes[j].brx, bboxesMsg_.bounding_boxes[j].bry};
-
-                ROS_INFO("yolo: %d superq: %d", i, j);
-                float currentIoU = 0.0;
-                computeIntersectionOverUnion(bboxYolo, bboxSq, currentIoU);
-
-                if (currentIoU > IoU)
-                {
-                    IoU = currentIoU;
-                    currentSqId = bboxesMsg_.bounding_boxes[j].id;
-                }
-            }
-            if (IoU > 0)
-            {
-                SqCategory sqCategory;
-                sqCategory.idSq = currentSqId;
-                sqCategory.category = bboxMsg.Class;
-                sqCategories_.push_back(sqCategory);
-            }
-        }
-
-        for (int idx = 0; idx < sqCategories_.size(); idx++)
-        {
-            ROS_INFO("id: %d category: %s", sqCategories_[idx].idSq, sqCategories_[idx].category.c_str());
-        }
-
-        addSupequadricsPlanningScene();
-
-        waitingForAsrCommand_ = true;
-        ROS_INFO("[DemoSharon] Wait for message in asr_node/data");
-        bool auxASR = false;
-        while (ros::ok() && !auxASR)
-        {
-            mtxASR_.lock();
-            auxASR = foundAsr_;
-            mtxASR_.unlock();
-            if (auxASR)
-            {
-                break;
-            }
-        }
-        ROS_INFO("CHECK!");
-
-        if (indexSqCategory_ >= 0)
-        {
-            waitingForAsrCommand_ = false;
-            ROS_INFO("Planning to move %s to a target pose expressed in %s", groupRightArmTorsoPtr_->getEndEffectorLink().c_str(), groupRightArmTorsoPtr_->getPlanningFrame().c_str());
-
-            sharon_msgs::ComputeGraspPoses srvGraspingPoses;
-            srvGraspingPoses.request.id = sqCategories_[indexSqCategoryAsr_].idSq;
-            groupRightArmTorsoPtr_->setStartStateToCurrentState();
-
-            if (clientComputeGraspPoses_.call(srvGraspingPoses))
-            {
-                ROS_INFO("[DemoSharon] ComputeGraspPoses: %d", (bool)srvGraspingPoses.response.success);
-                graspingPoses_ = srvGraspingPoses.response.poses;
-            }
-            ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses_.poses.size());
-
-            int indexFeasible = -1;
-            bool successGoToReaching = goToAFeasibleReachingPose(graspingPoses_, indexFeasible);
-
-            actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> &moveGroupClient = groupRightArmTorsoPtr_->getMoveGroupClient();
-            while (!moveGroupClient.getState().isDone() && ros::ok())
-            {
-                ROS_INFO("WAITING.....");
-                ros::Duration(0.1).sleep();
-            }
-
-            if (successGoToReaching)
-            {
-
-                releaseGripper_ = false;
-                while (ros::ok() && !releaseGripper_)
-                {
-                    ROS_INFO("Waiting for command to release the gripper...");
-                    ros::Duration(0.1).sleep(); // sleep for 1 seconds
-                }
-                moveGripper(openGripperPositions_, "right");
-                ros::Duration(1.0).sleep(); // sleep for 1 seconds
-            }
-            if (!initializeRightArmPosition(initRightArmPositions_))
-            {
-                return;
-            }
-
-            ROS_INFO("[DemoSharon] Done!");
         }
     }
 
@@ -1237,7 +878,7 @@ namespace demo_sharon
             auxGripperClient = leftGripperClient_;
         }
         control_msgs::FollowJointTrajectoryGoal gripperGoal;
-        ROS_INFO("Setting gripper %s position: (%f ,%f)", name.c_str(), positions[0], positions[1]);
+        ROS_INFO("[DemoSharon] Setting gripper %s position: (%f ,%f)", name.c_str(), positions[0], positions[1]);
         waypointGripperGoal(name, gripperGoal, positions, 0.5);
 
         // Sends the command to start the given trajectory now
@@ -1249,7 +890,7 @@ namespace demo_sharon
         {
             ros::Duration(0.1).sleep(); // sleep for 1 seconds
         }
-        ROS_INFO("Gripper set to position: (%f, %f)", positions[0], positions[1]);
+        ROS_INFO("[DemoSharon] Gripper set to position: (%f, %f)", positions[0], positions[1]);
     }
 
     bool DemoSharon::goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance)
@@ -1289,12 +930,14 @@ namespace demo_sharon
 
     bool DemoSharon::goToGraspingPose(const geometry_msgs::Pose &graspingPose)
     {
-        moveit::planning_interface::MoveGroupInterface * groupAuxArmTorsoPtr_;
-        if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
+        moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+        if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+        {
             groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
-        }else{
+        }
+        else
+        {
             groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
-
         }
         groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
         groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
@@ -1318,7 +961,7 @@ namespace demo_sharon
         const double jump_threshold = 0.0;
         const double eef_step = 0.001;
         double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-        ROS_INFO_NAMED("tutorial", "Visualizing plan 4 (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+        ROS_INFO("DemoSharon] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
 
         // for(int i=0; i<trajectory.joint_trajectory.points.size(); i++){
         //     ROS_INFO_STREAM(trajectory.joint_trajectory.points[i]);
@@ -1368,7 +1011,7 @@ namespace demo_sharon
         for (int idx = 0; idx < graspingPoses.poses.size(); idx++)
         {
             ROS_INFO("[DemoSharon] idx: %d", idx);
-            ROS_INFO("Grasping Pose[%d]: %f %f %f", idx, graspingPoses.poses[idx].position.x, graspingPoses.poses[idx].position.y, graspingPoses.poses[idx].position.z);
+            ROS_INFO("DemoSharon] Grasping Pose[%d]: %f %f %f", idx, graspingPoses.poses[idx].position.x, graspingPoses.poses[idx].position.y, graspingPoses.poses[idx].position.z);
 
             KDL::Frame frameEndWrtBase;
             tf::poseMsgToKDL(graspingPoses.poses[idx], frameEndWrtBase);
@@ -1386,7 +1029,7 @@ namespace demo_sharon
             if (found_ik)
             {
                 groupRightArmTorsoPtr_->setPoseTarget(reachingPose_);
-                ROS_INFO("SET POSE TARGET");
+                ROS_INFO("DemoSharon] Set pose target");
 
                 moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
                 successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -1536,7 +1179,7 @@ namespace demo_sharon
                         radius = superquadric.a3;
                     }
 
-                    ROS_INFO("CYLINDER height: %f radius: %f", height, radius);
+                    ROS_INFO("DemoSharon] CYLINDER height: %f radius: %f", height, radius);
                     radius += inflateSize_;
                     height += inflateSize_;
 
@@ -1713,11 +1356,11 @@ namespace demo_sharon
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo_sharon/move_to_home_position", &DemoSharon::moveToHomePosition, this);
         statePublisher_ = nodeHandle_.advertise<std_msgs::String>("/demo_sharon/state", 10);
         superquadricsBBoxesPublisher_ = nodeHandle_.advertise<sharon_msgs::BoundingBoxes>("/demo_sharon/superquadrics_bboxes", 10);
-        reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::Pose>("/demo_sharon/reaching_pose", 10);
+        reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::PoseStamped>("/demo_sharon/reaching_pose", 10);
         planPublisher_ = nodeHandle_.advertise<moveit_msgs::RobotTrajectory>("/demo_sharon/trajectory", 10);
 
         clientActivateAsr_ = nodeHandle_.serviceClient<sharon_msgs::ActivateASR>("/asr_node/activate_asr");
-        acPtr_ = new actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction>("tts",true);
+        acPtr_ = new actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction>("tts", true);
 
         ROS_INFO("Waiting for /tts action server to start.");
         acPtr_->waitForServer();
@@ -1743,6 +1386,14 @@ namespace demo_sharon
         ros::param::get("demo_sharon/threshold_plan_trajectory", thresholdPlanTrajectory_);
         ros::param::get("demo_sharon/threshold_execute_trajectory", thresholdExecuteTrajectory_);
         ros::param::get("demo_sharon/goal_joint_tolerance", goalJointTolerance_);
+        std::vector<float> tmp;
+        ros::param::get("demo_sharon/left_gripper_position_difference_wrt_default",tmp);
+        closeLeftGripperDeviation_[0] = tmp[0];
+        closeLeftGripperDeviation_[1] = tmp[1];
+
+        ros::param::get("demo_sharon/right_gripper_position_difference_wrt_default", tmp);
+        closeRightGripperDeviation_[0] = tmp[0];
+        closeRightGripperDeviation_[1] = tmp[1];
 
         ROS_INFO("[DemoSharon] demo_sharon/reaching_distance set to %f", reachingDistance_);
 
@@ -1813,7 +1464,7 @@ namespace demo_sharon
             ROS_INFO("The path is valid!");
         else
         {
-            timesFile_.open("/home/catkin_ws/src/tiago-sharon/demo_sharon/csv/"+date + ".csv");
+            timesFile_.open("/home/catkin_ws/src/tiago-sharon/demo_sharon/csv/" + date + ".csv");
             ROS_INFO("The Path is invalid!");
         }
         return;
@@ -1981,7 +1632,7 @@ namespace demo_sharon
 
     void DemoSharon::asrCallback(const std_msgs::StringConstPtr &asrMsg)
     {
-        if (waitingForAsrCommand_)
+        if (waitingForAsrCommand_ && useAsr_)
         {
             asr_ = asrMsg->data;
             ROS_INFO("%s", asr_.c_str());
@@ -2145,9 +1796,12 @@ namespace demo_sharon
                                     break;
                                 }
                             }
-                            if (state_ == EXECUTE_PLAN_TO_REACHING_JOINTS){
+                            if (state_ == EXECUTE_PLAN_TO_REACHING_JOINTS)
+                            {
                                 state_ = -1;
-                            }else{
+                            }
+                            else
+                            {
                                 state_ = -4;
                             }
                         }
@@ -2165,10 +1819,10 @@ namespace demo_sharon
                             foundAsr_ = true;
                             asrTime_ = ros::Time::now();
                             timesFile_ << "Asr command to grasp object," << asr_ << ",same"
-                                   << ","
-                                   << ","
-                                   << ","
-                                   << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
+                                       << ","
+                                       << ","
+                                       << ","
+                                       << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
                             indexSqCategoryAsr_ = i;
                             indexSqCategory_ = indexSqCategoryAsr_;
                             asrCommandReceived_ = true;
@@ -2190,12 +1844,10 @@ namespace demo_sharon
 
                         indexSqCategoryAsr_ = i;
                         asrCommandReceived_ = true;
-                        if (state_ = COMPUTE_GRASP_POSES)
-                        {
-                            ROS_INFO("KILLING THEARD FOR COMPUTE GRASP POSES");
-                            state_ = -1;
-                            pthread_cancel(threadComputeGraspPoses_);
-                        }
+                        indexSqCategory_ = indexSqCategoryAsr_;
+                        waitingForAsrCommand_ = false;
+
+
                         break;
                     }
                     else
@@ -2239,7 +1891,7 @@ namespace demo_sharon
             width_ = srvGraspingPoses.response.width;
         }
         ROS_INFO("[DemoSharon] NumberPoses: %d", (int)graspingPoses_.poses.size());
-        
+
         mtxWriteFile_.lock();
         computeGraspPosesTime_ = ros::Time::now();
         timesFile_ << "Compute grasp poses object," << sqCategories_[indexSqCategory_].category << ","
@@ -2248,8 +1900,7 @@ namespace demo_sharon
                    << ","
                    << ",Seconds from demo start time," << (gazeCommandTime_ - startDemoTime_).toSec() << "\n";
         mtxWriteFile_.unlock();
-        
-        
+
         // ros::Duration(4.0).sleep();
     }
 
@@ -2273,8 +1924,6 @@ namespace demo_sharon
         msg.data = ss.str();
         statePublisher_.publish(msg);
 
-
-        
         for (int idx = indexGraspingPose_ + 1; idx < graspingPoses_.poses.size(); idx++)
         {
             // ROS_INFO("[DemoSharon] idx: %d", idx);
@@ -2288,15 +1937,19 @@ namespace demo_sharon
 
             tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            if(graspingPoses_.poses[idx].position.y < 0.05){
+            if (graspingPoses_.poses[idx].position.y < 0.05)
+            {
                 arm_ = "right";
-            }else{
+            }
+            else
+            {
                 arm_ = "left";
             }
 
-            if(arm_ =="right")
+            if (arm_ == "right")
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.01);
-            else{
+            else
+            {
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoLeftArm_, reachingPose_, 0.01);
             }
             //     geometry_msgs::PoseStamped goal_pose;
@@ -2310,13 +1963,20 @@ namespace demo_sharon
                 msg.data = ss.str();
                 statePublisher_.publish(msg);
 
-                reachingPosePublisher_.publish(reachingPose_);
+                geometry_msgs::PoseStamped reachingPoseStamped;
+                reachingPoseStamped.header.frame_id = "base_footprint";
+                reachingPoseStamped.header.stamp = ros::Time::now();
+                reachingPoseStamped.pose = reachingPose_;
+                reachingPosePublisher_.publish(reachingPoseStamped);
 
                 reachJointValues_.clear();
 
-                if(arm_ == "right"){
+                if (arm_ == "right")
+                {
                     kinematic_state->copyJointGroupPositions(jointModelGroupTorsoRightArm_, reachJointValues_);
-                }else{
+                }
+                else
+                {
                     kinematic_state->copyJointGroupPositions(jointModelGroupTorsoLeftArm_, reachJointValues_);
                 }
                 indexGraspingPose_ = idx;
@@ -2337,9 +1997,10 @@ namespace demo_sharon
         pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
         successPlanning_ = false;
 
-        if(arm_ == "right"){
+        if (arm_ == "right")
+        {
             groupRightArmTorsoPtr_->setJointValueTarget(reachJointValues_);
-        
+
             ROS_INFO("SET POSE TARGET");
             robot_state::RobotState start_state(*groupRightArmTorsoPtr_->getCurrentState());
             groupRightArmTorsoPtr_->setStartState(start_state);
@@ -2348,9 +2009,11 @@ namespace demo_sharon
             successPlanning_ = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
             if (successPlanning_)
                 planPublisher_.publish(plan_.trajectory_);
-        }else{
+        }
+        else
+        {
             groupLeftArmTorsoPtr_->setJointValueTarget(reachJointValues_);
-        
+
             ROS_INFO("SET POSE TARGET");
             robot_state::RobotState start_state(*groupLeftArmTorsoPtr_->getCurrentState());
             groupLeftArmTorsoPtr_->setStartState(start_state);
@@ -2360,7 +2023,6 @@ namespace demo_sharon
             if (successPlanning_)
                 planPublisher_.publish(plan_.trajectory_);
         }
-       
     }
 
     void DemoSharon::glassesDataCallback(const sharon_msgs::GlassesData::ConstPtr &glassesData)
@@ -2368,7 +2030,7 @@ namespace demo_sharon
 
         std_msgs::String msg;
 
-        if (waitingForGlassesCommand_)
+        if (waitingForGlassesCommand_ && useGlasses_)
         {
             // ROS_INFO("waitingForGlassesCommand_");
             std::vector<double> decisionVector = glassesData->decision_vector;

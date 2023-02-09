@@ -158,10 +158,6 @@ namespace demo_sharon
 
         bool initializeLeftArmPosition(const std::vector<double> &initLeftArmPositions);
 
-        void demoOnlyASR();
-
-        void demoOnlyGlasses();
-
         void demoGlassesASR();
 
         void * computeGraspPosesThread( void * ptr);

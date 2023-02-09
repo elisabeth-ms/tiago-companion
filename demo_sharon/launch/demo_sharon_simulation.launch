@@ -78,5 +78,3 @@
   </group>
   <node name="image_proc" pkg="image_proc" type="image_proc" ns="xtion/rgb"/>
 </launch>
-
-
