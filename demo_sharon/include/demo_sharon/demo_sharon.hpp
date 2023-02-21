@@ -243,6 +243,8 @@ namespace demo_sharon
         float thresholdPlanTrajectory_;
         float thresholdExecuteTrajectory_;
         double goalJointTolerance_;
+        std::string initVerbalMessage_;
+        std::string passObjectVerbalMessage_;
 
         std::string arm_;
 

@@ -188,7 +188,7 @@ namespace demo_sharon
                 }
 
                 pal_interaction_msgs::TtsGoal goal;
-                goal.rawtext.text = "What would you like to eat?";
+                goal.rawtext.text = initVerbalMessage_;
                 goal.rawtext.lang_id = "en_GB";
 
                 acPtr_->sendGoal(goal);
@@ -701,6 +701,13 @@ namespace demo_sharon
                            << ","
                            << ",Seconds from demo start time," << (objectUpTime_ - startDemoTime_).toSec() << "\n";
                 mtxWriteFile_.unlock();
+
+                pal_interaction_msgs::TtsGoal goal;
+                goal.rawtext.text = passObjectVerbalMessage_;
+                goal.rawtext.lang_id = "en_GB";
+
+                acPtr_->sendGoal(goal);
+                ros::Duration(1.5).sleep();
             }
             break;
             case RELEASE_OBJECT:
@@ -1386,6 +1393,9 @@ namespace demo_sharon
         ros::param::get("demo_sharon/threshold_plan_trajectory", thresholdPlanTrajectory_);
         ros::param::get("demo_sharon/threshold_execute_trajectory", thresholdExecuteTrajectory_);
         ros::param::get("demo_sharon/goal_joint_tolerance", goalJointTolerance_);
+        ros::param::get("demo_sharon/init_demo_verbal_message", initVerbalMessage_);
+        ros::param::get("demo_sharon/pass_object_verbal_message", passObjectVerbalMessage_);
+
         std::vector<float> tmp;
         ros::param::get("demo_sharon/left_gripper_position_difference_wrt_default",tmp);
         closeLeftGripperDeviation_[0] = tmp[0];
