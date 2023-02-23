@@ -542,13 +542,13 @@ namespace demo_sharon
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
 
-                        if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                        // if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
                             groupRightArmTorsoPtr_->stop();
-                        else
-                        {
+                        // else
+                        // {
                             groupLeftArmTorsoPtr_->stop();
-                        }
-
+                        // }
+                        ROS_INFO("Stop motion done");
                         // I need to clear the whole list since the planners include the torso
                         listTrajectoriesToGraspObjects.clear();
 
@@ -794,7 +794,7 @@ namespace demo_sharon
             {
                 if (firstInState)
                 {
-                    ROS_INFO("[DemoSharon] Robor in home position!");
+                    ROS_INFO("[DemoSharon] Robot in home position!");
                     firstInState = false;
                 }
             }
@@ -1474,8 +1474,8 @@ namespace demo_sharon
             ROS_INFO("The path is valid!");
         else
         {
-            timesFile_.open("/home/catkin_ws/src/tiago-sharon/demo_sharon/csv/" + date + ".csv");
-            ROS_INFO("The Path is invalid!");
+            std::string path = ros::package::getPath("demo_sharon");
+            timesFile_.open(path+"/csv/" + date + ".csv");
         }
         return;
     }
@@ -2051,8 +2051,26 @@ namespace demo_sharon
             {
                 if (std::distance(decisionVector.begin(), itr) != 0)
                 {
-                    currentDecisionProb_ = *itr;
-                    if (currentDecisionProb_ > thresholdPlanTrajectory_)
+
+                    // ---------------- In case they detect something that is not in the table, we ignore it ----------------------------------------//
+                    bool object_in_the_table = false;
+                    for (int i = 0; i < sqCategories_.size(); i++)
+                    {
+                        if (sqCategories_[i].category.find(glassesData->category, 0) != std::string::npos)
+                        {
+                            object_in_the_table = true;
+                            break;
+                        }
+                    }
+                    if (!object_in_the_table){
+                        ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.", glassesData->category.c_str());
+                        return;
+                    }
+                    // -------------------------------------------------------------------------------------------------------------------------------//
+
+                    
+                    currentDecisionProb_ = *itr; 
+                    if (currentDecisionProb_ > thresholdPlanTrajectory_) // The probability of the decision is greater than the planning threshold
                     {
 
                         ROS_INFO("[DemoSharon] Glasses command to grasp %s prob: %f", glassesData->category.c_str(), currentDecisionProb_);
@@ -2061,6 +2079,7 @@ namespace demo_sharon
 
                         ROS_INFO("Prev: %s Current: %s", prevGlassesCategory_.c_str(), glassesCategory_.c_str());
 
+                        // Check if we already have a planned trajectory to grasp the object
                         alreadyAvailable_ = false;
                         indexListTrajectories_ = -1;
                         for (int i = 0; i < listTrajectoriesToGraspObjects.size(); i++)
@@ -2074,9 +2093,11 @@ namespace demo_sharon
                             }
                         }
 
+                        // We dont have a planned trajectory to grasp the object, so we need to compute it
                         if (!alreadyAvailable_)
                         {
-                            if (glassesCategory_ != prevGlassesCategory_)
+                            if (glassesCategory_ != prevGlassesCategory_) // In case we are planning the trajectory that is different, we stop all the processes that are running,
+                                                                          // and we start the planning 
                             {
                                 mtxWriteFile_.lock();
                                 gazeCommandTime_ = ros::Time::now();
@@ -2091,6 +2112,7 @@ namespace demo_sharon
 
                                 mtxWriteFile_.unlock();
 
+                                // We gatther the identificiation number of the supercuadric associated to the object that we want to grasp
                                 for (int i = 0; i < sqCategories_.size(); i++)
                                 {
                                     if (sqCategories_[i].category.find(glassesCategory_, 0) != std::string::npos)
@@ -2102,6 +2124,8 @@ namespace demo_sharon
                                     }
                                 }
 
+                                // If it has a id associated we continue with the planning
+
                                 if (indexGlassesSqCategory_ >= 0)
                                 {
                                     ROS_INFO("[DemoSharon] Gaze command category %s is  available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
@@ -2112,7 +2136,7 @@ namespace demo_sharon
                                     waitingForGlassesCommand_ = true;
                                     waitingForAsrCommand_ = true;
 
-                                    if (state_ == COMPUTE_GRASP_POSES)
+                                    if (state_ == COMPUTE_GRASP_POSES)  // If we are computing the grasp poses, we cancel the thread for computing the grasp poses
                                     {
 
                                         ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
@@ -2121,7 +2145,8 @@ namespace demo_sharon
                                         indexSqCategory_ = indexGlassesSqCategory_;
                                         state_ = -1;
                                     }
-                                    else if (state_ == FIND_REACHING_GRASP_IK)
+
+                                    else if (state_ == FIND_REACHING_GRASP_IK) // If we are finding the IK for reaching pose, we cancel the thread for finding the IK for reaching pose
                                     {
                                         ROS_INFO("CANCELL THREAD FOR FINDING IK");
                                         pthread_cancel(threadFindReachGraspIK_);
@@ -2135,7 +2160,7 @@ namespace demo_sharon
                                         indexSqCategory_ = indexGlassesSqCategory_;
                                         state_ = -1;
                                     }
-                                    else if (state_ == PLAN_TO_REACHING_JOINTS)
+                                    else if (state_ == PLAN_TO_REACHING_JOINTS) // If we are planning the trajectory to reach a different object, we cancel the thread for planning the reaching trajectory to the different object
                                     {
                                         ROS_INFO("CANCELL THREAD FOR PLAN_TO_REACHING_JOINTS");
                                         pthread_cancel(threadFindReachGraspIK_);

@@ -61,6 +61,9 @@
 #include <iostream>
 #include <fstream>
 
+
+#include <ros/package.h>
+
 // Action interface type for moving TIAGo, provided as a typedef for convenience
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
 typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_client_Ptr;

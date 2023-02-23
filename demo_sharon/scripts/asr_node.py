@@ -17,7 +17,7 @@ word_dict = ['sugar',
              'milk',
              'water',
              'butter',
-             'Nesquick', 
+             'nesquick', 
              'please',
              ]
 
@@ -66,7 +66,7 @@ class ASR(object):
         self.r.non_speaking_duration = 0.18
         mic_list = sr.Microphone.list_microphone_names()
         #mic_name = "Andrea Comm USB-SA Headset: Audio (hw:1,0)"
-        mic_name = "default"
+        mic_name = "sof-hda-dsp: - (hw:1,7)"
         print(mic_list)
         for i, microphone_name in enumerate(mic_list):
             if microphone_name == mic_name:
