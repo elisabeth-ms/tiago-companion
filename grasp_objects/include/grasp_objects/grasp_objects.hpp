@@ -24,7 +24,7 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/segmentation/lccp_segmentation.h>
 #include <SuperquadricLibModel/superquadricEstimator.h>
-
+#include <pcl/surface/concave_hull.h>
 #include <mutex>
 
 #include <geometry_msgs/PoseStamped.h>
@@ -47,6 +47,9 @@ namespace grasp_objects{
     struct Object
     {
         pcl::PointCloud<pcl::PointXYZRGB> object_cloud;
+        pcl::PointCloud<pcl::PointXYZRGB> object_cloud_projected;
+        pcl::PointCloud<pcl::PointXYZRGB> object_cloud_hull;
+        float max_height = 0.0;
         int label; /**< label assigned by the lccp algorithm*/
         uint32_t r;
         uint32_t g;
@@ -119,10 +122,12 @@ namespace grasp_objects{
         ros::Publisher outPointCloudPublisher_;
         ros::Publisher outPointCloudAddedPointsPublisher_;
         ros::Publisher outPointCloudSuperqsPublisher_;
+        ros::Publisher outPointConcaveHullsPublisher_;
         ros::Publisher superquadricsPublisher_;
         ros::Publisher graspPosesPublisher_;
         ros::Publisher bbox3dPublisher_;
         ros::Publisher objectPosePublisher_;
+        
 
 
         ros::ServiceServer serviceActivateSuperquadricsComputation_; 
@@ -148,6 +153,7 @@ namespace grasp_objects{
         std::string object_class_;
         bool single_superq_;
         bool merge_model_;
+        float z_table_ = 0.6;
 
         int height_ = 480;
         int width_ = 640;

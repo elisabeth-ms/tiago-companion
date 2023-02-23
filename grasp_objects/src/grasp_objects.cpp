@@ -83,6 +83,7 @@ namespace grasp_objects
         outPointCloudPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/transformed_cloud", 20);
         outPointCloudAddedPointsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/added_points", 20);
         outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 20);
+        outPointConcaveHullsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/concave_hulls", 20);
         superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 20);
         graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 20);
         bbox3dPublisher_ = nodeHandle_.advertise<visualization_msgs::MarkerArray>("/grasp_objects/bbox3d", 20);
@@ -600,6 +601,7 @@ namespace grasp_objects
                 if (idx >= detectedObjects_.size()) // keep in mind that there is also the label 0!
                 {
                     detectedObjects_.resize(idx + 1);
+
                 }
                 // if (detected_objects[idx].object_cloud.empty())
                 // {
@@ -615,10 +617,29 @@ namespace grasp_objects
                 tmp_point_rgb.g = rand() % 256;
                 tmp_point_rgb.b = rand() % 256;
 
+                pcl::PointXYZRGB tmp_point_projected;
+                tmp_point_projected.x = lccp_labeled_cloud->points[i].x;
+                tmp_point_projected.y = lccp_labeled_cloud->points[i].y;
+                tmp_point_projected.z = z_table_;
+                tmp_point_projected.r = rand() % 256;
+                tmp_point_projected.g = rand() % 256;
+                tmp_point_projected.b = rand() % 256;
+
+                if(lccp_labeled_cloud->points[i].z > detectedObjects_[idx].max_height)
+                {
+                    detectedObjects_[idx].max_height = lccp_labeled_cloud->points[i].z;
+                }
+
+
                 detectedObjects_[idx].object_cloud.points.push_back(tmp_point_rgb);
+                detectedObjects_[idx].object_cloud_projected.points.push_back(tmp_point_projected);
                 detectedObjects_[idx].label = (int)idx;
+
             }
+
         }
+
+
 
         // remove segments with too few points
         // it will removes te ones with few points or the ones with no points (these are created because of the labels of lccp)
@@ -641,9 +662,65 @@ namespace grasp_objects
             }
         }
         ROS_INFO("[GraspObjects] size: %d", detectedObjects_.size());
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudConcaveHulls(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+        for(int i=0; i<detectedObjects_.size(); i++)
+        {
+            ROS_INFO("[GraspObjects] label: %d", detectedObjects_[i].label);
+            ROS_INFO("[GraspObjects] size: %d", detectedObjects_[i].object_cloud.size());
+
+            // Create a Concave Hull representation of the projected inliers
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_hull (new pcl::PointCloud<pcl::PointXYZRGB>);
+            pcl::ConcaveHull<pcl::PointXYZRGB> chull;
+            auto cloud = detectedObjects_[i].object_cloud_projected.makeShared();
+            chull.setInputCloud (cloud);
+            chull.setAlpha (0.1);
+            chull.reconstruct (*cloud_hull);
+
+            for(int p=0; p<cloud_hull->points.size(); p++)
+            {
+                ROS_INFO("[GraspObjects] cloud_hull: %f, %f, %f", cloud_hull->points[p].x, cloud_hull->points[p].y, cloud_hull->points[p].z);
+                for(float z_height = z_table_; z_height < detectedObjects_[i].max_height; z_height += 0.001)
+                {
+                    pcl::PointXYZRGB tmp_point_projected;
+                    tmp_point_projected.x = cloud_hull->points[p].x;
+                    tmp_point_projected.y = cloud_hull->points[p].y;
+                    tmp_point_projected.z = z_height;
+                    tmp_point_projected.r = rand() % 256;
+                    tmp_point_projected.g = rand() % 256;
+                    tmp_point_projected.b = rand() % 256;
+                    detectedObjects_[i].object_cloud_hull.points.push_back(tmp_point_projected);
+                }
+
+            }
+
+            // detectedObjects_[i].object_cloud_hull = *cloud_hull;
+
+
+
+
+
+            sensor_msgs::PointCloud2 pcOutConcaveHulls;
+            *cloudConcaveHulls += detectedObjects_[i].object_cloud_hull;
+
+            ROS_INFO("[GraspObjects] cloudConcaveHulls size: %d", cloudConcaveHulls->size());
+
+
+            pcl::PCLPointCloud2 *cloudAux = new pcl::PCLPointCloud2;
+
+            pcl::toPCLPointCloud2(*cloudConcaveHulls, *cloudAux);
+            pcl_conversions::moveFromPCL(*cloudAux, pcOutConcaveHulls);
+            pcOutConcaveHulls.header.frame_id = "/base_footprint";
+            outPointConcaveHullsPublisher_.publish(pcOutConcaveHulls);
+        }
     }
 
-    void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr &depth_msg)
+
+
+
+    // Lets try something different here
+
+void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr &depth_msg)
     {
         // ROS_INFO("[GraspObjects] Receiving the compressed depth image");
         bool activate;
@@ -761,7 +838,7 @@ namespace grasp_objects
                     // }
 
                     SuperqModel::PointCloud point_cloud;
-                    pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
+                    pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud_hull, point_cloud);
                     ROS_INFO("pointCloud points: %d", point_cloud.n_points);
                     std::vector<SuperqModel::Superquadric> superqs;
                     getSuperquadricFromPointCloud(point_cloud, superqs);
@@ -817,6 +894,182 @@ namespace grasp_objects
             }
         }
     }
+
+
+    // void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr &depth_msg)
+    // {
+    //     // ROS_INFO("[GraspObjects] Receiving the compressed depth image");
+    //     bool activate;
+    //     mtxActivate_.lock();
+    //     activate = activate_;
+    //     mtxActivate_.unlock();
+    //     if (activate && count_ < 2)
+    //     {
+    //         count_++;
+    //         ROS_INFO("COUNT %d", count_);
+    //         sensor_msgs::PointCloud2 pcOut;
+
+    //         sensor_msgs::PointCloud2::Ptr cloud_msg(new sensor_msgs::PointCloud2);
+    //         cloud_msg->header = depth_msg->header;
+    //         cloud_msg->height = depth_msg->height;
+    //         cloud_msg->width = depth_msg->width;
+    //         cloud_msg->is_dense = false;
+    //         cloud_msg->is_bigendian = false;
+
+    //         sensor_msgs::PointCloud2Modifier pcd_modifier(*cloud_msg);
+    //         pcd_modifier.setPointCloud2FieldsByString(1, "xyz");
+
+    //         depth_image_proc::convert<float>(depth_msg, cloud_msg, model_); // TYPE TYPE_32FC1
+
+    //         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_without_table(new pcl::PointCloud<pcl::PointXYZ>);
+
+    //         listener_.lookupTransform("/base_footprint", "/xtion_rgb_optical_frame", ros::Time(0), transformCameraWrtBase_);
+
+    //         pcl_ros::transformPointCloud(std::string("/base_footprint"), transformCameraWrtBase_, *cloud_msg, pcOut);
+
+    //         pcl::PCLPointCloud2 *cloudFiltered = new pcl::PCLPointCloud2;
+    //         pcl::PCLPointCloud2ConstPtr cloudFilteredPtr(cloudFiltered);
+    //         // Convert to PCL data type
+    //         pcl_conversions::toPCL(pcOut, *cloudFiltered);
+
+    //         // Perform the actual filtering
+    //         pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
+    //         sor.setInputCloud(cloudFilteredPtr);
+    //         sor.setLeafSize(0.005f, 0.005f, 0.005f);
+    //         sor.filter(*cloudFiltered);
+
+    //         // Create the filtering object
+    //         pcl::PassThrough<pcl::PCLPointCloud2> pass;
+    //         pass.setInputCloud(cloudFilteredPtr);
+    //         pass.setFilterFieldName("x");
+    //         pass.setFilterLimits(0.3, 1.6);
+    //         // pass.setFilterLimitsNegative (true);
+    //         pass.filter(*cloudFiltered);
+
+    //         // Create the filtering object
+    //         pcl::PassThrough<pcl::PCLPointCloud2> passZ;
+    //         passZ.setInputCloud(cloudFilteredPtr);
+    //         passZ.setFilterFieldName("z");
+    //         passZ.setFilterLimits(0.3, 1.6);
+    //         // pass.setFilterLimitsNegative (true);
+    //         passZ.filter(*cloudFiltered);
+
+    //         pcl::fromPCLPointCloud2(*cloudFiltered, *cloud_without_table);
+
+    //         // Coefficients and inliners objects for tge ransac plannar model
+    //         pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients());
+    //         pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+    //         // Create the segmentation object
+    //         pcl::SACSegmentation<pcl::PointXYZ> seg;
+    //         // Optional
+    //         seg.setOptimizeCoefficients(true);
+    //         // Mandatory
+    //         seg.setModelType(pcl::SACMODEL_PARALLEL_PLANE);
+    //         seg.setMethodType(pcl::SAC_RANSAC);
+    //         seg.setMaxIterations(2000);
+    //         seg.setDistanceThreshold(distanceThresholdPlaneSegmentation_);
+    //         seg.setAxis(Eigen::Vector3f::UnitX());
+    //         seg.setEpsAngle(epsAnglePlaneSegmentation_);
+
+    //         seg.setInputCloud(cloud_without_table);
+    //         seg.segment(*inliers, *coefficients);
+    //         // Create the filtering object
+    //         pcl::ExtractIndices<pcl::PointXYZ> extract;
+
+    //         extract.setInputCloud(cloud_without_table);
+    //         extract.setIndices(inliers);
+    //         extract.setNegative(true); // Extract the inliers
+    //         extract.filter(*cloud_without_table);
+
+    //         pcl::PointCloud<pcl::PointXYZL>::Ptr lccp_labeled_cloud;
+    //         supervoxelOversegmentation(cloud_without_table, lccp_labeled_cloud);
+
+    //         // Convert to ROS data type
+    //         pcl::toPCLPointCloud2(*lccp_labeled_cloud, *cloudFiltered);
+    //         pcl_conversions::moveFromPCL(*cloudFiltered, pcOut);
+    //         pcOut.header.frame_id = "/base_footprint";
+    //         outPointCloudPublisher_.publish(pcOut);
+
+    //         pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
+    //         superquadricObjects_.clear();
+    //         if (lccp_labeled_cloud->points.size() != 0)
+    //         {
+
+    //             sharon_msgs::SuperquadricMultiArray aux;
+    //             superquadricsMsg_ = aux;
+    //             superquadricsMsg_.header.stamp = ros::Time::now();
+    //             updateDetectedObjectsPointCloud(lccp_labeled_cloud);
+
+    //             std::vector<std::vector<double>> graspingPoses;
+    //             pcl::PointCloud<pcl::PointXYZRGB>::Ptr allPoints;
+
+    //             for (unsigned int idx = 0; idx < detectedObjects_.size(); idx++)
+    //             {
+
+    //                 // addPointsToObjectCloud(idx, 0.5, 0.02, 0.0005);
+    //                 // ROS_INFO("addPointsToObjectCloud DONE");
+    //                 // for(int i=0; i<detectedObjects_[idx].object_cloud.points.size(); i++){
+    //                 //     pcl::PointXYZRGB p = detectedObjects_[idx].object_cloud.points[i];
+    //                 //     allPoints->points.push_back(p);
+    //                 // }
+
+    //                 SuperqModel::PointCloud point_cloud;
+    //                 pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
+    //                 ROS_INFO("pointCloud points: %d", point_cloud.n_points);
+    //                 std::vector<SuperqModel::Superquadric> superqs;
+    //                 getSuperquadricFromPointCloud(point_cloud, superqs);
+    //                 sharon_msgs::Superquadric superquadric;
+    //                 auto params = superqs[0].getSuperqParams();
+    //                 superquadric.id = detectedObjects_[idx].label;
+    //                 superquadric.a1 = params[0];
+    //                 superquadric.a2 = params[1];
+    //                 superquadric.a3 = params[2];
+    //                 superquadric.e1 = params[3];
+    //                 superquadric.e2 = params[4];
+    //                 superquadric.x = params[5];
+    //                 superquadric.y = params[6];
+    //                 superquadric.z = params[7];
+    //                 superquadric.roll = params[8];
+    //                 superquadric.pitch = params[9];
+    //                 superquadric.yaw = params[10];
+
+    //                 pcl::PointCloud<pcl::PointXYZRGBA>::Ptr auxCloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
+
+    //                 // This is only for visulazition of the superquadrics
+    //                 createPointCloudFromSuperquadric(superqs, auxCloudSuperquadric, idx);
+    //                 *cloudSuperquadric += *auxCloudSuperquadric;
+
+    //                 ObjectSuperquadric objectSuperquadric;
+    //                 objectSuperquadric.label = detectedObjects_[idx].label;
+    //                 objectSuperquadric.superqs = superqs;
+    //                 objectSuperquadric.cloud = *auxCloudSuperquadric;
+
+    //                 superquadricObjects_.push_back(objectSuperquadric);
+    //                 superquadricsMsg_.superquadrics.push_back(superquadric);
+    //             }
+
+    //             ROS_INFO("AQUI!!");
+    //             // Convert to ROS data type
+    //             sensor_msgs::PointCloud2 pcOutSupeqs;
+    //             pcl::PCLPointCloud2 *cloudAux = new pcl::PCLPointCloud2;
+
+    //             pcl::toPCLPointCloud2(*cloudSuperquadric, *cloudAux);
+    //             pcl_conversions::moveFromPCL(*cloudAux, pcOutSupeqs);
+    //             pcOutSupeqs.header.frame_id = "/base_footprint";
+    //             outPointCloudSuperqsPublisher_.publish(pcOutSupeqs);
+    //             superquadricsPublisher_.publish(superquadricsMsg_);
+
+    //             // Convert to ROS data type
+    //             // pcl::PCLPointCloud2 *allPointsPC2 = new pcl::PCLPointCloud2;
+    //             // pcl::toPCLPointCloud2(*allPoints, *allPointsPC2);
+    //             // sensor_msgs::PointCloud2 pcOutAllPoints;
+    //             // pcl_conversions::moveFromPCL(*allPointsPC2, pcOutAllPoints);
+    //             // pcOutAllPoints.header.frame_id = "/base_footprint";
+
+    //             // outPointCloudAddedPointsPublisher_.publish(pcOutAllPoints);
+    //         }
+    //     }
+    // }
 
     void GraspObjects::addPointsToObjectCloud(int idx, float minHeight, float distanceTop, float distanceBtwPoints)
     {
