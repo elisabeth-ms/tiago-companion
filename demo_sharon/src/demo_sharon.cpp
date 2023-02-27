@@ -431,7 +431,7 @@ namespace demo_sharon
             case WAIT_TO_EXECUTE:
             {
                 ROS_INFO("I'M IN WAIT_TO_EXECUTE");
-                if ((currentDecisionProb_ >= thresholdExecuteTrajectory_) && !waitingForGlassesCommand_)
+                if (((currentDecisionProb_ >= thresholdExecuteTrajectory_) && !waitingForGlassesCommand_) || (greaterThanExecutionThreshold_ && !waitingForGlassesCommand_))
                 {
 
                     ROS_INFO("Gaze commands to grasp %s with decision prob %f greater than threshold %f", glassesCategory_.c_str(), currentDecisionProb_, thresholdExecuteTrajectory_);
@@ -543,10 +543,10 @@ namespace demo_sharon
                         statePublisher_.publish(msg);
 
                         // if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
-                            groupRightArmTorsoPtr_->stop();
+                        groupRightArmTorsoPtr_->stop();
                         // else
                         // {
-                            groupLeftArmTorsoPtr_->stop();
+                        groupLeftArmTorsoPtr_->stop();
                         // }
                         ROS_INFO("Stop motion done");
                         // I need to clear the whole list since the planners include the torso
@@ -825,23 +825,33 @@ namespace demo_sharon
                 {
                     ROS_INFO("[DemoSharon] I'M IN -3");
                     firstInState = false;
+                }
 
-                    if (foundAsr_)
+                if (foundAsr_)
+                {
+                    bool available = false;
+                    for (int i = 0; i < listTrajectoriesToGraspObjects.size(); i++)
                     {
-                        bool available = false;
-                        for (int i = 0; i < listTrajectoriesToGraspObjects.size(); i++)
+                        ROS_INFO("[DemoSharon] listTrajectoriesToGraspObjects %d category %s", i, listTrajectoriesToGraspObjects[i].category.c_str());
+                        if (listTrajectoriesToGraspObjects[i].category.find(asr_, 0) != std::string::npos)
                         {
-                            ROS_INFO("[DemoSharon] listTrajectoriesToGraspObjects %d category %s", i, listTrajectoriesToGraspObjects[i].category.c_str());
-                            if (listTrajectoriesToGraspObjects[i].category.find(asr_, 0) != std::string::npos)
-                            {
-                                ROS_INFO("[DemoSharon] We already have a trajectory % s, so we should move to the execute trajectory", glassesCategory_.c_str());
-                                indexListTrajectories_ = i;
-                                available = true;
-                                break;
-                            }
+                            ROS_INFO("[DemoSharon] We already have a trajectory % s, so we should move to the execute trajectory", glassesCategory_.c_str());
+                            indexListTrajectories_ = i;
+                            available = true;
+                            break;
                         }
-                        state_ = -4;
                     }
+                    if(available)
+                        state_ = -4;
+                    else{
+                        firstInState = true;
+                        state_ = COMPUTE_GRASP_POSES;
+
+                    }
+                }
+                if(greaterThanExecutionThreshold_ && !waitingForGlassesCommand_ && !foundAsr_){
+                    state_ = WAIT_TO_EXECUTE;
+                    firstInState = true;
                 }
             }
             break;
@@ -1397,7 +1407,7 @@ namespace demo_sharon
         ros::param::get("demo_sharon/pass_object_verbal_message", passObjectVerbalMessage_);
 
         std::vector<float> tmp;
-        ros::param::get("demo_sharon/left_gripper_position_difference_wrt_default",tmp);
+        ros::param::get("demo_sharon/left_gripper_position_difference_wrt_default", tmp);
         closeLeftGripperDeviation_[0] = tmp[0];
         closeLeftGripperDeviation_[1] = tmp[1];
 
@@ -1455,6 +1465,7 @@ namespace demo_sharon
         // goalJointTolerance_ = groupRightArmTorsoPtr_->getGoalJointTolerance();
         // ROS_INFO("GOAL JOINT TOLERANCE: %f", goalJointTolerance_);
 
+        greaterThanExecutionThreshold_ = false;
         prevGlassesCategory_ = "background";
         glassesCategory_ = "background";
 
@@ -1475,7 +1486,7 @@ namespace demo_sharon
         else
         {
             std::string path = ros::package::getPath("demo_sharon");
-            timesFile_.open(path+"/csv/" + date + ".csv");
+            timesFile_.open(path + "/csv/" + date + ".csv");
         }
         return;
     }
@@ -1857,7 +1868,6 @@ namespace demo_sharon
                         indexSqCategory_ = indexSqCategoryAsr_;
                         waitingForAsrCommand_ = false;
 
-
                         break;
                     }
                     else
@@ -1908,7 +1918,7 @@ namespace demo_sharon
                    << ","
                    << ","
                    << ","
-                   << ",Seconds from demo start time," << (gazeCommandTime_ - startDemoTime_).toSec() << "\n";
+                   << ",Seconds from demo start time," << (computeGraspPosesTime_ - startDemoTime_).toSec() << "\n";
         mtxWriteFile_.unlock();
 
         // ros::Duration(4.0).sleep();
@@ -2062,14 +2072,14 @@ namespace demo_sharon
                             break;
                         }
                     }
-                    if (!object_in_the_table){
+                    if (!object_in_the_table)
+                    {
                         ROS_WARN("[DemoSharon] Gaze command category %s is NOT available in the table.", glassesData->category.c_str());
                         return;
                     }
                     // -------------------------------------------------------------------------------------------------------------------------------//
 
-                    
-                    currentDecisionProb_ = *itr; 
+                    currentDecisionProb_ = *itr;
                     if (currentDecisionProb_ > thresholdPlanTrajectory_) // The probability of the decision is greater than the planning threshold
                     {
 
@@ -2097,7 +2107,7 @@ namespace demo_sharon
                         if (!alreadyAvailable_)
                         {
                             if (glassesCategory_ != prevGlassesCategory_) // In case we are planning the trajectory that is different, we stop all the processes that are running,
-                                                                          // and we start the planning 
+                                                                          // and we start the planning
                             {
                                 mtxWriteFile_.lock();
                                 gazeCommandTime_ = ros::Time::now();
@@ -2136,7 +2146,7 @@ namespace demo_sharon
                                     waitingForGlassesCommand_ = true;
                                     waitingForAsrCommand_ = true;
 
-                                    if (state_ == COMPUTE_GRASP_POSES)  // If we are computing the grasp poses, we cancel the thread for computing the grasp poses
+                                    if (state_ == COMPUTE_GRASP_POSES) // If we are computing the grasp poses, we cancel the thread for computing the grasp poses
                                     {
 
                                         ROS_INFO("CANCELL THREAD FOR COMPUTE GRASP POSES");
@@ -2191,6 +2201,15 @@ namespace demo_sharon
                                     else
                                     {
                                         state_ = -1;
+                                    }
+                                    if (currentDecisionProb_ > thresholdExecuteTrajectory_)
+                                    {
+                                        greaterThanExecutionThreshold_ = true;
+                                        waitingForGlassesCommand_ = false;
+                                        decisisionProbGreaterExecuteThreshold_ = ros::Time::now();
+                                        timesFile_ << "Gaze object," << glassesCategory_ << ",Decision Prob.," << currentDecisionProb_ << ",>"
+                                                   << ",Threshold execute"
+                                                   << ",Seconds from demo start time," << (decisisionProbGreaterExecuteThreshold_ - startDemoTime_).toSec() << "\n";
                                     }
                                 }
                                 else

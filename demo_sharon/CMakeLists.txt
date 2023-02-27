@@ -215,6 +215,7 @@ install(PROGRAMS
         scripts/comms_glasses_server.py
         scripts/asr_node.py
         scripts/fake_glasses.py
+        scripts/add_depth_filter.py
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 #############

@@ -294,7 +294,7 @@ namespace demo_sharon
 
         float closeMorePosition = 0.02;
 
-
+        bool greaterThanExecutionThreshold_;
 
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_;

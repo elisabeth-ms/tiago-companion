@@ -231,7 +231,7 @@ class ASR(object):
                         print("Similar word: ", word_dictionary_sound[0])
                         
                         if  self.get_key(word_dictionary_sound[0]) == 'bread':
-                            text_list.append("sliced_bread")
+                            text_list.append("sliced bread")
                         else:
                             text_list.append(self.get_key(word_dictionary_sound[0]))
                     
