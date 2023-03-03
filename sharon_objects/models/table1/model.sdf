@@ -27,7 +27,7 @@
         <pose frame=''>0 0 0.59 0 -0 0</pose>
         <geometry>
           <box>
-            <size>1 0.8 0.03</size>
+            <size>1 2.0 0.03</size>
           </box>
         </geometry>
         <material>
@@ -148,7 +148,7 @@
         <pose frame=''>0 0 0.6 0 -0 0</pose>
         <geometry>
           <box>
-            <size>1 0.8 0.015</size>
+            <size>1 2.0 0.015</size>
           </box>
         </geometry>
         <surface>

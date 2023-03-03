@@ -12,9 +12,9 @@
           <iyz>0</iyz>
           <izz>0.000319</izz>
         </inertia>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose frame=''>0 0 0.0 0 -0 0</pose>
       </inertial>
-      <pose frame=''>-0 -0 0 0 -0 0</pose>
+      <pose frame=''>-0 -0 -0.02 0 -0 0</pose>
       <gravity>1</gravity>
       <self_collide>0</self_collide>
       <kinematic>0</kinematic>
@@ -44,10 +44,10 @@
       <collision name='collision'>
         <laser_retro>0</laser_retro>
         <max_contacts>10</max_contacts>
-        <pose frame=''>0 0 0 0 -0 0</pose>
+        <pose frame=''>0 0 0.02 0 -0 0</pose>
         <geometry>
           <box>
-            <size>0.064 0.074 0.225</size>
+            <size>0.064 0.074 0.24</size>
           </box>
         </geometry>
         <surface>
