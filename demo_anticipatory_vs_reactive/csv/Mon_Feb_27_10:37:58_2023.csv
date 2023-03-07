@@ -1,0 +1,148 @@
+Use Glasses,1
+Use ASR,1
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,25.723
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,25.723
+Compute grasp poses object,cereals3,,,,,Seconds from demo start time,25.788
+Feasible reaching pose for object,cereals3,,,,,Seconds from demo start time,26.291
+Plan trajectory reaching pose for object,cereals3,arm,right,,,Seconds from demo start time,26.529
+Start Execution trajectory to reach,cereals3,arm,right,,,Seconds from demo start time,26.529
+Asr command to grasp object,milk,different,,,,Seconds from demo start time,28.074
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,28.088
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,28.091
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,28.226
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,28.288
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,28.29
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,28.461
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,28.488
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,28.49
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,28.641
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,28.689
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,28.691
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,28.816
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,28.889
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,28.89
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,29.026
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,29.09
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,29.09
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,29.253
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,29.288
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,29.289
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,29.441
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,29.488
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,29.489
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,29.62
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,29.688
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,29.692
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,29.839
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,29.887
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,29.889
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.049
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.087
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.088
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.224
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.289
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.289
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.434
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.487
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.487
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.566
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.589
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.591
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.73
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.788
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.789
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.901
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.988
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.994
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,31.124
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,31.186
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,31.193
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,31.353
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,31.389
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,31.39
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,31.544
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,31.591
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,31.593
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,31.66
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,31.689
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,31.693
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,31.819
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,31.887
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,31.888
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,32.007
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,32.087
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,32.089
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,32.266
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,32.288
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,32.29
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,32.433
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,32.491
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,32.496
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,32.651
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,32.688
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,32.689
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,32.824
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,32.885
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,32.885
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,33.012
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,33.088
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,33.09
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,33.253
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,33.289
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,33.289
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,33.429
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,33.489
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,33.49
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,33.609
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,33.691
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,33.693
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,33.829
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,33.886
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,33.89
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,34.037
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,34.088
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,34.091
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,34.256
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,34.288
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,34.289
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,34.401
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,34.488
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,34.491
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,34.595
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,34.687
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,34.688
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,34.832
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,34.89
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,34.891
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,35.019
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,35.089
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,35.089
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,35.219
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,35.289
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,35.29
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,35.447
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,35.489
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,35.491
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,35.63
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,35.685
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,35.687
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,35.811
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,35.889
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,35.89
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,36.037
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,36.085
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,36.085
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,36.246
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,36.29
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,36.29
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,36.348
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,36.39
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,36.399
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,36.533
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,36.586
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,36.589
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,36.661
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,36.688
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,36.69
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,36.805
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,36.819

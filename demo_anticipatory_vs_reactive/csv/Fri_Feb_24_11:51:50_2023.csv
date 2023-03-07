@@ -1,0 +1,10 @@
+Use Glasses,1
+Use ASR,1
+Asr command to grasp object,milk,same,,,,Seconds from demo start time,20.9052
+Compute grasp poses object,milk1,,,,,Seconds from demo start time,20.9929
+Feasible reaching pose for object,milk1,,,,,Seconds from demo start time,20.9984
+Plan trajectory reaching pose for object,milk1,arm,right,,,Seconds from demo start time,21.2619
+Start Execution trajectory to reach,milk1,arm,right,,,Seconds from demo start time,21.2619
+Robot in reaching Pose trajectory,milk1,arm,right,,,Seconds from demo start time,27.7292
+Object grasped,milk1,,,,,Seconds from demo start time,33.9713
+Object up,milk1,,,,,Seconds from demo start time,39.9378

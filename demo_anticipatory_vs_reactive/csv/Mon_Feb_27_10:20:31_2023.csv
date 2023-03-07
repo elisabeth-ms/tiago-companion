@@ -1,0 +1,7 @@
+Use Glasses,1
+Use ASR,1
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,38.82
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,38.82
+Compute grasp poses object,cereals3,,,,,Seconds from demo start time,38.899
+Feasible reaching pose for object,cereals3,,,,,Seconds from demo start time,38.9
+Plan trajectory reaching pose for object,cereals3,arm,right,,,Seconds from demo start time,39.174

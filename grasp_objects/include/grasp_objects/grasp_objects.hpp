@@ -31,12 +31,12 @@
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include "sharon_msgs/SuperquadricMultiArray.h"
-#include "sharon_msgs/ActivateSupercuadricsComputation.h"
-#include "sharon_msgs/GetSuperquadrics.h"
-#include "sharon_msgs/ComputeGraspPoses.h"
-#include "sharon_msgs/BoundingBoxes.h"
-#include "sharon_msgs/GetBboxes.h"
+#include "companion_msgs/SuperquadricMultiArray.h"
+#include "companion_msgs/ActivateSupercuadricsComputation.h"
+#include "companion_msgs/GetSuperquadrics.h"
+#include "companion_msgs/ComputeGraspPoses.h"
+#include "companion_msgs/BoundingBoxes.h"
+#include "companion_msgs/GetBboxes.h"
 
 #define DEFAULT_MIN_NPOINTS 100
 #define MAX_OBJECT_WIDTH_GRASP 0.16
@@ -96,17 +96,17 @@ namespace grasp_objects{
                                              int indexDetectedObjects);
 
 
-        bool activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request & req, sharon_msgs::ActivateSupercuadricsComputation::Response & res);
+        bool activateSuperquadricsComputation(companion_msgs::ActivateSupercuadricsComputation::Request & req, companion_msgs::ActivateSupercuadricsComputation::Response & res);
 
-        bool computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request & req, sharon_msgs::ComputeGraspPoses::Response & res);
+        bool computeGraspPoses(companion_msgs::ComputeGraspPoses::Request & req, companion_msgs::ComputeGraspPoses::Response & res);
 
         void computeGraspingPosesObject(const std::vector<SuperqModel::Superquadric> &superqs, geometry_msgs::PoseArray &graspingPoses, std::vector<float> & width);
 
-        bool getSuperquadrics(sharon_msgs::GetSuperquadrics::Request &req, sharon_msgs::GetSuperquadrics::Response &res);
+        bool getSuperquadrics(companion_msgs::GetSuperquadrics::Request &req, companion_msgs::GetSuperquadrics::Response &res);
 
-        bool getBboxes(sharon_msgs::GetBboxes::Request &req, sharon_msgs::GetBboxes::Response &res);
+        bool getBboxes(companion_msgs::GetBboxes::Request &req, companion_msgs::GetBboxes::Response &res);
 
-        bool createBoundingBox2DFromSuperquadric(const sharon_msgs::Superquadric &superq, sharon_msgs::BoundingBox & bbox);
+        bool createBoundingBox2DFromSuperquadric(const companion_msgs::Superquadric &superq, companion_msgs::BoundingBox & bbox);
 
         void addPointsToObjectCloud(int idx, float minHeight, float distanceTop, float distanceBtwPoints);
 
@@ -162,7 +162,7 @@ namespace grasp_objects{
 
         std::vector<Object> detectedObjects_;
         std::vector<ObjectSuperquadric> superquadricObjects_;
-        sharon_msgs::SuperquadricMultiArray superquadricsMsg_;
+        companion_msgs::SuperquadricMultiArray superquadricsMsg_;
 
         bool activate_ = false;
         std::mutex mtxActivate_;

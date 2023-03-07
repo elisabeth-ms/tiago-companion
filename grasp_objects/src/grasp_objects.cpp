@@ -84,7 +84,7 @@ namespace grasp_objects
         outPointCloudAddedPointsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/added_points", 20);
         outPointCloudSuperqsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/superquadrics_cloud", 20);
         outPointConcaveHullsPublisher_ = nodeHandle_.advertise<sensor_msgs::PointCloud2>("/grasp_objects/concave_hulls", 20);
-        superquadricsPublisher_ = nodeHandle_.advertise<sharon_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 20);
+        superquadricsPublisher_ = nodeHandle_.advertise<companion_msgs::SuperquadricMultiArray>("/grasp_objects/superquadrics", 20);
         graspPosesPublisher_ = nodeHandle_.advertise<geometry_msgs::PoseArray>("/grasp_objects/poses", 20);
         bbox3dPublisher_ = nodeHandle_.advertise<visualization_msgs::MarkerArray>("/grasp_objects/bbox3d", 20);
         objectPosePublisher_ = nodeHandle_.advertise<geometry_msgs::PoseStamped>("/grasp_objects/object_pose", 20);
@@ -95,7 +95,7 @@ namespace grasp_objects
         serviceGetBboxesSuperquadrics_ = nodeHandle_.advertiseService("/grasp_objects/get_bboxes_superquadrics", &GraspObjects::getBboxes, this);
     }
 
-    bool GraspObjects::createBoundingBox2DFromSuperquadric(const sharon_msgs::Superquadric &superq, sharon_msgs::BoundingBox &bbox)
+    bool GraspObjects::createBoundingBox2DFromSuperquadric(const companion_msgs::Superquadric &superq, companion_msgs::BoundingBox &bbox)
     {
         // Bbox 3d wrt object's frame
 
@@ -261,10 +261,10 @@ namespace grasp_objects
             ypixel = 0;
     }
 
-    bool GraspObjects::getSuperquadrics(sharon_msgs::GetSuperquadrics::Request &req, sharon_msgs::GetSuperquadrics::Response &res)
+    bool GraspObjects::getSuperquadrics(companion_msgs::GetSuperquadrics::Request &req, companion_msgs::GetSuperquadrics::Response &res)
     {
         ROS_INFO("[GraspObjects] GetSuperquadrics().");
-        sharon_msgs::SuperquadricMultiArray superquadrics;
+        companion_msgs::SuperquadricMultiArray superquadrics;
         geometry_msgs::PoseArray graspingPoses;
 
         res.superquadrics = superquadricsMsg_;
@@ -272,23 +272,23 @@ namespace grasp_objects
         return true;
     }
 
-    bool GraspObjects::getBboxes(sharon_msgs::GetBboxes::Request &req, sharon_msgs::GetBboxes::Response &res)
+    bool GraspObjects::getBboxes(companion_msgs::GetBboxes::Request &req, companion_msgs::GetBboxes::Response &res)
     {
         ROS_INFO("[GraspObjects] getBboxes().");
-        sharon_msgs::BoundingBoxes boundingBoxes;
+        companion_msgs::BoundingBoxes boundingBoxes;
         boundingBoxes.header.stamp = ros::Time::now();
 
         for (int i = 0; i < superquadricsMsg_.superquadrics.size(); i++)
         {
             ROS_INFO("[GraspObjects] SQ: %d", i);
-            sharon_msgs::BoundingBox bbox;
+            companion_msgs::BoundingBox bbox;
             createBoundingBox2DFromSuperquadric(superquadricsMsg_.superquadrics[i], bbox);
             boundingBoxes.bounding_boxes.push_back(bbox);
         }
         res.bounding_boxes = boundingBoxes;
     }
 
-    bool GraspObjects::computeGraspPoses(sharon_msgs::ComputeGraspPoses::Request &req, sharon_msgs::ComputeGraspPoses::Response &res)
+    bool GraspObjects::computeGraspPoses(companion_msgs::ComputeGraspPoses::Request &req, companion_msgs::ComputeGraspPoses::Response &res)
     {
         ROS_INFO("[GraspObjects] computeGraspPoses().");
         geometry_msgs::PoseArray graspingPoses;
@@ -478,7 +478,7 @@ namespace grasp_objects
 
     }
 
-    bool GraspObjects::activateSuperquadricsComputation(sharon_msgs::ActivateSupercuadricsComputation::Request &req, sharon_msgs::ActivateSupercuadricsComputation::Response &res)
+    bool GraspObjects::activateSuperquadricsComputation(companion_msgs::ActivateSupercuadricsComputation::Request &req, companion_msgs::ActivateSupercuadricsComputation::Response &res)
     {
 
         mtxActivate_.lock();
@@ -819,7 +819,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
             if (lccp_labeled_cloud->points.size() != 0)
             {
 
-                sharon_msgs::SuperquadricMultiArray aux;
+                companion_msgs::SuperquadricMultiArray aux;
                 superquadricsMsg_ = aux;
                 superquadricsMsg_.header.stamp = ros::Time::now();
                 updateDetectedObjectsPointCloud(lccp_labeled_cloud);
@@ -842,7 +842,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
                     ROS_INFO("pointCloud points: %d", point_cloud.n_points);
                     std::vector<SuperqModel::Superquadric> superqs;
                     getSuperquadricFromPointCloud(point_cloud, superqs);
-                    sharon_msgs::Superquadric superquadric;
+                    companion_msgs::Superquadric superquadric;
                     auto params = superqs[0].getSuperqParams();
                     superquadric.id = detectedObjects_[idx].label;
                     superquadric.a1 = params[0];
@@ -995,7 +995,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
     //         if (lccp_labeled_cloud->points.size() != 0)
     //         {
 
-    //             sharon_msgs::SuperquadricMultiArray aux;
+    //             companion_msgs::SuperquadricMultiArray aux;
     //             superquadricsMsg_ = aux;
     //             superquadricsMsg_.header.stamp = ros::Time::now();
     //             updateDetectedObjectsPointCloud(lccp_labeled_cloud);
@@ -1018,7 +1018,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
     //                 ROS_INFO("pointCloud points: %d", point_cloud.n_points);
     //                 std::vector<SuperqModel::Superquadric> superqs;
     //                 getSuperquadricFromPointCloud(point_cloud, superqs);
-    //                 sharon_msgs::Superquadric superquadric;
+    //                 companion_msgs::Superquadric superquadric;
     //                 auto params = superqs[0].getSuperqParams();
     //                 superquadric.id = detectedObjects_[idx].label;
     //                 superquadric.a1 = params[0];

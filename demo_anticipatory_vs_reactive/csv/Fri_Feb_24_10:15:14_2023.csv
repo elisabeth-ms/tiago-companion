@@ -1,0 +1,4 @@
+Use Glasses,1
+Use ASR,1
+Asr command to grasp object,nesquick,same,,,,Seconds from demo start time,14.1979
+Compute grasp poses object,nesquick,,,,,Seconds from demo start time,-1.67723e+09

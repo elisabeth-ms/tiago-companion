@@ -1,0 +1,23 @@
+Use Glasses,1
+Use ASR,1
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,24.738
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,24.738
+Compute grasp poses object,cereals3,,,,,Seconds from demo start time,24.755
+Feasible reaching pose for object,cereals3,,,,,Seconds from demo start time,25.24
+Plan trajectory reaching pose for object,cereals3,arm,right,,,Seconds from demo start time,25.617
+Start Execution trajectory to reach,cereals3,arm,right,,,Seconds from demo start time,25.618
+Asr command to grasp object,milk,different,,,,Seconds from demo start time,29.876
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,29.958
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,29.964
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.115
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.158
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.161
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.327
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.355
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.357
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.537
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.556
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.556
+Plan trajectory reaching pose for object,milk2,arm,left,,,Seconds from demo start time,30.761
+Compute grasp poses object,milk2,,,,,Seconds from demo start time,30.859
+Feasible reaching pose for object,milk2,,,,,Seconds from demo start time,30.86

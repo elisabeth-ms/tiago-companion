@@ -1,0 +1,8 @@
+Use Glasses,1
+Use ASR,1
+Asr command to grasp object,coffee,same,,,,Seconds from demo start time,31.2231
+Compute grasp poses object,coffee,,,,,Seconds from demo start time,31.3044
+Feasible reaching pose for object,coffee,,,,,Seconds from demo start time,31.3066
+Plan trajectory reaching pose for object,coffee,arm,right,,,Seconds from demo start time,31.5805
+Start Execution trajectory to reach,coffee,arm,right,,,Seconds from demo start time,31.5806
+Robot in reaching Pose trajectory,coffee,arm,right,,,Seconds from demo start time,53.9019

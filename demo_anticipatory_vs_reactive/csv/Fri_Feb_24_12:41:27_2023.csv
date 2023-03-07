@@ -1,0 +1,15 @@
+Use Glasses,1
+Use ASR,1
+Asr command to grasp object,butter,same,,,,Seconds from demo start time,19.8665
+Compute grasp poses object,butter,,,,,Seconds from demo start time,19.9427
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,20.2254
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,20.5028
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,20.5475
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,20.6104
+Gaze object,butter,Decision Prob.,0.875,>,Threshold execute,Seconds from demo start time,21.3388
+Compute grasp poses object,butter,,,,,Seconds from demo start time,21.3429
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,21.626
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,21.7205
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,21.7967
+Feasible reaching pose for object,butter,,,,,Seconds from demo start time,21.8903
+Asr command to grasp object,butter,same,,,,Seconds from demo start time,31.5065

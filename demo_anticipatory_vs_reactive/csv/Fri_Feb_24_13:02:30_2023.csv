@@ -1,0 +1,5 @@
+Use Glasses,1
+Use ASR,1
+Gaze object,butter,Decision Prob.,0.75,>,Threshold execute,Seconds from demo start time,16.6901
+Compute grasp poses object,butter,,,,,Seconds from demo start time,16.7728
+Asr command to grasp object,butter,same,,,,Seconds from demo start time,20.1537

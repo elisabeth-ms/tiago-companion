@@ -1,0 +1,12 @@
+Use Glasses,1
+Use ASR,1
+Gaze object,sliced bread,Decision Prob.,0.75,>,Threshold execute,Seconds from demo start time,22.5357
+Compute grasp poses object,sliced bread,,,,,Seconds from demo start time,22.5443
+Asr command to grasp object,bread,same,,,,Seconds from demo start time,22.8887
+Feasible reaching pose for object,sliced bread,,,,,Seconds from demo start time,24.0098
+Plan trajectory reaching pose for object,sliced bread,arm,left,,,Seconds from demo start time,24.31
+Gaze object,sliced bread,Decision Prob.,0.999992,>,Threshold execute,Seconds from demo start time,24.4243
+Start Execution trajectory to reach,sliced bread,arm,left,,,Seconds from demo start time,24.4244
+Robot in reaching Pose trajectory,sliced bread,arm,left,,,Seconds from demo start time,45.8443
+Object grasped,sliced bread,,,,,Seconds from demo start time,52.032
+Object up,sliced bread,,,,,Seconds from demo start time,79.6507

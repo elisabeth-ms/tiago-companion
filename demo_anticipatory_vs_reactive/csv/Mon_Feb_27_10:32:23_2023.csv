@@ -1,0 +1,12 @@
+Use Glasses,1
+Use ASR,1
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,16.804
+Gaze object,cereals,Decision Prob.,0.433333,>,Threshold execute,Seconds from demo start time,16.804
+Compute grasp poses object,cereals3,,,,,Seconds from demo start time,16.883
+Feasible reaching pose for object,cereals3,,,,,Seconds from demo start time,16.883
+Plan trajectory reaching pose for object,cereals3,arm,right,,,Seconds from demo start time,17.122
+Start Execution trajectory to reach,cereals3,arm,right,,,Seconds from demo start time,17.123
+Robot in reaching Pose trajectory,cereals3,arm,right,,,Seconds from demo start time,37.815
+Asr command to grasp object,cereals,same,,,,Seconds from demo start time,49.419
+Object grasped,cereals3,,,,,Seconds from demo start time,55.089
+Object up,cereals3,,,,,Seconds from demo start time,69.309

@@ -1,0 +1,16 @@
+Use Glasses,1
+Use ASR,1
+Gaze object,milk,Decision Prob.,0.366667,>,Threshold plan,Seconds from demo start time,14.4937
+Compute grasp poses object,milk1,,,,,Seconds from demo start time,14.5488
+Feasible reaching pose for object,milk1,,,,,Seconds from demo start time,14.5532
+Plan trajectory reaching pose for object,milk1,arm,right,,,Seconds from demo start time,14.8797
+Gaze object,milk,Decision Prob.,0.533333,>,Threshold execute,Seconds from demo start time,15.3306
+Start Execution trajectory to reach,milk1,arm,right,,,Seconds from demo start time,15.3307
+Asr command to grasp object,nesquick,different,,,,Seconds from demo start time,18.8922
+Compute grasp poses object,nesquick,,,,,Seconds from demo start time,18.945
+Feasible reaching pose for object,nesquick,,,,,Seconds from demo start time,18.99
+Plan trajectory reaching pose for object,nesquick,arm,left,,,Seconds from demo start time,19.2147
+Start Execution trajectory to reach,nesquick,arm,left,,,Seconds from demo start time,19.2152
+Robot in reaching Pose trajectory,nesquick,arm,left,,,Seconds from demo start time,28.0062
+Object grasped,nesquick,,,,,Seconds from demo start time,34.1315
+Object up,nesquick,,,,,Seconds from demo start time,51.2528
