@@ -912,7 +912,7 @@ namespace demo_anticipatory_vs_reactive
 
     bool DemoAnticipatoryVsReactive::goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance)
     {
-        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.2);
+        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
         geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
         KDL::Frame frameEndWrtBase;
         tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
