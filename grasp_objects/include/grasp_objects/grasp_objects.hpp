@@ -153,7 +153,8 @@ namespace grasp_objects{
         std::string object_class_;
         bool single_superq_;
         bool merge_model_;
-        float z_table_ = 0.6;
+        // float z_table_ = 0.6;
+        std::vector<float> table_dimensions_;
 
         int height_ = 480;
         int width_ = 640;

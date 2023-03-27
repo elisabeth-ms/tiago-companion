@@ -33,7 +33,7 @@ class CommsGlassesServer(object):
         self.connection = None
         # get an instance of RosPack with the default search paths
         self.rospack = rospkg.RosPack()
-        self.path = self.rospack.get_path('demo_sharon')+"/scripts"
+        self.path = self.rospack.get_path('demo_anticipatory_vs_reactive')+"/scripts"
         rospy.loginfo(str(self.path))
         self.categories = np.load(self.path+'/categories.npy')
         print(len(self.categories))

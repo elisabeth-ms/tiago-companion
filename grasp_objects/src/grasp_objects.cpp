@@ -31,6 +31,7 @@ namespace grasp_objects
         ros::param::get("grasp_objects/single_superq", single_superq_);
         ros::param::get("grasp_objects/merge_model", merge_model_);
         ros::param::get("grasp_objects/th_points", th_points_);
+        ros::param::get("demo/table_dimensions", table_dimensions_);
 
         nodeHandle_.param("subscribers/point_cloud/topic", pointCloudTopicName, std::string("/xtion/depth/points"));
         nodeHandle_.param("subscribers/camera_info/topic", cameraInfoTopicName, std::string("/xtion/depth/camera_info"));
@@ -620,7 +621,7 @@ namespace grasp_objects
                 pcl::PointXYZRGB tmp_point_projected;
                 tmp_point_projected.x = lccp_labeled_cloud->points[i].x;
                 tmp_point_projected.y = lccp_labeled_cloud->points[i].y;
-                tmp_point_projected.z = z_table_;
+                tmp_point_projected.z = table_dimensions_[2];
                 tmp_point_projected.r = rand() % 256;
                 tmp_point_projected.g = rand() % 256;
                 tmp_point_projected.b = rand() % 256;
@@ -680,7 +681,7 @@ namespace grasp_objects
             for(int p=0; p<cloud_hull->points.size(); p++)
             {
                 ROS_INFO("[GraspObjects] cloud_hull: %f, %f, %f", cloud_hull->points[p].x, cloud_hull->points[p].y, cloud_hull->points[p].z);
-                for(float z_height = z_table_; z_height < detectedObjects_[i].max_height; z_height += 0.001)
+                for(float z_height = table_dimensions_[2]; z_height < detectedObjects_[i].max_height; z_height += 0.001)
                 {
                     pcl::PointXYZRGB tmp_point_projected;
                     tmp_point_projected.x = cloud_hull->points[p].x;
