@@ -15,6 +15,8 @@
 #include <ros/topic.h>
 #include <std_msgs/String.h>
 #include <sensor_msgs/JointState.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <geometry_msgs/Twist.h>
 
 // Moveit headers
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -80,6 +82,9 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define RELEASE_OBJECT 10
 #define OBJECT_DELIVERED 11
 #define ROBOT_IN_HOME_POSITION 12
+#define BRING_CLOSER 15
+#define GO_BACKWARDS 16
+#define TURN_ANTICLOCKWISE 17
 #define UNABLE_TO_REACHING_GRASP_IK -2
 #define DEBUG_STATE -10
 #define WAIT_TO_EXECUTE 13
@@ -140,6 +145,8 @@ namespace demo_anticipatory_vs_reactive
 
         bool goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance);
 
+        bool bringCloser(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float bringCloserDistance);
+        
         bool releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 
         bool moveToHomePosition(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
@@ -173,6 +180,8 @@ namespace demo_anticipatory_vs_reactive
 
         bool goalReached(moveit::planning_interface::MoveGroupInterface *&groupArmTorsoPtr_);
 
+        void amclPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr &amclPoseMsg);
+
     private:
         //! ROS node handle.
         //  moveit_visual_tools::MoveItVisualToolsPtr visualTools_;
@@ -199,12 +208,15 @@ namespace demo_anticipatory_vs_reactive
         ros::Subscriber asrSubscriber_;
         ros::Subscriber glassesDataSubscriber_;
         ros::Subscriber moveGroupStatusSubscriber_;
+        ros::Subscriber amclPoseSubscriber_;
 
         ros::Publisher statePublisher_;
         ros::Publisher superquadricsBBoxesPublisher_;
         ros::Publisher reachingPosePublisher_;
         ros::Publisher planPublisher_;
+        ros::Publisher cmdVelPublisher_;
 
+        geometry_msgs::Pose basePose_;
         actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction> *acPtr_;
 
         bool releaseGripper_ = false;
@@ -319,7 +331,10 @@ namespace demo_anticipatory_vs_reactive
         ros::Time asrTime_;
         ros::Time objectGrasppedTime_;
         ros::Time objectUpTime_;
-
+        ros::Time bringCloserTime_;
+        ros::Time goBackwardsStartTime_;
+        ros::Time goBackwardsEndTime_;
+        ros::Time turnAnticlockwiseStartTime_;
         bool firstInState;
 
         std::ofstream timesFile_;

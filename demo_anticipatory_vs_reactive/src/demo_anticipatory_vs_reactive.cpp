@@ -688,10 +688,10 @@ namespace demo_anticipatory_vs_reactive
                 {
                     groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
                 }
-                goUp(groupAuxArmTorsoPtr_, 0.2);
+                goUp(groupAuxArmTorsoPtr_, 0.1);
 
                 firstInState = true;
-                state_ = RELEASE_OBJECT;
+                state_ = BRING_CLOSER;
 
                 mtxWriteFile_.lock();
                 objectUpTime_ = ros::Time::now();
@@ -702,21 +702,127 @@ namespace demo_anticipatory_vs_reactive
                            << ",Seconds from demo start time," << (objectUpTime_ - startDemoTime_).toSec() << "\n";
                 mtxWriteFile_.unlock();
 
-                pal_interaction_msgs::TtsGoal goal;
-                goal.rawtext.text = passObjectVerbalMessage_;
-                goal.rawtext.lang_id = "en_GB";
+                // pal_interaction_msgs::TtsGoal goal;
+                // goal.rawtext.text = passObjectVerbalMessage_;
+                // goal.rawtext.lang_id = "en_GB";
 
-                acPtr_->sendGoal(goal);
-                ros::Duration(1.5).sleep();
+                // acPtr_->sendGoal(goal);
+                // ros::Duration(1.5).sleep();
             }
+            break;
+            case BRING_CLOSER:
+            {
+                ROS_INFO("I'M IN BRING CLOSER");
+                std_msgs::String msg;
+                std::stringstream ss;
+                ss << "Bring closer";
+                msg.data = ss.str();
+                statePublisher_.publish(msg);
+
+                moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+                if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                {
+                    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+                }
+                else
+                {
+                    groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
+                }
+
+                bringCloser(groupAuxArmTorsoPtr_, 0.1);
+
+                firstInState = true;
+                state_ = GO_BACKWARDS;
+
+                mtxWriteFile_.lock();
+                bringCloserTime_ = ros::Time::now();
+                timesFile_ << "Bring closer," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
+                           << ","
+                           << ","
+                           << ","
+                           << ",Seconds from demo start time," << (bringCloserTime_ - startDemoTime_).toSec() << "\n";
+                mtxWriteFile_.unlock();
+
+
+
+            }
+            break;
+            case GO_BACKWARDS:
+            {
+                if(firstInState){
+                    ROS_INFO("I'M IN GO_BACKWARDS");
+                    goBackwardsStartTime_ = ros::Time::now();
+                    firstInState = false;
+                }
+                double speed = 0.035;
+                if((ros::Time::now() - goBackwardsStartTime_).toSec()>(abs(0.4/speed)))
+                {
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = 0.0;
+                    cmdVelPublisher_.publish(vel);
+                    firstInState = true;
+                    state_ = TURN_ANTICLOCKWISE;   
+                }
+                else{
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = -speed;
+                    cmdVelPublisher_.publish(vel);
+                }
+                
+            }
+            break;
+            case TURN_ANTICLOCKWISE:
+            {
+                ROS_INFO("I'M IN TURN_ANTICLOCKWISE");
+                if (firstInState)
+                {
+                    firstInState = false;
+                    turnAnticlockwiseStartTime_ = ros::Time::now();
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = 0.0;
+                    cmdVelPublisher_.publish(vel);
+                }
+                else{
+                    double speed = 0.14;
+                    double angle = 0;
+                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
+                        angle = 90*M_PI/180.0;
+                    }else{
+                        angle = 70*M_PI/180.0;
+                    }
+                    if((ros::Time::now()-turnAnticlockwiseStartTime_).toSec() > (abs(angle/speed))){
+                        geometry_msgs::Twist vel;
+                        vel.angular.z = 0.0;
+                        cmdVelPublisher_.publish(vel);
+                        firstInState = true;
+                        state_ = RELEASE_OBJECT;   
+                    }else{
+                        geometry_msgs::Twist vel;
+                        vel.angular.z = speed;
+                        cmdVelPublisher_.publish(vel);
+                    }
+                    
+                    
+                }
+            }
+            
             break;
             case RELEASE_OBJECT:
             {
                 ROS_INFO("I'M IN RELEASE_OBJECT");
                 if (firstInState)
                 {
+                    pal_interaction_msgs::TtsGoal goal;
+                    goal.rawtext.text = passObjectVerbalMessage_;
+                    goal.rawtext.lang_id = "en_GB";
+
+                    acPtr_->sendGoal(goal);
+                    ros::Duration(1.5).sleep();
                     firstInState = false;
                     releaseGripper_ = false;
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = 0.0;
+                    cmdVelPublisher_.publish(vel);
                 }
                 else
                 {
@@ -912,7 +1018,7 @@ namespace demo_anticipatory_vs_reactive
 
     bool DemoAnticipatoryVsReactive::goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance)
     {
-        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+        groupArmTorsoPtr->setMaxVelocityScalingFactor(0.1);
         geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
         KDL::Frame frameEndWrtBase;
         tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
@@ -944,6 +1050,54 @@ namespace demo_anticipatory_vs_reactive
             return false;
         }
     }
+
+    bool DemoAnticipatoryVsReactive::bringCloser(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float bringCloserDistance)
+    {
+
+        /////////////////////////
+        groupArmTorsoPtr->setMaxVelocityScalingFactor(0.1);
+
+
+        geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
+        KDL::Frame frameEndWrtBase;
+        tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
+        KDL::Frame frameToolWrtEnd;
+        frameToolWrtEnd.p[0] = -bringCloserDistance;
+        KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
+
+        geometry_msgs::Pose toolPose;
+        tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+
+
+        groupArmTorsoPtr->setPoseTarget(toolPose);
+
+
+        moveit::planning_interface::MoveItErrorCode code = groupArmTorsoPtr->plan(plan_);
+        bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        if (successPlanning)
+        {
+            moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->move();
+            if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+            {
+                ROS_INFO("[DemoAnticipatoryVsReactive] Success in moving the grasped object up.");
+                return true;
+            }
+            else
+            {
+                ROS_INFO("[DemoAnticipatoryVsReactive] Error in moving the grasped object up.");
+                return false;
+            }
+        }
+        else
+        {
+            ROS_INFO("[DemoAnticipatoryVsReactive] No feasible up pose!");
+            return false;
+        }
+
+
+    }
+
+
 
     bool DemoAnticipatoryVsReactive::goToGraspingPose(const geometry_msgs::Pose &graspingPose)
     {
@@ -1105,8 +1259,8 @@ namespace demo_anticipatory_vs_reactive
         // Collision object
         moveit_msgs::CollisionObject collisionObject;
         collisionObject.id = id;
-        collisionObject.header.frame_id = groupRightArmTorsoPtr_->getPlanningFrame();
-        ROS_INFO("[DemoAnticipatoryVsReactive] Planning_frame: %s", groupRightArmTorsoPtr_->getPlanningFrame().c_str());
+        collisionObject.header.frame_id = "base_footprint";
+        ROS_INFO("[DemoAnticipatoryVsReactive] Planning_frame: %s", "base_footprint");
         shape_msgs::SolidPrimitive table;
         table.type = table.BOX;
         table.dimensions.resize(3);
@@ -1368,6 +1522,7 @@ namespace demo_anticipatory_vs_reactive
         clientComputeGraspPoses_ = nodeHandle_.serviceClient<companion_msgs::ComputeGraspPoses>("/grasp_objects/compute_grasp_poses");
         clientGetBboxesSuperquadrics_ = nodeHandle_.serviceClient<companion_msgs::GetBboxes>("/grasp_objects/get_bboxes_superquadrics");
         asrSubscriber_ = nodeHandle_.subscribe("/asr_node/data", 10, &DemoAnticipatoryVsReactive::asrCallback, this);
+        amclPoseSubscriber_ = nodeHandle_.subscribe("/amcl_pose", 10, &DemoAnticipatoryVsReactive::amclPoseCallback, this);
         glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoAnticipatoryVsReactive::glassesDataCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo/release_gripper", &DemoAnticipatoryVsReactive::releaseGripper, this);
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo/move_to_home_position", &DemoAnticipatoryVsReactive::moveToHomePosition, this);
@@ -1375,6 +1530,7 @@ namespace demo_anticipatory_vs_reactive
         superquadricsBBoxesPublisher_ = nodeHandle_.advertise<companion_msgs::BoundingBoxes>("/demo/superquadrics_bboxes", 10);
         reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::PoseStamped>("/demo/reaching_pose", 10);
         planPublisher_ = nodeHandle_.advertise<moveit_msgs::RobotTrajectory>("/demo/trajectory", 10);
+        cmdVelPublisher_ = nodeHandle_.advertise<geometry_msgs::Twist>("/mobile_base_controller/cmd_vel",10);
 
         clientActivateAsr_ = nodeHandle_.serviceClient<companion_msgs::ActivateASR>("/asr_node/activate_asr");
         acPtr_ = new actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction>("tts", true);
@@ -1878,6 +2034,11 @@ namespace demo_anticipatory_vs_reactive
             }
             mtxASR_.unlock();
         }
+    }
+    void DemoAnticipatoryVsReactive::amclPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr &amclPoseMsg)
+    {
+        basePose_ = amclPoseMsg->pose.pose;
+
     }
 
     void *DemoAnticipatoryVsReactive::sendcomputeGraspPosesThreadWrapper(void *object)
