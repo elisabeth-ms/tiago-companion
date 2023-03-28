@@ -32,7 +32,8 @@ namespace demo_anticipatory_vs_reactive
     {
         state_ = INITIALIZE;
         firstInState = true;
-        while (ros::ok())
+        stopDemo_ = false;
+        while (ros::ok() && !stopDemo_)
         {
 
             switch (state_)
@@ -40,6 +41,7 @@ namespace demo_anticipatory_vs_reactive
 
             case INITIALIZE:
             {
+                
                 std_msgs::String msg;
                 msg.data = "INITIALIZING";
                 statePublisher_.publish(msg);
@@ -1524,6 +1526,7 @@ namespace demo_anticipatory_vs_reactive
         asrSubscriber_ = nodeHandle_.subscribe("/asr_node/data", 10, &DemoAnticipatoryVsReactive::asrCallback, this);
         amclPoseSubscriber_ = nodeHandle_.subscribe("/amcl_pose", 10, &DemoAnticipatoryVsReactive::amclPoseCallback, this);
         glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoAnticipatoryVsReactive::glassesDataCallback, this);
+        stopDemoSubscriber_ = nodeHandle_.subscribe("/demo/stop", 2, &DemoAnticipatoryVsReactive::stopDemoCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo/release_gripper", &DemoAnticipatoryVsReactive::releaseGripper, this);
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo/move_to_home_position", &DemoAnticipatoryVsReactive::moveToHomePosition, this);
         statePublisher_ = nodeHandle_.advertise<std_msgs::String>("/demo/state", 10);
@@ -2204,6 +2207,10 @@ namespace demo_anticipatory_vs_reactive
             if (successPlanning_)
                 planPublisher_.publish(plan_.trajectory_);
         }
+    }
+    void DemoAnticipatoryVsReactive::stopDemoCallback(const std_msgs::EmptyConstPtr & stop){
+        ROS_INFO("Demo stopped!");
+        stopDemo_ = true;
     }
 
     void DemoAnticipatoryVsReactive::glassesDataCallback(const companion_msgs::GlassesData::ConstPtr &glassesData)

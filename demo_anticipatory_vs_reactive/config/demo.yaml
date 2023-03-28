@@ -1,6 +1,6 @@
 use_glasses: true
 use_asr: true
-reaching_distance: 0.15
+reaching_distance: 0.12
 elimit1: 0.2
 elimit2: 0.7
 inflate_size: 0.035
@@ -9,8 +9,8 @@ head_joints_position_init: [0, -0.68]
 torso_joint_position_init: 0.38
 right_arm_joints_position_init: [-1.11, 1.15, 2.53, 1.59, -1.6, 1.25, 0.0]
 left_arm_joints_position_init: [-1.11, 1.15, 2.53, 1.59, -1.6, 1.25, 0.0]
-table_dimensions: [1.40, 3.0, 0.8]
-table_position: [1.1,0.0,0.3]
+table_dimensions: [1.40, 3.0, 0.72]
+table_position: [1.1,0.0,0.36]
 table_dimensions2: [5.0, 1.4, 1.6]
 table_position2: [0.5, -1.3, 0.3]
 table_dimensions3: [5.0,1.4,2.0]

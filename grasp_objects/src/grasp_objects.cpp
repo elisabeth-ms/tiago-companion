@@ -340,7 +340,7 @@ namespace grasp_objects
         }else if(ax_line_grasp == "z"){
             aux_param = params[2];
         }
-        for (float x = 0 / 1.8; x <= aux_param / 1.8; x += step)
+        for (float x = 0 / 1.9; x <= aux_param / 1.9; x += step)
         {
 
             for (float rotateAxes = 1; rotateAxes >= -1; rotateAxes =rotateAxes - 2)
@@ -400,18 +400,20 @@ namespace grasp_objects
 
                     float angle_neg_axes_z = atan2((unitz * axes_neg_z).Norm(), dot(unitz, axes_neg_z));
 
-                    ROS_INFO_STREAM("angle_axes_z: " << angle_axes_z * 180 / M_PI);
+                    // ROS_INFO_STREAM("angle_axes_z: " << angle_axes_z * 180 / M_PI);
                     if ((angle > 20 * M_PI / 180.0) && (angle_axes_z>20*M_PI/180.0) && (angle_neg_axes_z>20*M_PI/180.0))
                     {
 
                         geometry_msgs::Pose pose;
                         tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
                         // std::cout << "pose: " << pose << std::endl;
-                        graspingPoses.poses.push_back(pose);
-                        if(zgrasp.y() == 1){
-                            width.push_back(2*params[1]);
-                        }else if(zgrasp.z() == 1){
-                            width.push_back(2*params[2]);
+                        if(pose.position.z > table_dimensions_[2]+0.07){
+                            graspingPoses.poses.push_back(pose);
+                            if(zgrasp.y() == 1){
+                                width.push_back(2*params[1]);
+                            }else if(zgrasp.z() == 1){
+                                width.push_back(2*params[2]);
+                            }
                         }
                     }
 
@@ -621,7 +623,7 @@ namespace grasp_objects
                 pcl::PointXYZRGB tmp_point_projected;
                 tmp_point_projected.x = lccp_labeled_cloud->points[i].x;
                 tmp_point_projected.y = lccp_labeled_cloud->points[i].y;
-                tmp_point_projected.z = table_dimensions_[2];
+                tmp_point_projected.z = table_dimensions_[2]-0.008;
                 tmp_point_projected.r = rand() % 256;
                 tmp_point_projected.g = rand() % 256;
                 tmp_point_projected.b = rand() % 256;
@@ -681,7 +683,7 @@ namespace grasp_objects
             for(int p=0; p<cloud_hull->points.size(); p++)
             {
                 ROS_INFO("[GraspObjects] cloud_hull: %f, %f, %f", cloud_hull->points[p].x, cloud_hull->points[p].y, cloud_hull->points[p].z);
-                for(float z_height = table_dimensions_[2]; z_height < detectedObjects_[i].max_height; z_height += 0.001)
+                for(float z_height = table_dimensions_[2]-0.008; z_height < detectedObjects_[i].max_height; z_height += 0.001)
                 {
                     pcl::PointXYZRGB tmp_point_projected;
                     tmp_point_projected.x = cloud_hull->points[p].x;

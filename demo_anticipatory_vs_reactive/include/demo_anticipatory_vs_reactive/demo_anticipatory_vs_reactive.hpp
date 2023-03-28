@@ -12,6 +12,7 @@
 #include <actionlib/client/simple_action_client.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_srvs/Empty.h>
+#include <std_msgs/Empty.h>
 #include <ros/topic.h>
 #include <std_msgs/String.h>
 #include <sensor_msgs/JointState.h>
@@ -182,6 +183,8 @@ namespace demo_anticipatory_vs_reactive
 
         void amclPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr &amclPoseMsg);
 
+        void stopDemoCallback(const std_msgs::EmptyConstPtr & stop);
+
     private:
         //! ROS node handle.
         //  moveit_visual_tools::MoveItVisualToolsPtr visualTools_;
@@ -209,6 +212,7 @@ namespace demo_anticipatory_vs_reactive
         ros::Subscriber glassesDataSubscriber_;
         ros::Subscriber moveGroupStatusSubscriber_;
         ros::Subscriber amclPoseSubscriber_;
+        ros::Subscriber stopDemoSubscriber_;
 
         ros::Publisher statePublisher_;
         ros::Publisher superquadricsBBoxesPublisher_;
@@ -253,6 +257,7 @@ namespace demo_anticipatory_vs_reactive
         float thresholdPlanTrajectory_;
         float thresholdExecuteTrajectory_;
         double goalJointTolerance_;
+        bool stopDemo_;
         std::string initVerbalMessage_;
         std::string passObjectVerbalMessage_;
 
@@ -335,6 +340,7 @@ namespace demo_anticipatory_vs_reactive
         ros::Time goBackwardsStartTime_;
         ros::Time goBackwardsEndTime_;
         ros::Time turnAnticlockwiseStartTime_;
+        
         bool firstInState;
 
         std::ofstream timesFile_;
