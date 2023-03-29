@@ -96,6 +96,20 @@ namespace grasp_objects
         serviceGetBboxesSuperquadrics_ = nodeHandle_.advertiseService("/grasp_objects/get_bboxes_superquadrics", &GraspObjects::getBboxes, this);
     }
 
+    double GraspObjects::crossProduct(const pcl::PointXYZRGB& o,const pcl::PointXYZRGB& a, const pcl::PointXYZRGB& b ){
+         return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    }
+
+    bool GraspObjects::pointInsideHull(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_hull, const pcl::PointXYZRGB& o){
+        for(int p=1; p<cloud_hull->points.size(); p++)
+        {
+            if(crossProduct(o, cloud_hull->points[p-1], cloud_hull->points[p]))
+                return false;
+
+        }
+        return true;
+    }
+
     bool GraspObjects::createBoundingBox2DFromSuperquadric(const companion_msgs::Superquadric &superq, companion_msgs::BoundingBox &bbox)
     {
         // Bbox 3d wrt object's frame
@@ -407,7 +421,7 @@ namespace grasp_objects
                         geometry_msgs::Pose pose;
                         tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
                         // std::cout << "pose: " << pose << std::endl;
-                        if(pose.position.z > table_dimensions_[2]+0.07){
+                        if(pose.position.z > table_dimensions_[2]+0.06){
                             graspingPoses.poses.push_back(pose);
                             if(zgrasp.y() == 1){
                                 width.push_back(2*params[1]);
@@ -671,6 +685,7 @@ namespace grasp_objects
         {
             ROS_INFO("[GraspObjects] label: %d", detectedObjects_[i].label);
             ROS_INFO("[GraspObjects] size: %d", detectedObjects_[i].object_cloud.size());
+            float min_height = table_dimensions_[2]-0.02;
 
             // Create a Concave Hull representation of the projected inliers
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_hull (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -679,11 +694,31 @@ namespace grasp_objects
             chull.setInputCloud (cloud);
             chull.setAlpha (0.1);
             chull.reconstruct (*cloud_hull);
-
+            
+            double min_x = 100000, min_y = 10000, max_x = -10000, max_y = -10000;  
+            // Create and accumulate points
+            pcl::CentroidPoint<pcl::PointXYZRGB> centroid;
             for(int p=0; p<cloud_hull->points.size(); p++)
             {
+                // if(cloud_hull->points[p].x<min_x){
+                //     min_x = cloud_hull->points[p].x;
+                // }
+                // if(cloud_hull->points[p].x>max_x){
+                //     max_x = cloud_hull->points[p].x;
+                // }
+                // if(cloud_hull->points[p].y<min_y){
+                //     min_y = cloud_hull->points[p].y;
+                // }
+                // if(cloud_hull->points[p].y>max_y){
+                //     max_y = cloud_hull->points[p].y;
+                // }
+                
+
+                centroid.add (cloud_hull->points[p]);
+
+
                 ROS_INFO("[GraspObjects] cloud_hull: %f, %f, %f", cloud_hull->points[p].x, cloud_hull->points[p].y, cloud_hull->points[p].z);
-                for(float z_height = table_dimensions_[2]-0.008; z_height < detectedObjects_[i].max_height; z_height += 0.001)
+                for(float z_height = min_height; z_height <= detectedObjects_[i].max_height; z_height += 0.005)
                 {
                     pcl::PointXYZRGB tmp_point_projected;
                     tmp_point_projected.x = cloud_hull->points[p].x;
@@ -694,8 +729,47 @@ namespace grasp_objects
                     tmp_point_projected.b = rand() % 256;
                     detectedObjects_[i].object_cloud_hull.points.push_back(tmp_point_projected);
                 }
-
             }
+
+            // Fetch centroid using `get()`
+            pcl::PointXYZRGB c1;
+            centroid.get (c1);
+            // for(float x=min_x; x<max_x; x+=0.005){
+            //     for(float y=min_y; x<max_y; y+=0.005){
+            //         pcl::PointXYZRGB tmp;
+            //         tmp.x = x;
+            //         tmp.y = y;
+            //         tmp.z = detectedObjects_[i].max_height;
+
+            //         if(pointInsideHull(cloud_hull,tmp))
+            //         {
+            //             tmp.r = rand() % 256;
+            //             tmp.g = rand() % 256;
+            //             tmp.b = rand() % 256;
+            //             detectedObjects_[i].object_cloud_hull.points.push_back(tmp);
+            //         }
+            //     }
+
+            // }
+
+            for(int p = 0; p<cloud_hull->points.size();p++){
+                for(float d = 0.1; d<=1; d+=0.225){
+                    pcl::PointXYZRGB tmp_point_projected;
+                    tmp_point_projected.x = c1.x + (cloud_hull->points[p].x - c1.x)*d;
+                    tmp_point_projected.y = c1.y + (cloud_hull->points[p].y - c1.y)*d;
+                    tmp_point_projected.z = detectedObjects_[i].max_height;
+                    tmp_point_projected.r = rand() % 256;
+                    tmp_point_projected.g = rand() % 256;
+                    tmp_point_projected.b = rand() % 256;
+                    detectedObjects_[i].object_cloud_hull.points.push_back(tmp_point_projected);
+                    tmp_point_projected.z = min_height;
+                    tmp_point_projected.r = rand() % 256;
+                    tmp_point_projected.g = rand() % 256;
+                    tmp_point_projected.b = rand() % 256;
+                    detectedObjects_[i].object_cloud_hull.points.push_back(tmp_point_projected);
+                }
+            }
+
 
             // detectedObjects_[i].object_cloud_hull = *cloud_hull;
 

@@ -25,6 +25,7 @@
 #include <pcl/segmentation/lccp_segmentation.h>
 #include <SuperquadricLibModel/superquadricEstimator.h>
 #include <pcl/surface/concave_hull.h>
+#include <pcl/common/centroid.h>
 #include <mutex>
 
 #include <geometry_msgs/PoseStamped.h>
@@ -110,8 +111,12 @@ namespace grasp_objects{
 
         void addPointsToObjectCloud(int idx, float minHeight, float distanceTop, float distanceBtwPoints);
 
+        double crossProduct(const pcl::PointXYZRGB& o,const pcl::PointXYZRGB& a, const pcl::PointXYZRGB& b);
+
         void addGraspPoses(geometry_msgs::PoseArray &graspingPoses,std::vector<float>&width, const  KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp, 
                                      const KDL::Vector &xgrasp, const std::string ax_line_grasp, const Vector11d &params, const float &step, const std::string &side);
+        bool pointInsideHull(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_hull, const pcl::PointXYZRGB& o);
+
         private:
         //! ROS node handle.
 	int count_ = 0;

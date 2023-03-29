@@ -638,7 +638,8 @@ namespace demo_anticipatory_vs_reactive
                     ROS_INFO("HERE!!!!!!!!!!......");
                     if (groupAuxArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
-                        state_ = CLOSE_GRIPPER;
+                        // state_ = CLOSE_GRIPPER;
+                        state_ = DEBUG_STATE;
                         firstInState = true;
                     }
                 }
@@ -1131,7 +1132,7 @@ namespace demo_anticipatory_vs_reactive
         groupAuxArmTorsoPtr_->setStartStateToCurrentState();
 
         moveit_msgs::RobotTrajectory trajectory;
-        const double jump_threshold = 0.0;
+        const double jump_threshold = 0.00;
         const double eef_step = 0.001;
         double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
         ROS_INFO("DemoAnticipatoryVsReactive] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
@@ -1175,77 +1176,78 @@ namespace demo_anticipatory_vs_reactive
         // }
     }
 
-    bool DemoAnticipatoryVsReactive::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible)
-    {
+    // bool DemoAnticipatoryVsReactive::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible)
+    // {
 
-        bool successPlanning = false;
-        robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
-        kinematic_state->setToDefaultValues();
-        for (int idx = 0; idx < graspingPoses.poses.size(); idx++)
-        {
-            ROS_INFO("[DemoAnticipatoryVsReactive] idx: %d", idx);
-            ROS_INFO("DemoAnticipatoryVsReactive] Grasping Pose[%d]: %f %f %f", idx, graspingPoses.poses[idx].position.x, graspingPoses.poses[idx].position.y, graspingPoses.poses[idx].position.z);
+    //     bool successPlanning = false;
+    //     robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
+    //     kinematic_state->setToDefaultValues();
+    //     for (int idx = 0; idx < graspingPoses.poses.size(); idx++)
+    //     {
+    //         ROS_INFO("[DemoAnticipatoryVsReactive] idx: %d", idx);
+    //         ROS_INFO("DemoAnticipatoryVsReactive] Grasping Pose[%d]: %f %f %f", idx, graspingPoses.poses[idx].position.x, graspingPoses.poses[idx].position.y, graspingPoses.poses[idx].position.z);
 
-            KDL::Frame frameEndWrtBase;
-            tf::poseMsgToKDL(graspingPoses.poses[idx], frameEndWrtBase);
-            KDL::Frame frameReachingWrtEnd;
-            frameReachingWrtEnd.p[0] = -reachingDistance_ - DISTANCE_TOOL_LINK_GRIPPER_LINK;
-            KDL::Frame frameReachingWrtBase = frameEndWrtBase * frameReachingWrtEnd;
+    //         KDL::Frame frameEndWrtBase;
+    //         tf::poseMsgToKDL(graspingPoses.poses[idx], frameEndWrtBase);
+    //         KDL::Frame frameReachingWrtEnd;
+    //         frameReachingWrtEnd.p[0] = -reachingDistance_ - DISTANCE_TOOL_LINK_GRIPPER_LINK;
+    //         KDL::Frame frameReachingWrtBase = frameEndWrtBase * frameReachingWrtEnd;
 
-            tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
+    //         tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
 
-            bool found_ik = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.1);
+    //         bool found_ik = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.1);
 
-            //     geometry_msgs::PoseStamped goal_pose;
-            // goal_pose.header.frame_id = "base_footprint";
-            // goal_pose.pose = graspingPoses.poses[idx];
-            if (found_ik)
-            {
-                groupRightArmTorsoPtr_->setPoseTarget(reachingPose_);
-                ROS_INFO("DemoAnticipatoryVsReactive] Set pose target");
+            
+    //         //     geometry_msgs::PoseStamped goal_pose;
+    //         // goal_pose.header.frame_id = "base_footprint";
+    //         // goal_pose.pose = graspingPoses.poses[idx];
+    //         if (found_ik)
+    //         {
+    //             groupRightArmTorsoPtr_->setPoseTarget(reachingPose_);
+    //             ROS_INFO("DemoAnticipatoryVsReactive] Set pose target");
 
-                moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
-                successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-            }
-            else
-            {
-                successPlanning = false;
-            }
+    //             moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
+    //             successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+    //         }
+    //         else
+    //         {
+    //             successPlanning = false;
+    //         }
 
-            // if(groupRightArmTorsoPtr_->plan(plan_) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-            //     successPlanning = true;
-            // else{
-            //     successPlanning = false;
-            // }
-            // ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", successPlanning ? "" : "FAILED");
+    //         // if(groupRightArmTorsoPtr_->plan(plan_) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+    //         //     successPlanning = true;
+    //         // else{
+    //         //     successPlanning = false;
+    //         // }
+    //         // ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", successPlanning ? "" : "FAILED");
 
-            if (successPlanning)
-            {
-                indexFeasible = idx;
-                break;
-            }
-            // ROS_INFO("AQUI");
-        }
-        if (successPlanning)
-        {
-            moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
-            if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-            {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Success in moving the robot to the reaching pose.");
-                return true;
-            }
-            else
-            {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Error in moving the robot to the reaching pose.");
-                return false;
-            }
-        }
-        else
-        {
-            ROS_INFO("[DemoAnticipatoryVsReactive] No feasible reaching pose found!");
-            return false;
-        }
-    }
+    //         if (successPlanning)
+    //         {
+    //             indexFeasible = idx;
+    //             break;
+    //         }
+    //         // ROS_INFO("AQUI");
+    //     }
+    //     if (successPlanning)
+    //     {
+    //         moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
+    //         if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+    //         {
+    //             ROS_INFO("[DemoAnticipatoryVsReactive] Success in moving the robot to the reaching pose.");
+    //             return true;
+    //         }
+    //         else
+    //         {
+    //             ROS_INFO("[DemoAnticipatoryVsReactive] Error in moving the robot to the reaching pose.");
+    //             return false;
+    //         }
+    //     }
+    //     else
+    //     {
+    //         ROS_INFO("[DemoAnticipatoryVsReactive] No feasible reaching pose found!");
+    //         return false;
+    //     }
+    // }
 
     void DemoAnticipatoryVsReactive::removeCollisionObjectsPlanningScene()
     {
@@ -2130,11 +2132,34 @@ namespace demo_anticipatory_vs_reactive
                 arm_ = "left";
             }
 
-            if (arm_ == "right")
+            if (arm_ == "right"){
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.01);
+                if (reachingPose_.position.z<=0.82) // TODO: USE A PARAMETER
+                {
+                    
+                    const Eigen::Affine3d &elbow_state = kinematic_state->getGlobalLinkTransform("arm_right_4_link");
+                    if (elbow_state.translation().z() < 0.6){
+                        foundReachIk_ = false;
+                    }else{
+                        foundReachIk_ = true;
+                    }
+                }
+            }
             else
             {
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoLeftArm_, reachingPose_, 0.01);
+                ROS_INFO("Reaching Pose: %f", reachingPose_.position.z);
+                
+                if (reachingPose_.position.z<=0.82) // TODO: USE A PARAMETER
+                {
+
+                    const Eigen::Affine3d &elbow_state = kinematic_state->getGlobalLinkTransform("arm_left_4_link");
+                    if (elbow_state.translation().z() < 0.6){
+                        foundReachIk_ = false;
+                    }else{
+                        foundReachIk_ = true;
+                    }
+                }
             }
             //     geometry_msgs::PoseStamped goal_pose;
             // goal_pose.header.frame_id = "base_footprint";
