@@ -33,6 +33,7 @@ namespace demo_anticipatory_vs_reactive
         state_ = INITIALIZE;
         firstInState = true;
         stopDemo_ = false;
+        maxTorsoPosition_ = 0.35;
         while (ros::ok() && !stopDemo_)
         {
 
@@ -41,7 +42,7 @@ namespace demo_anticipatory_vs_reactive
 
             case INITIALIZE:
             {
-                
+
                 std_msgs::String msg;
                 msg.data = "INITIALIZING";
                 statePublisher_.publish(msg);
@@ -80,6 +81,8 @@ namespace demo_anticipatory_vs_reactive
                 tablePose.position.z = tablePosition3_[2];
                 addTablePlanningScene(tableDimensions3_, tablePose, "table3");
 
+                initializeTorsoPosition(initTorsoPosition_, 3.0);
+
                 if (!initializeRightArmPosition(initRightArmPositions_))
                 {
                     return;
@@ -89,8 +92,6 @@ namespace demo_anticipatory_vs_reactive
                 {
                     return;
                 }
-
-                initializeTorsoPosition(initTorsoPosition_);
 
                 initializeHeadPosition(initHeadPositions_);
 
@@ -639,7 +640,7 @@ namespace demo_anticipatory_vs_reactive
                     if (groupAuxArmTorsoPtr_->getMoveGroupClient().getState().isDone())
                     {
                         // state_ = CLOSE_GRIPPER;
-                        state_ = DEBUG_STATE;
+                        state_ = CLOSE_GRIPPER;
                         firstInState = true;
                     }
                 }
@@ -676,22 +677,37 @@ namespace demo_anticipatory_vs_reactive
             case GO_UP:
             {
                 ROS_INFO("I'M IN GO_UP");
+                float go_up_distance = 0.1;
                 std_msgs::String msg;
                 std::stringstream ss;
                 ss << "Go Up";
                 msg.data = ss.str();
                 statePublisher_.publish(msg);
 
-                moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
-                if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                control_msgs::FollowJointTrajectoryGoal torsoGoal;
+
+                sensor_msgs::JointStateConstPtr jointStatesMsgPtr = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states");
+
+                float torsoPosition = jointStatesMsgPtr->position[find(jointStatesMsgPtr->name.begin(), jointStatesMsgPtr->name.end(), std::string("torso_lift_joint")) - jointStatesMsgPtr->name.begin()];
+
+                if (maxTorsoPosition_ >= torsoPosition + go_up_distance)
                 {
-                    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+                    initializeTorsoPosition(initTorsoPosition_, 0.5);
                 }
                 else
                 {
-                    groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
+
+                    moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+                    if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                    {
+                        groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+                    }
+                    else
+                    {
+                        groupAuxArmTorsoPtr_ = groupLeftArmTorsoPtr_;
+                    }
+                    goUp(groupAuxArmTorsoPtr_, go_up_distance);
                 }
-                goUp(groupAuxArmTorsoPtr_, 0.1);
 
                 firstInState = true;
                 state_ = BRING_CLOSER;
@@ -745,33 +761,31 @@ namespace demo_anticipatory_vs_reactive
                            << ","
                            << ",Seconds from demo start time," << (bringCloserTime_ - startDemoTime_).toSec() << "\n";
                 mtxWriteFile_.unlock();
-
-
-
             }
             break;
             case GO_BACKWARDS:
             {
-                if(firstInState){
+                if (firstInState)
+                {
                     ROS_INFO("I'M IN GO_BACKWARDS");
                     goBackwardsStartTime_ = ros::Time::now();
                     firstInState = false;
                 }
-                double speed = 0.035;
-                if((ros::Time::now() - goBackwardsStartTime_).toSec()>(abs(0.4/speed)))
+                double speed = 0.065;
+                if ((ros::Time::now() - goBackwardsStartTime_).toSec() > (abs(0.4 / speed)))
                 {
                     geometry_msgs::Twist vel;
                     vel.linear.x = 0.0;
                     cmdVelPublisher_.publish(vel);
                     firstInState = true;
-                    state_ = TURN_ANTICLOCKWISE;   
+                    state_ = TURN_ANTICLOCKWISE;
                 }
-                else{
+                else
+                {
                     geometry_msgs::Twist vel;
                     vel.linear.x = -speed;
                     cmdVelPublisher_.publish(vel);
                 }
-                
             }
             break;
             case TURN_ANTICLOCKWISE:
@@ -785,30 +799,35 @@ namespace demo_anticipatory_vs_reactive
                     vel.linear.x = 0.0;
                     cmdVelPublisher_.publish(vel);
                 }
-                else{
-                    double speed = 0.14;
+                else
+                {
+                    double speed = 0.24;
                     double angle = 0;
-                    if(listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right"){
-                        angle = 90*M_PI/180.0;
-                    }else{
-                        angle = 70*M_PI/180.0;
+                    if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
+                    {
+                        angle = 90 * M_PI / 180.0;
                     }
-                    if((ros::Time::now()-turnAnticlockwiseStartTime_).toSec() > (abs(angle/speed))){
+                    else
+                    {
+                        angle = 70 * M_PI / 180.0;
+                    }
+                    if ((ros::Time::now() - turnAnticlockwiseStartTime_).toSec() > (abs(angle / speed)))
+                    {
                         geometry_msgs::Twist vel;
                         vel.angular.z = 0.0;
                         cmdVelPublisher_.publish(vel);
                         firstInState = true;
-                        state_ = RELEASE_OBJECT;   
-                    }else{
+                        state_ = RELEASE_OBJECT;
+                    }
+                    else
+                    {
                         geometry_msgs::Twist vel;
                         vel.angular.z = speed;
                         cmdVelPublisher_.publish(vel);
                     }
-                    
-                    
                 }
             }
-            
+
             break;
             case RELEASE_OBJECT:
             {
@@ -887,7 +906,7 @@ namespace demo_anticipatory_vs_reactive
                             return;
                         }
 
-                        initializeTorsoPosition(initTorsoPosition_);
+                        initializeTorsoPosition(initTorsoPosition_, 3.0);
 
                         initializeHeadPosition(initHeadPositions_);
 
@@ -950,15 +969,16 @@ namespace demo_anticipatory_vs_reactive
                             break;
                         }
                     }
-                    if(available)
+                    if (available)
                         state_ = -4;
-                    else{
+                    else
+                    {
                         firstInState = true;
                         state_ = COMPUTE_GRASP_POSES;
-
                     }
                 }
-                if(greaterThanExecutionThreshold_ && !waitingForGlassesCommand_ && !foundAsr_){
+                if (greaterThanExecutionThreshold_ && !waitingForGlassesCommand_ && !foundAsr_)
+                {
                     state_ = WAIT_TO_EXECUTE;
                     firstInState = true;
                 }
@@ -1060,7 +1080,6 @@ namespace demo_anticipatory_vs_reactive
         /////////////////////////
         groupArmTorsoPtr->setMaxVelocityScalingFactor(0.1);
 
-
         geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
         KDL::Frame frameEndWrtBase;
         tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
@@ -1071,9 +1090,7 @@ namespace demo_anticipatory_vs_reactive
         geometry_msgs::Pose toolPose;
         tf::poseKDLToMsg(frameToolWrtBase, toolPose);
 
-
         groupArmTorsoPtr->setPoseTarget(toolPose);
-
 
         moveit::planning_interface::MoveItErrorCode code = groupArmTorsoPtr->plan(plan_);
         bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -1096,11 +1113,7 @@ namespace demo_anticipatory_vs_reactive
             ROS_INFO("[DemoAnticipatoryVsReactive] No feasible up pose!");
             return false;
         }
-
-
     }
-
-
 
     bool DemoAnticipatoryVsReactive::goToGraspingPose(const geometry_msgs::Pose &graspingPose)
     {
@@ -1197,7 +1210,6 @@ namespace demo_anticipatory_vs_reactive
 
     //         bool found_ik = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.1);
 
-            
     //         //     geometry_msgs::PoseStamped goal_pose;
     //         // goal_pose.header.frame_id = "base_footprint";
     //         // goal_pose.pose = graspingPoses.poses[idx];
@@ -1425,7 +1437,7 @@ namespace demo_anticipatory_vs_reactive
         ROS_INFO("Head set to position: (%f, %f)", initHeadPositions[0], initHeadPositions[1]);
     }
 
-    void DemoAnticipatoryVsReactive::initializeTorsoPosition(float initTorsoPosition)
+    void DemoAnticipatoryVsReactive::initializeTorsoPosition(float initTorsoPosition, float execution_time)
     {
         control_msgs::FollowJointTrajectoryGoal torsoGoal;
 
@@ -1441,7 +1453,7 @@ namespace demo_anticipatory_vs_reactive
             return;
         }
 
-        waypointTorsoGoal(torsoGoal, initTorsoPosition, 3.0);
+        waypointTorsoGoal(torsoGoal, initTorsoPosition, execution_time);
 
         // Sends the command to start the given trajectory now
         // torsoGoal.trajectory.header.stamp = ros::Time::now();
@@ -1535,7 +1547,7 @@ namespace demo_anticipatory_vs_reactive
         superquadricsBBoxesPublisher_ = nodeHandle_.advertise<companion_msgs::BoundingBoxes>("/demo/superquadrics_bboxes", 10);
         reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::PoseStamped>("/demo/reaching_pose", 10);
         planPublisher_ = nodeHandle_.advertise<moveit_msgs::RobotTrajectory>("/demo/trajectory", 10);
-        cmdVelPublisher_ = nodeHandle_.advertise<geometry_msgs::Twist>("/mobile_base_controller/cmd_vel",10);
+        cmdVelPublisher_ = nodeHandle_.advertise<geometry_msgs::Twist>("/mobile_base_controller/cmd_vel", 10);
 
         clientActivateAsr_ = nodeHandle_.serviceClient<companion_msgs::ActivateASR>("/asr_node/activate_asr");
         acPtr_ = new actionlib::SimpleActionClient<pal_interaction_msgs::TtsAction>("tts", true);
@@ -1593,22 +1605,22 @@ namespace demo_anticipatory_vs_reactive
         groupRightArmTorsoPtr_->setPlanningTime(1.5);
         groupRightArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
         groupRightArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
-        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.2);
+        groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.4);
 
         groupRightArmPtr_->setPlanningTime(1.5);
         groupRightArmPtr_->setPlannerId("SBLkConfigDefault");
         groupRightArmPtr_->setPoseReferenceFrame("base_footprint");
-        groupRightArmPtr_->setMaxVelocityScalingFactor(0.2);
+        groupRightArmPtr_->setMaxVelocityScalingFactor(0.4);
 
         groupLeftArmTorsoPtr_->setPlanningTime(1.5);
         groupLeftArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
         groupLeftArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
-        groupLeftArmTorsoPtr_->setMaxVelocityScalingFactor(0.2);
+        groupLeftArmTorsoPtr_->setMaxVelocityScalingFactor(0.4);
 
         groupLeftArmPtr_->setPlanningTime(1.5);
         groupLeftArmPtr_->setPlannerId("SBLkConfigDefault");
         groupLeftArmPtr_->setPoseReferenceFrame("base_footprint");
-        groupLeftArmPtr_->setMaxVelocityScalingFactor(0.2);
+        groupLeftArmPtr_->setMaxVelocityScalingFactor(0.4);
 
         createClient(headClient_, std::string("head"));
         createClient(torsoClient_, std::string("torso"));
@@ -2043,7 +2055,6 @@ namespace demo_anticipatory_vs_reactive
     void DemoAnticipatoryVsReactive::amclPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr &amclPoseMsg)
     {
         basePose_ = amclPoseMsg->pose.pose;
-
     }
 
     void *DemoAnticipatoryVsReactive::sendcomputeGraspPosesThreadWrapper(void *object)
@@ -2132,15 +2143,19 @@ namespace demo_anticipatory_vs_reactive
                 arm_ = "left";
             }
 
-            if (arm_ == "right"){
+            if (arm_ == "right")
+            {
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.01);
-                if (reachingPose_.position.z<=0.82) // TODO: USE A PARAMETER
+                if (reachingPose_.position.z <= 0.82) // TODO: USE A PARAMETER
                 {
-                    
+
                     const Eigen::Affine3d &elbow_state = kinematic_state->getGlobalLinkTransform("arm_right_4_link");
-                    if (elbow_state.translation().z() < 0.6){
+                    if (elbow_state.translation().z() < 0.72)
+                    {
                         foundReachIk_ = false;
-                    }else{
+                    }
+                    else
+                    {
                         foundReachIk_ = true;
                     }
                 }
@@ -2149,14 +2164,17 @@ namespace demo_anticipatory_vs_reactive
             {
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoLeftArm_, reachingPose_, 0.01);
                 ROS_INFO("Reaching Pose: %f", reachingPose_.position.z);
-                
-                if (reachingPose_.position.z<=0.82) // TODO: USE A PARAMETER
+
+                if (reachingPose_.position.z <= 0.82) // TODO: USE A PARAMETER
                 {
 
                     const Eigen::Affine3d &elbow_state = kinematic_state->getGlobalLinkTransform("arm_left_4_link");
-                    if (elbow_state.translation().z() < 0.6){
+                    if (elbow_state.translation().z() < 0.72)
+                    {
                         foundReachIk_ = false;
-                    }else{
+                    }
+                    else
+                    {
                         foundReachIk_ = true;
                     }
                 }
@@ -2233,7 +2251,8 @@ namespace demo_anticipatory_vs_reactive
                 planPublisher_.publish(plan_.trajectory_);
         }
     }
-    void DemoAnticipatoryVsReactive::stopDemoCallback(const std_msgs::EmptyConstPtr & stop){
+    void DemoAnticipatoryVsReactive::stopDemoCallback(const std_msgs::EmptyConstPtr &stop)
+    {
         ROS_INFO("Demo stopped!");
         stopDemo_ = true;
     }

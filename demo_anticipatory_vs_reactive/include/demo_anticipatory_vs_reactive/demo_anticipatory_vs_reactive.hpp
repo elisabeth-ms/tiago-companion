@@ -162,7 +162,7 @@ namespace demo_anticipatory_vs_reactive
 
         void initializeHeadPosition(const std::vector<float> &initHeadPositions);
 
-        void initializeTorsoPosition(float initTorsoPosition);
+        void initializeTorsoPosition(float initTorsoPosition, float executionTime);
 
         bool initializeRightArmPosition(const std::vector<double> &initRightArmPositions);
 
@@ -265,6 +265,7 @@ namespace demo_anticipatory_vs_reactive
 
         float openGripperPositions_[2] = {0.07, 0.07};
         float closeGripperPositions_[2] = {0.013, 0.013};
+        float maxTorsoPosition_;
         float maxErrorJoints_;
         std::vector<float> initHeadPositions_;
         float initTorsoPosition_;

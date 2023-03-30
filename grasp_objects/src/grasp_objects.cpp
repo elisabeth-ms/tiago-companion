@@ -421,7 +421,7 @@ namespace grasp_objects
                         geometry_msgs::Pose pose;
                         tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
                         // std::cout << "pose: " << pose << std::endl;
-                        if(pose.position.z > table_dimensions_[2]+0.06){
+                        if(pose.position.z > table_dimensions_[2]+0.07){
                             graspingPoses.poses.push_back(pose);
                             if(zgrasp.y() == 1){
                                 width.push_back(2*params[1]);
