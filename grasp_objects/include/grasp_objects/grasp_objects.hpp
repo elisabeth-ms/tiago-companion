@@ -25,6 +25,7 @@
 #include <pcl/segmentation/lccp_segmentation.h>
 #include <SuperquadricLibModel/superquadricEstimator.h>
 #include <pcl/surface/concave_hull.h>
+#include <pcl/surface/convex_hull.h>
 #include <pcl/common/centroid.h>
 #include <mutex>
 

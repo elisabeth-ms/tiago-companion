@@ -31,6 +31,7 @@
   <build_depend>darknet_ros_msgs</build_depend>
   <build_depend>actionlib</build_depend>
   <build_depend>moveit_visual_tools</build_depend>
+  <build_depend>geometry_msgs</build_depend>
   
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
@@ -43,6 +44,7 @@
   <build_export_depend>actionlib</build_export_depend>
   <build_export_depend>moveit_visual_tools</build_export_depend>
   <build_export_depend>moveit_core</build_export_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
 
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
@@ -58,6 +60,8 @@
   <exec_depend>moveit_visual_tools</exec_depend>
   <exec_depend>moveit_core</exec_depend>
   <exec_depend>pal_interaction_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+
   <buildtool_depend>catkin</buildtool_depend>
 
 

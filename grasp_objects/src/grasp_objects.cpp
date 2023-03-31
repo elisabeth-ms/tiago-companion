@@ -524,7 +524,7 @@ namespace grasp_objects
         pcl::PointCloud<pcl::Normal>::Ptr input_normals_ptr(new pcl::PointCloud<pcl::Normal>);
 
         // Use all neighbors in a sphere of radius 3cm (TODO: Pass as parameter)
-        ne.setRadiusSearch(0.035);
+        ne.setRadiusSearch(0.045);
         // Compute the features
         ne.compute(*input_normals_ptr);
 
@@ -686,13 +686,15 @@ namespace grasp_objects
             ROS_INFO("[GraspObjects] label: %d", detectedObjects_[i].label);
             ROS_INFO("[GraspObjects] size: %d", detectedObjects_[i].object_cloud.size());
             float min_height = table_dimensions_[2]-0.02;
-
+            int r = rand()%256;
+            int g = rand()%256;
+            int b = rand()%256;
             // Create a Concave Hull representation of the projected inliers
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_hull (new pcl::PointCloud<pcl::PointXYZRGB>);
-            pcl::ConcaveHull<pcl::PointXYZRGB> chull;
+            pcl::ConvexHull<pcl::PointXYZRGB> chull;
             auto cloud = detectedObjects_[i].object_cloud_projected.makeShared();
             chull.setInputCloud (cloud);
-            chull.setAlpha (0.1);
+            // chull.setAlpha (0.05);
             chull.reconstruct (*cloud_hull);
             
             double min_x = 100000, min_y = 10000, max_x = -10000, max_y = -10000;  
@@ -718,15 +720,15 @@ namespace grasp_objects
 
 
                 ROS_INFO("[GraspObjects] cloud_hull: %f, %f, %f", cloud_hull->points[p].x, cloud_hull->points[p].y, cloud_hull->points[p].z);
-                for(float z_height = min_height; z_height <= detectedObjects_[i].max_height; z_height += 0.005)
+                for(float z_height = min_height; z_height <= detectedObjects_[i].max_height; z_height += 0.0025)
                 {
                     pcl::PointXYZRGB tmp_point_projected;
                     tmp_point_projected.x = cloud_hull->points[p].x;
                     tmp_point_projected.y = cloud_hull->points[p].y;
                     tmp_point_projected.z = z_height;
-                    tmp_point_projected.r = rand() % 256;
-                    tmp_point_projected.g = rand() % 256;
-                    tmp_point_projected.b = rand() % 256;
+                    tmp_point_projected.r = r;
+                    tmp_point_projected.g = g;
+                    tmp_point_projected.b = b;
                     detectedObjects_[i].object_cloud_hull.points.push_back(tmp_point_projected);
                 }
             }
@@ -753,19 +755,19 @@ namespace grasp_objects
             // }
 
             for(int p = 0; p<cloud_hull->points.size();p++){
-                for(float d = 0.1; d<=1; d+=0.225){
+                for(float d = 0.1; d<=1; d+=0.3){
                     pcl::PointXYZRGB tmp_point_projected;
                     tmp_point_projected.x = c1.x + (cloud_hull->points[p].x - c1.x)*d;
                     tmp_point_projected.y = c1.y + (cloud_hull->points[p].y - c1.y)*d;
                     tmp_point_projected.z = detectedObjects_[i].max_height;
-                    tmp_point_projected.r = rand() % 256;
-                    tmp_point_projected.g = rand() % 256;
-                    tmp_point_projected.b = rand() % 256;
+                    tmp_point_projected.r = r;
+                    tmp_point_projected.g = g;
+                    tmp_point_projected.b = b;
                     detectedObjects_[i].object_cloud_hull.points.push_back(tmp_point_projected);
                     tmp_point_projected.z = min_height;
-                    tmp_point_projected.r = rand() % 256;
-                    tmp_point_projected.g = rand() % 256;
-                    tmp_point_projected.b = rand() % 256;
+                    tmp_point_projected.r = r;
+                    tmp_point_projected.g = g;
+                    tmp_point_projected.b = b;
                     detectedObjects_[i].object_cloud_hull.points.push_back(tmp_point_projected);
                 }
             }

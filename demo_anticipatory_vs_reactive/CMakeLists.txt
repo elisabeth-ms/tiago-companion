@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   darknet_ros_msgs
   actionlib
   pal_interaction_msgs
+  geometry_msgs
 #  moveit_visual_tools
 )
 ## System dependencies are found with CMake's conventions
@@ -216,6 +217,7 @@ install(PROGRAMS
         scripts/asr_node.py
         scripts/fake_glasses.py
         scripts/add_depth_filter.py
+        scripts/detect_hit_ft.py
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 #############
