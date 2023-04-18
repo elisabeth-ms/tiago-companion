@@ -1,0 +1,23 @@
+wt:
+  91. Tiago Companion:
+    type: Commands
+    parameters:
+      buttons:
+      - empty_action: {name: gravity_compensation}
+        name: Gravity Compensation
+      - name: "Stop Demo"
+        remote_shell: 
+          cmd: "rostopic pub -1  /demo/stop  std_msgs/Empty"
+          target: "control"
+      - name: "Release Gripper"
+        remote_shell:
+          cmd: "rosservice call /demo/release_gripper '{}'"
+          target: "control"
+      - name: "Ok"
+        remote_shell:
+          cmd: "rostopic pub -1 /demo/ok std_msgs/Empty"
+          target: "control"
+      - name: "Home Demo"
+        remote_shell:
+          cmd: "rosservice call /demo/move_to_home_position '{}'"
+          target: "control"
