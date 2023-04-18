@@ -12,7 +12,7 @@ left_arm_joints_position_init: [-1.11, 1.15, 2.53, 1.59, -1.6, 1.25, 0.0]
 table_dimensions: [1.40, 3.0, 0.72]
 table_position: [1.1,0.0,0.36]
 table_dimensions2: [5.0, 1.4, 1.6]
-table_position2: [0.5, -1.3, 0.3]
+table_position2: [0.5, -1.5, 0.3]
 table_dimensions3: [5.0,1.4,2.0]
 table_position3: [0.5, 1.5, 0.3]
 threshold_plan_trajectory: 0.2
@@ -22,3 +22,4 @@ left_gripper_position_difference_wrt_default: [0.033, 0.033]
 right_gripper_position_difference_wrt_default: [0.033, 0.027]
 init_demo_verbal_message: "What would you like to eat?"
 pass_object_verbal_message: "Here you are!"
+user_id: 1

@@ -61,6 +61,10 @@
 // write && read csv files
 #include <iostream>
 #include <fstream>
+#include <experimental/filesystem> 
+
+namespace fs = std::experimental::filesystem;
+
 
 #include <ros/package.h>
 
@@ -128,6 +132,8 @@ namespace demo_anticipatory_vs_reactive
 
         void activateSuperquadricsComputation(bool activate);
 
+        void activateDetectHitFt(bool activate);
+
         bool getSuperquadrics();
 
         void addTablePlanningScene(const std::vector<float> &dimensions, const geometry_msgs::Pose &tablePose, const std::string &id);
@@ -185,6 +191,8 @@ namespace demo_anticipatory_vs_reactive
 
         void stopDemoCallback(const std_msgs::EmptyConstPtr & stop);
 
+        void okDemoCallback(const std_msgs::EmptyConstPtr &msg);
+    
     private:
         //! ROS node handle.
         //  moveit_visual_tools::MoveItVisualToolsPtr visualTools_;
@@ -200,6 +208,7 @@ namespace demo_anticipatory_vs_reactive
         follow_joint_control_client_Ptr leftArmClient_;
 
         ros::ServiceClient clientActivateSuperquadricsComputation_;
+        ros::ServiceClient clientActivateDetectHit_;
         ros::ServiceClient clientActivateAsr_;
 
         ros::ServiceClient clientComputeGraspPoses_;
@@ -213,6 +222,8 @@ namespace demo_anticipatory_vs_reactive
         ros::Subscriber moveGroupStatusSubscriber_;
         ros::Subscriber amclPoseSubscriber_;
         ros::Subscriber stopDemoSubscriber_;
+        ros::Subscriber okDemoSubscriber_;
+
 
         ros::Publisher statePublisher_;
         ros::Publisher superquadricsBBoxesPublisher_;
@@ -257,7 +268,9 @@ namespace demo_anticipatory_vs_reactive
         float thresholdPlanTrajectory_;
         float thresholdExecuteTrajectory_;
         double goalJointTolerance_;
+        int userId_;
         bool stopDemo_;
+        bool okDemo_;
         std::string initVerbalMessage_;
         std::string passObjectVerbalMessage_;
 
@@ -305,7 +318,7 @@ namespace demo_anticipatory_vs_reactive
         float closeLeftGripperDeviation_[2] = {0.033, 0.033};
         float closeRightGripperDeviation_[2] = {0.033, 0.027};
 
-        float closeMorePosition = 0.02;
+        float closeMorePosition = 0.025;
 
         bool greaterThanExecutionThreshold_;
 

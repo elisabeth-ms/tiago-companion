@@ -33,6 +33,8 @@ namespace demo_anticipatory_vs_reactive
         state_ = INITIALIZE;
         firstInState = true;
         stopDemo_ = false;
+        okDemo_ = false;
+
         maxTorsoPosition_ = 0.35;
         while (ros::ok() && !stopDemo_)
         {
@@ -96,6 +98,8 @@ namespace demo_anticipatory_vs_reactive
                 initializeHeadPosition(initHeadPositions_);
 
                 ros::Duration(1.5).sleep(); // sleep for 2 seconds
+
+                activateDetectHitFt(true);
 
                 ROS_INFO("[DemoAnticipatoryVsReactive] Start the computation of the superquadrics.");
 
@@ -651,6 +655,7 @@ namespace demo_anticipatory_vs_reactive
                 ROS_INFO("I'M IN CLOSE_GRIPPER");
                 if (firstInState)
                 {
+                    activateDetectHitFt(false);
                     std_msgs::String msg;
                     std::stringstream ss;
                     ss << "Object grasped";
@@ -855,6 +860,7 @@ namespace demo_anticipatory_vs_reactive
                     }
                     else
                     {
+                        activateDetectHitFt(true);
                         std_msgs::String msg;
                         std::stringstream ss;
                         ss << "Release";
@@ -875,6 +881,7 @@ namespace demo_anticipatory_vs_reactive
                 if (firstInState)
                 {
                     ROS_INFO("[DemoAnticipatoryVsReactive] Object delivered!");
+
                     ROS_INFO("[DemoAnticipatoryVsReactive] Waiting for command to move to home position...");
                     firstInState = false;
                 }
@@ -886,6 +893,7 @@ namespace demo_anticipatory_vs_reactive
                     }
                     else
                     {
+                        timesFile_ << "Object delivered," << okDemo_;    
                         std_msgs::String msg;
                         std::stringstream ss;
                         ss << "Move to home position";
@@ -896,6 +904,8 @@ namespace demo_anticipatory_vs_reactive
                         moveGripper(closeGripperPositions, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
                         ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
+                        initializeTorsoPosition(initTorsoPosition_, 3.0);
+                        
                         if (!initializeRightArmPosition(initRightArmPositions_))
                         {
                             return;
@@ -906,7 +916,7 @@ namespace demo_anticipatory_vs_reactive
                             return;
                         }
 
-                        initializeTorsoPosition(initTorsoPosition_, 3.0);
+ 
 
                         initializeHeadPosition(initHeadPositions_);
 
@@ -1534,6 +1544,8 @@ namespace demo_anticipatory_vs_reactive
 
         ROS_INFO("[DemoAnticipatoryVsReactive] creating clients...");
         clientActivateSuperquadricsComputation_ = nodeHandle_.serviceClient<companion_msgs::ActivateSupercuadricsComputation>("/grasp_objects/activate_superquadrics_computation");
+        clientActivateDetectHit_ = nodeHandle_.serviceClient<companion_msgs::ActivateSupercuadricsComputation>("/detect_hit_ft/activate");
+
         clientGetSuperquadrics_ = nodeHandle_.serviceClient<companion_msgs::GetSuperquadrics>("/grasp_objects/get_superquadrics");
         clientComputeGraspPoses_ = nodeHandle_.serviceClient<companion_msgs::ComputeGraspPoses>("/grasp_objects/compute_grasp_poses");
         clientGetBboxesSuperquadrics_ = nodeHandle_.serviceClient<companion_msgs::GetBboxes>("/grasp_objects/get_bboxes_superquadrics");
@@ -1541,6 +1553,7 @@ namespace demo_anticipatory_vs_reactive
         amclPoseSubscriber_ = nodeHandle_.subscribe("/amcl_pose", 10, &DemoAnticipatoryVsReactive::amclPoseCallback, this);
         glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoAnticipatoryVsReactive::glassesDataCallback, this);
         stopDemoSubscriber_ = nodeHandle_.subscribe("/demo/stop", 2, &DemoAnticipatoryVsReactive::stopDemoCallback, this);
+        okDemoSubscriber_ = nodeHandle_.subscribe("/demo/ok", 2, &DemoAnticipatoryVsReactive::okDemoCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo/release_gripper", &DemoAnticipatoryVsReactive::releaseGripper, this);
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo/move_to_home_position", &DemoAnticipatoryVsReactive::moveToHomePosition, this);
         statePublisher_ = nodeHandle_.advertise<std_msgs::String>("/demo/state", 10);
@@ -1578,7 +1591,8 @@ namespace demo_anticipatory_vs_reactive
         ros::param::get("demo/goal_joint_tolerance", goalJointTolerance_);
         ros::param::get("demo/init_demo_verbal_message", initVerbalMessage_);
         ros::param::get("demo/pass_object_verbal_message", passObjectVerbalMessage_);
-
+        ros::param::get("demo/user_id", userId_);
+        ROS_INFO("USER_ID: %d", userId_);
         std::vector<float> tmp;
         ros::param::get("demo/left_gripper_position_difference_wrt_default", tmp);
         closeLeftGripperDeviation_[0] = tmp[0];
@@ -1654,12 +1668,23 @@ namespace demo_anticipatory_vs_reactive
         std::replace(date.begin(), date.end(), ' ', '_');
         date.pop_back();
 
+        std::string path = ros::package::getPath("demo_anticipatory_vs_reactive");
+
+        std::string user_id_str = "user_"+std::to_string(userId_); 
+        ROS_INFO_STREAM(user_id_str);
+        const char* path_dir = (path+"/csv/"+user_id_str).c_str(); 
+        boost::filesystem::path dir(path_dir);
+
+        if(std::experimental::filesystem::create_directory(path+"/csv/"+user_id_str));
+            ROS_INFO("DIR_CREATED %s", (path+"/csv/"+user_id_str).c_str());
+        // if(!fs::is_directory(path+"/csv/"+user_id_str) || !fs::exists(path+"/csv/"+user_id_str))
+        //     fs::create_directory(path+"/csv/"+user_id_str); // create user folder
+
         if (boost::filesystem::exists(date + ".csv"))
             ROS_INFO("The path is valid!");
         else
         {
-            std::string path = ros::package::getPath("demo_anticipatory_vs_reactive");
-            timesFile_.open(path + "/csv/" + date + ".csv");
+            timesFile_.open(path + "/csv/" + user_id_str+"/"+ date + ".csv");
         }
         return;
     }
@@ -1721,6 +1746,16 @@ namespace demo_anticipatory_vs_reactive
         if (clientActivateSuperquadricsComputation_.call(srvActivate))
         {
             ROS_INFO("[DemoAnticipatoryVsReactive] ActivateSuperquadricsComputation: %d", (bool)srvActivate.request.activate);
+        }
+    }
+
+    void DemoAnticipatoryVsReactive::activateDetectHitFt(bool activate){
+        companion_msgs::ActivateSupercuadricsComputation srvActivate;
+        srvActivate.request.activate = activate;
+
+        if (clientActivateDetectHit_.call(srvActivate))
+        {
+            ROS_INFO("[DemoAnticipatoryVsReactive] ActivateDetectHit: %d", (bool)srvActivate.request.activate);
         }
     }
 
@@ -2146,7 +2181,7 @@ namespace demo_anticipatory_vs_reactive
             if (arm_ == "right")
             {
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.01);
-                if (reachingPose_.position.z <= 0.82) // TODO: USE A PARAMETER
+                if (reachingPose_.position.z <= 0.8) // TODO: USE A PARAMETER
                 {
 
                     const Eigen::Affine3d &elbow_state = kinematic_state->getGlobalLinkTransform("arm_right_4_link");
@@ -2165,7 +2200,7 @@ namespace demo_anticipatory_vs_reactive
                 foundReachIk_ = kinematic_state->setFromIK(jointModelGroupTorsoLeftArm_, reachingPose_, 0.01);
                 ROS_INFO("Reaching Pose: %f", reachingPose_.position.z);
 
-                if (reachingPose_.position.z <= 0.82) // TODO: USE A PARAMETER
+                if (reachingPose_.position.z <= 0.8) // TODO: USE A PARAMETER
                 {
 
                     const Eigen::Affine3d &elbow_state = kinematic_state->getGlobalLinkTransform("arm_left_4_link");
@@ -2251,11 +2286,19 @@ namespace demo_anticipatory_vs_reactive
                 planPublisher_.publish(plan_.trajectory_);
         }
     }
+
     void DemoAnticipatoryVsReactive::stopDemoCallback(const std_msgs::EmptyConstPtr &stop)
     {
         ROS_INFO("Demo stopped!");
         stopDemo_ = true;
     }
+
+    void DemoAnticipatoryVsReactive::okDemoCallback(const std_msgs::EmptyConstPtr &msg)
+    {
+        ROS_INFO("Demo stopped!");
+        okDemo_ = true;
+    }
+
 
     void DemoAnticipatoryVsReactive::glassesDataCallback(const companion_msgs::GlassesData::ConstPtr &glassesData)
     {
