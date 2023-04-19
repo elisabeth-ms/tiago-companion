@@ -884,8 +884,53 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
             extract.setNegative(true); // Extract the inliers
             extract.filter(*cloud_without_table);
 
-            pcl::PointCloud<pcl::PointXYZL>::Ptr lccp_labeled_cloud;
-            supervoxelOversegmentation(cloud_without_table, lccp_labeled_cloud);
+            pcl::PointCloud<pcl::PointXYZL>::Ptr lccp_labeled_cloud(new pcl::PointCloud<pcl::PointXYZL>);
+            // supervoxelOversegmentation(cloud_without_table, lccp_labeled_cloud);
+
+            // Project all points to the table plane
+            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_without_table_projected(new pcl::PointCloud<pcl::PointXYZ>);
+            
+            for (int i = 0; i < cloud_without_table->points.size(); ++i)
+            {
+
+                    pcl::PointXYZ tmp_point_projected;
+                    tmp_point_projected.x = cloud_without_table->points[i].x;
+                    tmp_point_projected.y = cloud_without_table->points[i].y;
+                    tmp_point_projected.z = table_dimensions_[2];
+
+                    cloud_without_table_projected->points.push_back(tmp_point_projected);
+            }
+            ROS_INFO("We have %d points in the projected cloud.", cloud_without_table_projected->points.size());
+
+            pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+            tree->setInputCloud (cloud_without_table_projected);
+            
+
+            std::vector<pcl::PointIndices> cluster_indices;
+            pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+            ec.setClusterTolerance (0.02); // 2cm
+            ec.setMinClusterSize (100);
+            
+            ec.setMaxClusterSize (25000);
+            ec.setSearchMethod (tree);
+            ec.setInputCloud (cloud_without_table_projected);
+            ec.extract (cluster_indices);
+
+            int j = 0;
+            for (const auto& cluster : cluster_indices)
+            {
+                j++;
+                for (const auto& idx : cluster.indices) {
+                    pcl::PointXYZL point;
+                    point.x = cloud_without_table->points[idx].x;
+                    point.y = cloud_without_table->points[idx].y;
+                    point.z = cloud_without_table->points[idx].z;
+                    point.label = j;
+                    lccp_labeled_cloud->push_back(point);
+                }
+            } //*
+
+
 
             // Convert to ROS data type
             pcl::toPCLPointCloud2(*lccp_labeled_cloud, *cloudFiltered);

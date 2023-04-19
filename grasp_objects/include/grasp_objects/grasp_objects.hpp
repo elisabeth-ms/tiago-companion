@@ -27,6 +27,8 @@
 #include <pcl/surface/concave_hull.h>
 #include <pcl/surface/convex_hull.h>
 #include <pcl/common/centroid.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/segmentation/extract_clusters.h>
 #include <mutex>
 
 #include <geometry_msgs/PoseStamped.h>
@@ -173,6 +175,7 @@ namespace grasp_objects{
 
         bool activate_ = false;
         std::mutex mtxActivate_;
+        std::mutex mtxUpdateDetectedObjectsPointCloud_;
 
         float focalLengthX_, focalLengthY_;
         float principalPointX_, principalPointY_; 
