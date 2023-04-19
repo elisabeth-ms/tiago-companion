@@ -354,7 +354,7 @@ namespace grasp_objects
         }else if(ax_line_grasp == "z"){
             aux_param = params[2];
         }
-        for (float x = 0 / 1.9; x <= aux_param / 1.9; x += step)
+        for (float x = 0 / 1.9; x <= aux_param / 1.5; x += step)
         {
 
             for (float rotateAxes = 1; rotateAxes >= -1; rotateAxes =rotateAxes - 2)
@@ -637,7 +637,7 @@ namespace grasp_objects
                 pcl::PointXYZRGB tmp_point_projected;
                 tmp_point_projected.x = lccp_labeled_cloud->points[i].x;
                 tmp_point_projected.y = lccp_labeled_cloud->points[i].y;
-                tmp_point_projected.z = table_dimensions_[2]-0.008;
+                tmp_point_projected.z = table_dimensions_[2]-0.1;
                 tmp_point_projected.r = rand() % 256;
                 tmp_point_projected.g = rand() % 256;
                 tmp_point_projected.b = rand() % 256;
@@ -685,7 +685,7 @@ namespace grasp_objects
         {
             ROS_INFO("[GraspObjects] label: %d", detectedObjects_[i].label);
             ROS_INFO("[GraspObjects] size: %d", detectedObjects_[i].object_cloud.size());
-            float min_height = table_dimensions_[2]-0.02;
+            float min_height = table_dimensions_[2]-0.05;
             int r = rand()%256;
             int g = rand()%256;
             int b = rand()%256;
@@ -755,7 +755,7 @@ namespace grasp_objects
             // }
 
             for(int p = 0; p<cloud_hull->points.size();p++){
-                for(float d = 0.1; d<=1; d+=0.3){
+                for(float d = 0.0; d<=1; d+=0.1){
                     pcl::PointXYZRGB tmp_point_projected;
                     tmp_point_projected.x = c1.x + (cloud_hull->points[p].x - c1.x)*d;
                     tmp_point_projected.y = c1.y + (cloud_hull->points[p].y - c1.y)*d;
@@ -772,8 +772,25 @@ namespace grasp_objects
                 }
             }
 
+            // pcl::VoxelGrid<pcl::PointCloud<pcl::PointXYZRGB>> sor;
+            // pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloudHullFilteredPtr(detectedObjects_[i].object_cloud_hull);
+            // // pcl::PointCloud<pcl::PointXYZRGB>::PointCloudConstPtr cloudHullFilteredPtr(detectedObjects_[i].object_cloud_hull);
 
-            // detectedObjects_[i].object_cloud_hull = *cloud_hull;
+            // sor.setInputCloud(cloudHullFilteredPtr);
+            // sor.setLeafSize(0.005f, 0.005f, 0.005f);
+            // sor.filter(*cloudHullFilteredPtr);
+
+            
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_last (new pcl::PointCloud<pcl::PointXYZRGB>);
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr downsampled (new pcl::PointCloud<pcl::PointXYZRGB>);
+            
+            point_cloud_last = detectedObjects_[i].object_cloud_hull.makeShared();
+            pcl::VoxelGrid<pcl::PointXYZRGB> sor;
+            sor.setInputCloud (point_cloud_last);
+            sor.setLeafSize (0.0025f, 0.0025f, 0.0025f);
+            sor.filter (*downsampled);
+            
+            detectedObjects_[i].object_cloud_hull = *downsampled;
 
 
 
@@ -908,7 +925,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
 
             std::vector<pcl::PointIndices> cluster_indices;
             pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-            ec.setClusterTolerance (0.02); // 2cm
+            ec.setClusterTolerance (0.03); // 2cm
             ec.setMinClusterSize (100);
             
             ec.setMaxClusterSize (25000);
