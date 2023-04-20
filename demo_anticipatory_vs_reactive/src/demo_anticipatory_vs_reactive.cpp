@@ -397,6 +397,11 @@ namespace demo_anticipatory_vs_reactive
                             trajectoryToGraspObject.plan = plan_;
                             if (arm_ == "right")
                             {
+                                if(trajectoryToGraspObject.category == "sliced_bread")
+                                    closeMorePosition+=0.008;
+                                else if(trajectoryToGraspObject.category == "coffee")
+                                    closeMorePosition+=0.005;
+
                                 for (int i = 0; i <= 1; i++)
                                 {
                                     trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_] / 2.0 - closeRightGripperDeviation_[i] - closeMorePosition;
@@ -404,6 +409,11 @@ namespace demo_anticipatory_vs_reactive
                             }
                             else
                             {
+                                if(trajectoryToGraspObject.category == "sliced_bread")
+                                    closeMorePosition+=0.008;
+                                else if(trajectoryToGraspObject.category == "coffee")
+                                    closeMorePosition+=0.005;    
+                                
                                 for (int i = 0; i <= 1; i++)
                                 {
                                     trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_] / 2.0 - closeLeftGripperDeviation_[i] - closeMorePosition;
@@ -776,7 +786,7 @@ namespace demo_anticipatory_vs_reactive
                     goBackwardsStartTime_ = ros::Time::now();
                     firstInState = false;
                 }
-                double speed = 0.065;
+                double speed = 0.085;
                 if ((ros::Time::now() - goBackwardsStartTime_).toSec() > (abs(0.4 / speed)))
                 {
                     geometry_msgs::Twist vel;
@@ -839,6 +849,14 @@ namespace demo_anticipatory_vs_reactive
                 ROS_INFO("I'M IN RELEASE_OBJECT");
                 if (firstInState)
                 {
+                    mtxWriteFile_.lock();
+                    objectDeliveredTime_ = ros::Time::now();
+                    timesFile_ << "Object delivered," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
+                           << ","
+                           << ","
+                           << ","
+                           << ",Seconds from demo start time," << (objectDeliveredTime_ - startDemoTime_).toSec() << "\n";
+                    mtxWriteFile_.unlock();
                     pal_interaction_msgs::TtsGoal goal;
                     goal.rawtext.text = passObjectVerbalMessage_;
                     goal.rawtext.lang_id = "en_GB";

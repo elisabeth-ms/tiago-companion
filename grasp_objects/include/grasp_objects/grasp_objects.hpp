@@ -43,7 +43,7 @@
 #include "companion_msgs/GetBboxes.h"
 
 #define DEFAULT_MIN_NPOINTS 100
-#define MAX_OBJECT_WIDTH_GRASP 0.18
+#define MAX_OBJECT_WIDTH_GRASP 0.19
 #define MIN_OBJECT_WIDTH_GRASP 0.04
 
 using SuperVoxelAdjacencyList = pcl::LCCPSegmentation<pcl::PointXYZRGB>::SupervoxelAdjacencyList;

@@ -354,7 +354,7 @@ namespace grasp_objects
         }else if(ax_line_grasp == "z"){
             aux_param = params[2];
         }
-        for (float x = 0 / 1.9; x <= aux_param / 1.5; x += step)
+        for (float x = 0 / 1.9; x <= aux_param / 1.3; x += step)
         {
 
             for (float rotateAxes = 1; rotateAxes >= -1; rotateAxes =rotateAxes - 2)
@@ -925,7 +925,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
 
             std::vector<pcl::PointIndices> cluster_indices;
             pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-            ec.setClusterTolerance (0.03); // 2cm
+            ec.setClusterTolerance (0.04); // 2cm
             ec.setMinClusterSize (100);
             
             ec.setMaxClusterSize (25000);

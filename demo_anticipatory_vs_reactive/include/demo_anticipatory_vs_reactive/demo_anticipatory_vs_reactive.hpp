@@ -318,7 +318,7 @@ namespace demo_anticipatory_vs_reactive
         float closeLeftGripperDeviation_[2] = {0.033, 0.033};
         float closeRightGripperDeviation_[2] = {0.033, 0.027};
 
-        float closeMorePosition = 0.025;
+        float closeMorePosition = 0.03;
 
         bool greaterThanExecutionThreshold_;
 
@@ -354,7 +354,7 @@ namespace demo_anticipatory_vs_reactive
         ros::Time goBackwardsStartTime_;
         ros::Time goBackwardsEndTime_;
         ros::Time turnAnticlockwiseStartTime_;
-        
+        ros::Time objectDeliveredTime_;
         bool firstInState;
 
         std::ofstream timesFile_;
