@@ -354,7 +354,7 @@ namespace grasp_objects
         }else if(ax_line_grasp == "z"){
             aux_param = params[2];
         }
-        for (float x = 0 / 1.9; x <= aux_param / 1.3; x += step)
+        for (float x = 0 / 1.9; x <= aux_param / 1.2; x += step)
         {
 
             for (float rotateAxes = 1; rotateAxes >= -1; rotateAxes =rotateAxes - 2)
@@ -421,7 +421,7 @@ namespace grasp_objects
                         geometry_msgs::Pose pose;
                         tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
                         // std::cout << "pose: " << pose << std::endl;
-                        if(pose.position.z > table_dimensions_[2]+0.065){
+                        if(pose.position.z > table_dimensions_[2]+0.045){
                             graspingPoses.poses.push_back(pose);
                             if(zgrasp.y() == 1){
                                 width.push_back(2*params[1]);

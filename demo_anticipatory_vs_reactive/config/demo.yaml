@@ -16,7 +16,7 @@ table_position2: [0.5, -1.5, 0.3]
 table_dimensions3: [5.0,1.4,2.0]
 table_position3: [0.5, 1.5, 0.3]
 threshold_plan_trajectory: 0.2
-threshold_execute_trajectory: 0.4
+threshold_execute_trajectory: 0.5
 goal_joint_tolerance: 0.011
 left_gripper_position_difference_wrt_default: [0.033, 0.033]
 right_gripper_position_difference_wrt_default: [0.033, 0.027]
