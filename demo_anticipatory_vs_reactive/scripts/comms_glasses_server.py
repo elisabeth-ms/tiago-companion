@@ -156,9 +156,11 @@ class CommsGlassesServer(object):
                         for i in range(4):
                             glassesData.bounding_box.append(int(boundingBox[i]))
                         glassesData.decision_vector = decision
-                        
+
+
                         glassesData.category = self.categories[np.argmax(decision)]
-                        
+
+                          
                         self.pubGlassesData.publish(glassesData)
 
                         msg = sensor_msgs.msg.Image()
