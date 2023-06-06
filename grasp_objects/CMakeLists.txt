@@ -31,16 +31,25 @@ include_directories(
 )
 
 
+add_executable(constrained_superquadrics_node src/constrained_superquadrics.cpp src/constrained_superquadrics_node.cpp)
 
 add_executable(${PROJECT_NAME}_node src/grasp_objects.cpp src/grasp_objects_node.cpp)
 
 
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_dependencies(constrained_superquadrics_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
   SuperquadricLib::SuperquadricLibModel
+)
+
+target_link_libraries(constrained_superquadrics_node
+  ${catkin_LIBRARIES}
+  SuperquadricLib::SuperquadricLibModel
+  stdc++fs
 )
 
 
