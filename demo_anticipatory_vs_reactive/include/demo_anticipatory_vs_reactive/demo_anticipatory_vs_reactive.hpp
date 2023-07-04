@@ -154,6 +154,8 @@ namespace demo_anticipatory_vs_reactive
 
         bool bringCloser(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float bringCloserDistance);
         
+        bool initDemo(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+        
         bool releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 
         bool moveToHomePosition(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
@@ -216,6 +218,7 @@ namespace demo_anticipatory_vs_reactive
         ros::ServiceClient clientGetBboxesSuperquadrics_;
 
         ros::ServiceServer serviceReleaseGripper_;
+        ros::ServiceServer serviceInitDemo_;
         ros::ServiceServer serviceMoveToHomePosition_;
         ros::Subscriber asrSubscriber_;
         ros::Subscriber glassesDataSubscriber_;
@@ -236,6 +239,7 @@ namespace demo_anticipatory_vs_reactive
 
         bool releaseGripper_ = false;
         bool moveToHomePosition_ = false;
+        bool initDemo_ = false;
         companion_msgs::BoundingBoxes bboxesMsg_;
         darknet_ros_msgs::BoundingBoxes yoloBBoxesMsg_;
         geometry_msgs::Pose reachingPose_;
@@ -297,6 +301,7 @@ namespace demo_anticipatory_vs_reactive
         std::string asr_;
         std::vector<SqCategory> sqCategories_;
         bool foundAsr_ = false;
+        bool foundAsrDifferent_ = false;
         bool foundGlasses_ = false;
         std::string glassesCategory_;
         std::string prevGlassesCategory_;

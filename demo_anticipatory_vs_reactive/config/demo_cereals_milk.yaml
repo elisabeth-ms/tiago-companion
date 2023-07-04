@@ -20,6 +20,12 @@ threshold_execute_trajectory: 0.5
 goal_joint_tolerance: 0.011
 left_gripper_position_difference_wrt_default: [0.033, 0.033]
 right_gripper_position_difference_wrt_default: [0.033, 0.027]
-init_demo_verbal_message: "What would you like to eat?"
+init_demo_verbal_message: "Hey there! We've got some yummy cereal and cool milk on the table. Which one do you want first?"
+milk_first_verbal_message: "Milk it is! Let's get that for you."
+cereal_first_verbal_message: "Cereal it is! Let's get that for you."
 pass_object_verbal_message: "Here you are!"
+milk_second_verbal_message: "Alright, now I'll get the milk for you."
+cereal_second_verbal_message: "Alright, now I'll get the cereal for you."
+
+end_demo_verbal_message: "All done! Your cereal and milk are all set. Enjoy!"
 user_id: 100

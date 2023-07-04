@@ -94,6 +94,10 @@ typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_clie
 #define DEBUG_STATE -10
 #define WAIT_TO_EXECUTE 13
 #define NEW_GAZE 14
+#define TURN_CLOCKWISE 18
+#define MOVE_FORWARD 19
+#define WAIT_FOR_NEW_OBJECT 20
+#define END_DEMO 21
 namespace demo_cereals_milk
 {
     struct SqCategory
@@ -277,7 +281,11 @@ namespace demo_cereals_milk
         bool okDemo_;
         std::string initVerbalMessage_;
         std::string passObjectVerbalMessage_;
-
+        std::string milkFirstVerbalMessage_;
+        std::string cerealFirstVerbalMessage_;
+        std::string milkSecondVerbalMessage_;
+        std::string cerealSecondVerbalMessage_;
+        std::string endDemoVerbalMessage_;
         std::string arm_;
 
         float openGripperPositions_[2] = {0.07, 0.07};
@@ -324,6 +332,8 @@ namespace demo_cereals_milk
         float closeRightGripperDeviation_[2] = {0.033, 0.027};
 
         float closeMorePosition = 0.03;
+        double angle_ = 0;
+        int countMoveForward_ = 0;
 
         bool greaterThanExecutionThreshold_;
 

@@ -194,6 +194,10 @@ namespace demo_anticipatory_vs_reactive
                     statePublisher_.publish(msg);
                 }
 
+                while(!initDemo_){
+                    ;
+                }
+
                 pal_interaction_msgs::TtsGoal goal;
                 goal.rawtext.text = initVerbalMessage_;
                 goal.rawtext.lang_id = "en_GB";
@@ -596,14 +600,12 @@ namespace demo_anticipatory_vs_reactive
                 }
                 else
                 {
-                    // if (foundAsr_)
-                    // {
-                    //     state_ = -1;
-                    //     firstInState = true;
-                    //     foundAsr_ = false;
-                    // }
-                    // else
-                    // {
+                    if(foundAsrDifferent_){
+                        state_ = -3;
+                        foundAsrDifferent_ = false;
+
+                    }
+                    else{
                     ROS_INFO("OPEN GRIPPER!");
 
                     std_msgs::String msg;
@@ -620,7 +622,7 @@ namespace demo_anticipatory_vs_reactive
 
                     firstInState = true;
                     state_ = APROACH_TO_GRASP;
-                    // }
+                    }
                 }
             }
             break;
@@ -1573,6 +1575,9 @@ namespace demo_anticipatory_vs_reactive
         stopDemoSubscriber_ = nodeHandle_.subscribe("/demo/stop", 2, &DemoAnticipatoryVsReactive::stopDemoCallback, this);
         okDemoSubscriber_ = nodeHandle_.subscribe("/demo/ok", 2, &DemoAnticipatoryVsReactive::okDemoCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo/release_gripper", &DemoAnticipatoryVsReactive::releaseGripper, this);
+        
+        serviceInitDemo_ = nodeHandle_.advertiseService("/demo/init_demo", &DemoAnticipatoryVsReactive::initDemo, this);
+
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo/move_to_home_position", &DemoAnticipatoryVsReactive::moveToHomePosition, this);
         statePublisher_ = nodeHandle_.advertise<std_msgs::String>("/demo/state", 10);
         superquadricsBBoxesPublisher_ = nodeHandle_.advertise<companion_msgs::BoundingBoxes>("/demo/superquadrics_bboxes", 10);
@@ -1710,6 +1715,13 @@ namespace demo_anticipatory_vs_reactive
     bool DemoAnticipatoryVsReactive::releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
     {
         releaseGripper_ = true;
+        return true;
+    }
+
+
+    bool DemoAnticipatoryVsReactive::initDemo(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+    {
+        initDemo_ = true;
         return true;
     }
 
@@ -1920,8 +1932,8 @@ namespace demo_anticipatory_vs_reactive
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
 
-                        indexSqCategoryAsr_ = -1;
-
+                       indexSqCategoryAsr_ = -1;
+                        foundAsrDifferent_ = true;
                         // it's different, so we need to check if we already have a trajectory available
 
                         for (int i = 0; i < sqCategories_.size(); i++)
@@ -2049,7 +2061,7 @@ namespace demo_anticipatory_vs_reactive
                             }
                             else
                             {
-                                state_ = -4;
+                                state_ = -3;
                             }
                         }
                     }

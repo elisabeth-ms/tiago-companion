@@ -194,7 +194,8 @@ namespace demo_cereals_milk
                     statePublisher_.publish(msg);
                 }
 
-                while(!initDemo_){
+                while (!initDemo_)
+                {
                     ;
                 }
 
@@ -203,7 +204,7 @@ namespace demo_cereals_milk
                 goal.rawtext.lang_id = "en_GB";
 
                 acPtr_->sendGoal(goal);
-                ros::Duration(1.5).sleep();
+                ros::Duration(6.5).sleep();
 
                 srvActivateAsr.request.activate = true;
 
@@ -401,10 +402,10 @@ namespace demo_cereals_milk
                             trajectoryToGraspObject.plan = plan_;
                             if (arm_ == "right")
                             {
-                                if(trajectoryToGraspObject.category == "sliced_bread")
-                                    closeMorePosition+=0.008;
-                                else if(trajectoryToGraspObject.category == "coffee")
-                                    closeMorePosition+=0.005;
+                                if (trajectoryToGraspObject.category == "sliced_bread")
+                                    closeMorePosition += 0.008;
+                                else if (trajectoryToGraspObject.category == "coffee")
+                                    closeMorePosition += 0.005;
 
                                 for (int i = 0; i <= 1; i++)
                                 {
@@ -413,11 +414,11 @@ namespace demo_cereals_milk
                             }
                             else
                             {
-                                if(trajectoryToGraspObject.category == "sliced_bread")
-                                    closeMorePosition+=0.008;
-                                else if(trajectoryToGraspObject.category == "coffee")
-                                    closeMorePosition+=0.005;    
-                                
+                                if (trajectoryToGraspObject.category == "sliced_bread")
+                                    closeMorePosition += 0.008;
+                                else if (trajectoryToGraspObject.category == "coffee")
+                                    closeMorePosition += 0.005;
+
                                 for (int i = 0; i <= 1; i++)
                                 {
                                     trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_] / 2.0 - closeLeftGripperDeviation_[i] - closeMorePosition;
@@ -600,28 +601,29 @@ namespace demo_cereals_milk
                 }
                 else
                 {
-                    if(foundAsrDifferent_){
+                    if (foundAsrDifferent_)
+                    {
                         state_ = -3;
                         foundAsrDifferent_ = false;
-
                     }
-                    else{
-                    ROS_INFO("OPEN GRIPPER!");
+                    else
+                    {
+                        ROS_INFO("OPEN GRIPPER!");
 
-                    std_msgs::String msg;
-                    std::stringstream ss;
-                    ss << "Open Gripper";
-                    msg.data = ss.str();
-                    statePublisher_.publish(msg);
-                    // Open gripper
-                    moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
-                    std::vector<std::string> objectIds;
-                    objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
-                    planningSceneInterface_.removeCollisionObjects(objectIds);
-                    ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "Open Gripper";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+                        // Open gripper
+                        moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
+                        std::vector<std::string> objectIds;
+                        objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
+                        planningSceneInterface_.removeCollisionObjects(objectIds);
+                        ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
-                    firstInState = true;
-                    state_ = APROACH_TO_GRASP;
+                        firstInState = true;
+                        state_ = APROACH_TO_GRASP;
                     }
                 }
             }
@@ -819,16 +821,15 @@ namespace demo_cereals_milk
                 else
                 {
                     double speed = 0.14;
-                    double angle = 0;
                     if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
                     {
-                        angle = 80 * M_PI / 180.0;
+                        angle_ = 80 * M_PI / 180.0;
                     }
                     else
                     {
-                        angle = 70 * M_PI / 180.0;
+                        angle_ = 60 * M_PI / 180.0;
                     }
-                    if ((ros::Time::now() - turnAnticlockwiseStartTime_).toSec() > (abs(angle / speed)))
+                    if ((ros::Time::now() - turnAnticlockwiseStartTime_).toSec() > (abs(angle_ / speed)))
                     {
                         geometry_msgs::Twist vel;
                         vel.angular.z = 0.0;
@@ -853,10 +854,10 @@ namespace demo_cereals_milk
                     mtxWriteFile_.lock();
                     objectDeliveredTime_ = ros::Time::now();
                     timesFile_ << "Object delivered," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
-                           << ","
-                           << ","
-                           << ","
-                           << ",Seconds from demo start time," << (objectDeliveredTime_ - startDemoTime_).toSec() << "\n";
+                               << ","
+                               << ","
+                               << ","
+                               << ",Seconds from demo start time," << (objectDeliveredTime_ - startDemoTime_).toSec() << "\n";
                     mtxWriteFile_.unlock();
                     pal_interaction_msgs::TtsGoal goal;
                     goal.rawtext.text = passObjectVerbalMessage_;
@@ -912,7 +913,7 @@ namespace demo_cereals_milk
                     }
                     else
                     {
-                        timesFile_ << "Object delivered," << okDemo_;    
+                        timesFile_ << "Object delivered," << okDemo_;
                         std_msgs::String msg;
                         std::stringstream ss;
                         ss << "Move to home position";
@@ -924,7 +925,7 @@ namespace demo_cereals_milk
                         ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
                         initializeTorsoPosition(initTorsoPosition_, 3.0);
-                        
+
                         if (!initializeRightArmPosition(initRightArmPositions_))
                         {
                             return;
@@ -934,8 +935,6 @@ namespace demo_cereals_milk
                         {
                             return;
                         }
-
- 
 
                         initializeHeadPosition(initHeadPositions_);
 
@@ -952,7 +951,119 @@ namespace demo_cereals_milk
                 if (firstInState)
                 {
                     ROS_INFO("[DemoCerealsMilk] Robot in home position!");
+                    firstInState = true;
+                    state_ = TURN_CLOCKWISE;
+                }
+            }
+            break;
+            case TURN_CLOCKWISE:
+            {
+                ROS_INFO("I'M IN TURN_CLOCKWISE");
+                if (firstInState)
+                {
                     firstInState = false;
+                    turnAnticlockwiseStartTime_ = ros::Time::now();
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = 0.0;
+                    cmdVelPublisher_.publish(vel);
+                }
+                else
+                {
+                    double speed = -0.14;
+                    if ((ros::Time::now() - turnAnticlockwiseStartTime_).toSec() > (abs(angle_ / speed)))
+                    {
+                        geometry_msgs::Twist vel;
+                        vel.angular.z = 0.0;
+                        cmdVelPublisher_.publish(vel);
+                        firstInState = true;
+                        state_ = MOVE_FORWARD;
+                    }
+                    else
+                    {
+                        geometry_msgs::Twist vel;
+                        vel.angular.z = speed;
+                        cmdVelPublisher_.publish(vel);
+                    }
+                }
+            }
+            break;
+            case MOVE_FORWARD:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("I'M IN MOVE FORWARD");
+                    goBackwardsStartTime_ = ros::Time::now();
+                    firstInState = false;
+                }
+                double speed = 0.085;
+                if ((ros::Time::now() - goBackwardsStartTime_).toSec() > (abs(0.34 / speed)))
+                {
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = 0.0;
+                    cmdVelPublisher_.publish(vel);
+                    countMoveForward_++;
+                    if (countMoveForward_ >= 2)
+                    {
+                        firstInState = true;
+                        state_ = END_DEMO;
+                        ROS_INFO("CEREAL_FIRST DIALOGUE");
+                        pal_interaction_msgs::TtsGoal goal;
+                        goal.rawtext.text = endDemoVerbalMessage_;
+                        goal.rawtext.lang_id = "en_GB";
+                        acPtr_->sendGoal(goal);
+                    }
+                    else
+                    {
+                        firstInState = true;
+                        state_ = WAIT_FOR_NEW_OBJECT;
+                    }
+                }
+                else
+                {
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = speed;
+                    cmdVelPublisher_.publish(vel);
+                }
+            }
+            break;
+            case WAIT_FOR_NEW_OBJECT:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("I'M IN WAIT FOR NEW OBJECT");
+                    std::string category;
+
+                    if (sqCategories_[indexSqCategory_].category.find("milk", 0) != std::string::npos)
+                    {
+                        ROS_INFO("PREVIOUS CATEGORY WAS MILK, SEARCHING FOR cereals");
+                        category = "cereals";
+                        pal_interaction_msgs::TtsGoal goal;
+                        goal.rawtext.text = cerealSecondVerbalMessage_;
+                        goal.rawtext.lang_id = "en_GB";
+                        acPtr_->sendGoal(goal);
+                    }
+                    else
+                    {
+                        ROS_INFO("PREVIOUS CATEGORY WAS cereals, SEARCHING FOR milk");
+                        category = "milk";
+                        pal_interaction_msgs::TtsGoal goal;
+                        goal.rawtext.text = milkSecondVerbalMessage_;
+                        goal.rawtext.lang_id = "en_GB";
+                        acPtr_->sendGoal(goal);
+                    }
+
+                    for (int i = 0; i < sqCategories_.size(); i++)
+                    {
+                        ROS_INFO("%s %d", sqCategories_[i].category.c_str(), sqCategories_.size());
+                        if (sqCategories_[i].category.find(category, 0) != std::string::npos)
+                        {
+                            indexSqCategory_ = i;
+                            break;
+                        }
+                    }
+                    asr_ = category;
+                    firstInState = true;
+                    state_ = COMPUTE_GRASP_POSES;
                 }
             }
             break;
@@ -1021,8 +1132,8 @@ namespace demo_cereals_milk
             }
             break;
             }
-        
-        ros::Duration(0.001).sleep();    
+
+            ros::Duration(0.001).sleep();
         }
     }
 
@@ -1195,8 +1306,6 @@ namespace demo_cereals_milk
 
         return true;
     }
-
-
 
     void DemoCerealsMilk::removeCollisionObjectsPlanningScene()
     {
@@ -1482,7 +1591,7 @@ namespace demo_cereals_milk
         stopDemoSubscriber_ = nodeHandle_.subscribe("/demo/stop", 2, &DemoCerealsMilk::stopDemoCallback, this);
         okDemoSubscriber_ = nodeHandle_.subscribe("/demo/ok", 2, &DemoCerealsMilk::okDemoCallback, this);
         serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo/release_gripper", &DemoCerealsMilk::releaseGripper, this);
-        
+
         serviceInitDemo_ = nodeHandle_.advertiseService("/demo/init_demo", &DemoCerealsMilk::initDemo, this);
 
         serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo/move_to_home_position", &DemoCerealsMilk::moveToHomePosition, this);
@@ -1520,6 +1629,11 @@ namespace demo_cereals_milk
         ros::param::get("demo/threshold_execute_trajectory", thresholdExecuteTrajectory_);
         ros::param::get("demo/goal_joint_tolerance", goalJointTolerance_);
         ros::param::get("demo/init_demo_verbal_message", initVerbalMessage_);
+        ros::param::get("demo/milk_first_verbal_message", milkFirstVerbalMessage_);
+        ros::param::get("demo/cereal_first_verbal_message", cerealFirstVerbalMessage_);
+        ros::param::get("demo/milk_second_verbal_message", milkSecondVerbalMessage_);
+        ros::param::get("demo/cereal_second_verbal_message", cerealSecondVerbalMessage_);
+        ros::param::get("demo/end_demo_verbal_message", endDemoVerbalMessage_);
         ros::param::get("demo/pass_object_verbal_message", passObjectVerbalMessage_);
         ros::param::get("demo/user_id", userId_);
         ROS_INFO("USER_ID: %d", userId_);
@@ -1600,13 +1714,14 @@ namespace demo_cereals_milk
 
         std::string path = ros::package::getPath("demo_anticipatory_vs_reactive");
 
-        std::string user_id_str = "user_"+std::to_string(userId_); 
+        std::string user_id_str = "user_" + std::to_string(userId_);
         ROS_INFO_STREAM(user_id_str);
-        const char* path_dir = (path+"/csv/"+user_id_str).c_str(); 
+        const char *path_dir = (path + "/csv/" + user_id_str).c_str();
         boost::filesystem::path dir(path_dir);
 
-        if(std::experimental::filesystem::create_directory(path+"/csv/"+user_id_str));
-            ROS_INFO("DIR_CREATED %s", (path+"/csv/"+user_id_str).c_str());
+        if (std::experimental::filesystem::create_directory(path + "/csv/" + user_id_str))
+            ;
+        ROS_INFO("DIR_CREATED %s", (path + "/csv/" + user_id_str).c_str());
         // if(!fs::is_directory(path+"/csv/"+user_id_str) || !fs::exists(path+"/csv/"+user_id_str))
         //     fs::create_directory(path+"/csv/"+user_id_str); // create user folder
 
@@ -1614,7 +1729,7 @@ namespace demo_cereals_milk
             ROS_INFO("The path is valid!");
         else
         {
-            timesFile_.open(path + "/csv/" + user_id_str+"/"+ date + ".csv");
+            timesFile_.open(path + "/csv/" + user_id_str + "/" + date + ".csv");
         }
         return;
     }
@@ -1624,7 +1739,6 @@ namespace demo_cereals_milk
         releaseGripper_ = true;
         return true;
     }
-
 
     bool DemoCerealsMilk::initDemo(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
     {
@@ -1686,7 +1800,8 @@ namespace demo_cereals_milk
         }
     }
 
-    void DemoCerealsMilk::activateDetectHitFt(bool activate){
+    void DemoCerealsMilk::activateDetectHitFt(bool activate)
+    {
         companion_msgs::ActivateSupercuadricsComputation srvActivate;
         srvActivate.request.activate = activate;
 
@@ -1839,7 +1954,7 @@ namespace demo_cereals_milk
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
 
-                       indexSqCategoryAsr_ = -1;
+                        indexSqCategoryAsr_ = -1;
                         foundAsrDifferent_ = true;
                         // it's different, so we need to check if we already have a trajectory available
 
@@ -1991,6 +2106,7 @@ namespace demo_cereals_milk
                                        << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
                             indexSqCategoryAsr_ = i;
                             indexSqCategory_ = indexSqCategoryAsr_;
+
                             asrCommandReceived_ = true;
                             waitingForAsrCommand_ = false;
                         }
@@ -2007,7 +2123,23 @@ namespace demo_cereals_milk
                     if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
                     {
                         foundAsr_ = true;
-
+                        if (asr_ == "milk")
+                        {
+                            // verbal
+                            ROS_INFO("MILK FIRST DIALOGUE");
+                            pal_interaction_msgs::TtsGoal goal;
+                            goal.rawtext.text = milkFirstVerbalMessage_;
+                            goal.rawtext.lang_id = "en_GB";
+                            acPtr_->sendGoal(goal);
+                        }
+                        else
+                        {
+                            ROS_INFO("CEREAL_FIRST DIALOGUE");
+                            pal_interaction_msgs::TtsGoal goal;
+                            goal.rawtext.text = cerealFirstVerbalMessage_;
+                            goal.rawtext.lang_id = "en_GB";
+                            acPtr_->sendGoal(goal);
+                        }
                         indexSqCategoryAsr_ = i;
                         asrCommandReceived_ = true;
                         indexSqCategory_ = indexSqCategoryAsr_;
@@ -2235,7 +2367,6 @@ namespace demo_cereals_milk
         ROS_INFO("Demo stopped!");
         okDemo_ = true;
     }
-
 
     void DemoCerealsMilk::glassesDataCallback(const companion_msgs::GlassesData::ConstPtr &glassesData)
     {
