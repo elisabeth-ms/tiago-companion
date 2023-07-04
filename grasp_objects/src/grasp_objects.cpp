@@ -825,6 +825,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
         mtxActivate_.unlock();
         if (activate && count_ < 2)
         {
+            ros::Time begin = ros::Time::now();
             count_++;
             ROS_INFO("COUNT %d", count_);
             sensor_msgs::PointCloud2 pcOut;
@@ -979,7 +980,13 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
                     // }
 
                     SuperqModel::PointCloud point_cloud;
-                    pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud_hull, point_cloud);
+
+
+                    // --------- TEST WITHOUTH OBJECT EXTRUSION--------//
+                    pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
+
+                    // --------- TEST WITH OBJECT EXTRUSION--------//
+                    // pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud_hull, point_cloud);
                     ROS_INFO("pointCloud points: %d", point_cloud.n_points);
                     std::vector<SuperqModel::Superquadric> superqs;
                     getSuperquadricFromPointCloud(point_cloud, superqs);
@@ -1032,7 +1039,10 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
                 // pcOutAllPoints.header.frame_id = "/base_footprint";
 
                 // outPointCloudAddedPointsPublisher_.publish(pcOutAllPoints);
+                ros::Time end = ros::Time::now();
+                ROS_INFO("Time to compute the all the superquadrics from the point cloud of the scene: %f", (end - begin).toSec());
             }
+            activate_ = false;
         }
     }
 
