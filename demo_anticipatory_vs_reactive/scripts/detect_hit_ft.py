@@ -14,7 +14,7 @@ class DetectHitFT(object):
     def __init__(self):
         
         rospy.loginfo("Initalizing detect_hit_ft_node...")
-        self.max_force = 12
+        self.max_force = 15
         self.pub_force_left = rospy.Publisher('force_wrist_left', Float64, queue_size=10)        
         self.pub_force_right = rospy.Publisher('force_wrist_right', Float64, queue_size=10)
         self.subscriber_wrist_left_ft = rospy.Subscriber("/wrist_left_ft/corrected", WrenchStamped, self.wristLeftFTCallback,  queue_size = 5)

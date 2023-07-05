@@ -823,7 +823,7 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
         mtxActivate_.lock();
         activate = activate_;
         mtxActivate_.unlock();
-        if (activate && count_ < 2)
+        if (activate && count_ < 1)
         {
             ros::Time begin = ros::Time::now();
             count_++;
