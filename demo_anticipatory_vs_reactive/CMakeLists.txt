@@ -148,6 +148,7 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/demo_sharon_node.cpp)
 add_executable(${PROJECT_NAME}_node src/demo_anticipatory_vs_reactive.cpp src/demo_anticipatory_vs_reactive_node.cpp)
+add_executable(demo_cereals_milk_node src/demo_cereals_milk.cpp src/demo_cereals_milk_node.cpp)
 
 
 ## Rename C++ executable without prefix
@@ -160,6 +161,7 @@ add_executable(${PROJECT_NAME}_node src/demo_anticipatory_vs_reactive.cpp src/de
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(demo_cereals_milk_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
@@ -167,6 +169,11 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 # )
 
 target_link_libraries(${PROJECT_NAME}_node
+  ${catkin_LIBRARIES}
+  stdc++fs
+)
+
+target_link_libraries(demo_cereals_milk_node
   ${catkin_LIBRARIES}
   stdc++fs
 )

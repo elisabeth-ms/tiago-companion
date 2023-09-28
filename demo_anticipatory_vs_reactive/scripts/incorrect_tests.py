@@ -21,12 +21,21 @@ word_dict = ['sugar',
              ]
 
 category_gaze = 'water'
+<<<<<<< HEAD
 category_asr = 'cereals'
 
 decision = 0.7
 freq = 10.0
 mu = 10.73
 sigma = 7.9
+=======
+category_asr = 'nesquick'
+
+decision = 0.7
+freq = 10.0
+mu = 11.73
+sigma = 3.9
+>>>>>>> c7ceb2f38541cef99121c04a007d9abb55b5dd75
 asr_time_from_gaze = 0
 while asr_time_from_gaze < 2:
     asr_time_from_gaze = np.random.normal(mu, sigma, 1)

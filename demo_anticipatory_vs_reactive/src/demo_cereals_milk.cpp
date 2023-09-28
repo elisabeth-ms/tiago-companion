@@ -1,10 +1,10 @@
-#include "demo_anticipatory_vs_reactive/demo_anticipatory_vs_reactive.hpp"
+#include "demo_anticipatory_vs_reactive/demo_cereals_milk.hpp"
 
-namespace demo_anticipatory_vs_reactive
+namespace demo_cereals_milk
 {
-    DemoAnticipatoryVsReactive::DemoAnticipatoryVsReactive(ros::NodeHandle nh) : nodeHandle_(nh)
+    DemoCerealsMilk::DemoCerealsMilk(ros::NodeHandle nh) : nodeHandle_(nh)
     {
-        ROS_INFO("[DemoAnticipatoryVsReactive] Node started.");
+        ROS_INFO("[DemoCerealsMilk] Node started.");
 
         // Need it asynspinner for moveit
         ros::AsyncSpinner spinner(2);
@@ -18,17 +18,17 @@ namespace demo_anticipatory_vs_reactive
         demoGlassesASR();
     }
 
-    DemoAnticipatoryVsReactive::~DemoAnticipatoryVsReactive()
+    DemoCerealsMilk::~DemoCerealsMilk()
     {
     }
 
-    // void DemoAnticipatoryVsReactive::orderGraspingPoses(bool rightArm, const geometry_msgs::PoseArray &graspingPoses, geometry_msgs::PoseArray &orderedGraspingPoses){
+    // void DemoCerealsMilk::orderGraspingPoses(bool rightArm, const geometry_msgs::PoseArray &graspingPoses, geometry_msgs::PoseArray &orderedGraspingPoses){
     //     if(rightArm){
 
     //     }
     // }
 
-    void DemoAnticipatoryVsReactive::demoGlassesASR()
+    void DemoCerealsMilk::demoGlassesASR()
     {
         state_ = INITIALIZE;
         firstInState = true;
@@ -54,7 +54,7 @@ namespace demo_anticipatory_vs_reactive
 
                 if (clientActivateAsr_.call(srvActivateAsr))
                 {
-                    ROS_INFO("[DemoAnticipatoryVsReactive] ActivateASR: %d", (bool)srvActivateAsr.request.activate);
+                    ROS_INFO("[DemoCerealsMilk] ActivateASR: %d", (bool)srvActivateAsr.request.activate);
                 }
 
                 waitingForGlassesCommand_ = false;
@@ -101,7 +101,7 @@ namespace demo_anticipatory_vs_reactive
 
                 activateDetectHitFt(true);
 
-                ROS_INFO("[DemoAnticipatoryVsReactive] Start the computation of the superquadrics.");
+                ROS_INFO("[DemoCerealsMilk] Start the computation of the superquadrics.");
 
                 // Start computation of the superquadrics from the pointcloud
                 activateSuperquadricsComputation(true);
@@ -109,11 +109,11 @@ namespace demo_anticipatory_vs_reactive
 
                 // Stop computation of the superquadrics from the pointcloud. Our objects don't move, so there is no need to
                 // continuously recompute the superquadrics
-                ROS_INFO("[DemoAnticipatoryVsReactive] Stop the computation of the superquadrics.");
+                ROS_INFO("[DemoCerealsMilk] Stop the computation of the superquadrics.");
                 activateSuperquadricsComputation(false);
                 ros::Duration(0.5).sleep(); // sleep for 2 seconds
 
-                ROS_INFO("[DemoAnticipatoryVsReactive] Get the computed superquadrics.");
+                ROS_INFO("[DemoCerealsMilk] Get the computed superquadrics.");
                 // Get the previously computed superquadrics
                 if (!getSuperquadrics())
                 { // If it's empty, there is no objects to grasp
@@ -123,7 +123,7 @@ namespace demo_anticipatory_vs_reactive
                 msg.data = "INITIALIZING Superquadrics Available";
                 statePublisher_.publish(msg);
 
-                ROS_INFO("[DemoAnticipatoryVsReactive] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
+                ROS_INFO("[DemoCerealsMilk] We have %d supequadrics.", (int)superquadricsMsg_.superquadrics.size());
                 ros::Duration(0.5).sleep(); // sleep for 2 seconds
 
                 if (!getBoundingBoxesFromSupercuadrics())
@@ -194,7 +194,8 @@ namespace demo_anticipatory_vs_reactive
                     statePublisher_.publish(msg);
                 }
 
-                while(!initDemo_){
+                while (!initDemo_)
+                {
                     ;
                 }
 
@@ -203,13 +204,13 @@ namespace demo_anticipatory_vs_reactive
                 goal.rawtext.lang_id = "en_GB";
 
                 acPtr_->sendGoal(goal);
-                ros::Duration(1.5).sleep();
+                ros::Duration(6.5).sleep();
 
                 srvActivateAsr.request.activate = true;
 
                 if (clientActivateAsr_.call(srvActivateAsr))
                 {
-                    ROS_INFO("[DemoAnticipatoryVsReactive] ActivateASR: %d", (bool)srvActivateAsr.request.activate);
+                    ROS_INFO("[DemoCerealsMilk] ActivateASR: %d", (bool)srvActivateAsr.request.activate);
                 }
 
                 foundGlasses_ = false;
@@ -231,10 +232,10 @@ namespace demo_anticipatory_vs_reactive
                 // msg.data = "WAIT_FOR_COMMAND";
                 // statePublisher_.publish(msg);
 
-                // ROS_INFO("[DemoAnticipatoryVsReactive] Wait for user's command.");
+                // ROS_INFO("[DemoCerealsMilk] Wait for user's command.");
                 if (!glassesCommandReceived_ && asrCommandReceived_)
                 {
-                    ROS_WARN("[DemoAnticipatoryVsReactive] The gaze should be faster than the asr.");
+                    ROS_WARN("[DemoCerealsMilk] The gaze should be faster than the asr.");
                     state_ = COMPUTE_GRASP_POSES;
                     firstInState = true;
                 }
@@ -340,7 +341,7 @@ namespace demo_anticipatory_vs_reactive
                 // while (ros::ok())
                 // {
                 //     ros::Duration(0.01).sleep();
-                //     ROS_INFO("[DemoAnticipatoryVsReactive] FIND IK STATE");
+                //     ROS_INFO("[DemoCerealsMilk] FIND IK STATE");
                 // }
             }
             break;
@@ -401,10 +402,10 @@ namespace demo_anticipatory_vs_reactive
                             trajectoryToGraspObject.plan = plan_;
                             if (arm_ == "right")
                             {
-                                if(trajectoryToGraspObject.category == "sliced_bread")
-                                    closeMorePosition+=0.008;
-                                else if(trajectoryToGraspObject.category == "coffee")
-                                    closeMorePosition+=0.005;
+                                if (trajectoryToGraspObject.category == "sliced_bread")
+                                    closeMorePosition += 0.008;
+                                else if (trajectoryToGraspObject.category == "coffee")
+                                    closeMorePosition += 0.005;
 
                                 for (int i = 0; i <= 1; i++)
                                 {
@@ -413,11 +414,11 @@ namespace demo_anticipatory_vs_reactive
                             }
                             else
                             {
-                                if(trajectoryToGraspObject.category == "sliced_bread")
-                                    closeMorePosition+=0.008;
-                                else if(trajectoryToGraspObject.category == "coffee")
-                                    closeMorePosition+=0.005;    
-                                
+                                if (trajectoryToGraspObject.category == "sliced_bread")
+                                    closeMorePosition += 0.008;
+                                else if (trajectoryToGraspObject.category == "coffee")
+                                    closeMorePosition += 0.005;
+
                                 for (int i = 0; i <= 1; i++)
                                 {
                                     trajectoryToGraspObject.closeGripperPositions[i] = width_[indexGraspingPose_] / 2.0 - closeLeftGripperDeviation_[i] - closeMorePosition;
@@ -600,28 +601,29 @@ namespace demo_anticipatory_vs_reactive
                 }
                 else
                 {
-                    if(foundAsrDifferent_){
+                    if (foundAsrDifferent_)
+                    {
                         state_ = -3;
                         foundAsrDifferent_ = false;
-
                     }
-                    else{
-                    ROS_INFO("OPEN GRIPPER!");
+                    else
+                    {
+                        ROS_INFO("OPEN GRIPPER!");
 
-                    std_msgs::String msg;
-                    std::stringstream ss;
-                    ss << "Open Gripper";
-                    msg.data = ss.str();
-                    statePublisher_.publish(msg);
-                    // Open gripper
-                    moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
-                    std::vector<std::string> objectIds;
-                    objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
-                    planningSceneInterface_.removeCollisionObjects(objectIds);
-                    ros::Duration(1.0).sleep(); // sleep for 1 seconds
+                        std_msgs::String msg;
+                        std::stringstream ss;
+                        ss << "Open Gripper";
+                        msg.data = ss.str();
+                        statePublisher_.publish(msg);
+                        // Open gripper
+                        moveGripper(openGripperPositions_, listTrajectoriesToGraspObjects[indexListTrajectories_].arm);
+                        std::vector<std::string> objectIds;
+                        objectIds.push_back("object_" + std::to_string(listTrajectoriesToGraspObjects[indexListTrajectories_].idSq));
+                        planningSceneInterface_.removeCollisionObjects(objectIds);
+                        ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
-                    firstInState = true;
-                    state_ = APROACH_TO_GRASP;
+                        firstInState = true;
+                        state_ = APROACH_TO_GRASP;
                     }
                 }
             }
@@ -709,7 +711,7 @@ namespace demo_anticipatory_vs_reactive
 
                 if (maxTorsoPosition_ >= torsoPosition + go_up_distance)
                 {
-                    initializeTorsoPosition(initTorsoPosition_, 0.5);
+                    initializeTorsoPosition(initTorsoPosition_, 1.5);
                 }
                 else
                 {
@@ -789,7 +791,7 @@ namespace demo_anticipatory_vs_reactive
                     firstInState = false;
                 }
                 double speed = 0.085;
-                if ((ros::Time::now() - goBackwardsStartTime_).toSec() > (abs(0.4 / speed)))
+                if ((ros::Time::now() - goBackwardsStartTime_).toSec() > (abs(0.35 / speed)))
                 {
                     geometry_msgs::Twist vel;
                     vel.linear.x = 0.0;
@@ -818,17 +820,16 @@ namespace demo_anticipatory_vs_reactive
                 }
                 else
                 {
-                    double speed = 0.24;
-                    double angle = 0;
+                    double speed = 0.14;
                     if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
                     {
-                        angle = 90 * M_PI / 180.0;
+                        angle_ = 80 * M_PI / 180.0;
                     }
                     else
                     {
-                        angle = 70 * M_PI / 180.0;
+                        angle_ = 60 * M_PI / 180.0;
                     }
-                    if ((ros::Time::now() - turnAnticlockwiseStartTime_).toSec() > (abs(angle / speed)))
+                    if ((ros::Time::now() - turnAnticlockwiseStartTime_).toSec() > (abs(angle_ / speed)))
                     {
                         geometry_msgs::Twist vel;
                         vel.angular.z = 0.0;
@@ -844,7 +845,6 @@ namespace demo_anticipatory_vs_reactive
                     }
                 }
             }
-
             break;
             case RELEASE_OBJECT:
             {
@@ -854,10 +854,10 @@ namespace demo_anticipatory_vs_reactive
                     mtxWriteFile_.lock();
                     objectDeliveredTime_ = ros::Time::now();
                     timesFile_ << "Object delivered," << listTrajectoriesToGraspObjects[indexListTrajectories_].category << ","
-                           << ","
-                           << ","
-                           << ","
-                           << ",Seconds from demo start time," << (objectDeliveredTime_ - startDemoTime_).toSec() << "\n";
+                               << ","
+                               << ","
+                               << ","
+                               << ",Seconds from demo start time," << (objectDeliveredTime_ - startDemoTime_).toSec() << "\n";
                     mtxWriteFile_.unlock();
                     pal_interaction_msgs::TtsGoal goal;
                     goal.rawtext.text = passObjectVerbalMessage_;
@@ -900,9 +900,9 @@ namespace demo_anticipatory_vs_reactive
 
                 if (firstInState)
                 {
-                    ROS_INFO("[DemoAnticipatoryVsReactive] Object delivered!");
+                    ROS_INFO("[DemoCerealsMilk] Object delivered!");
 
-                    ROS_INFO("[DemoAnticipatoryVsReactive] Waiting for command to move to home position...");
+                    ROS_INFO("[DemoCerealsMilk] Waiting for command to move to home position...");
                     firstInState = false;
                 }
                 else
@@ -913,7 +913,7 @@ namespace demo_anticipatory_vs_reactive
                     }
                     else
                     {
-                        timesFile_ << "Object delivered," << okDemo_;    
+                        timesFile_ << "Object delivered," << okDemo_;
                         std_msgs::String msg;
                         std::stringstream ss;
                         ss << "Move to home position";
@@ -925,7 +925,7 @@ namespace demo_anticipatory_vs_reactive
                         ros::Duration(1.0).sleep(); // sleep for 1 seconds
 
                         initializeTorsoPosition(initTorsoPosition_, 3.0);
-                        
+
                         if (!initializeRightArmPosition(initRightArmPositions_))
                         {
                             return;
@@ -935,8 +935,6 @@ namespace demo_anticipatory_vs_reactive
                         {
                             return;
                         }
-
- 
 
                         initializeHeadPosition(initHeadPositions_);
 
@@ -952,14 +950,126 @@ namespace demo_anticipatory_vs_reactive
             {
                 if (firstInState)
                 {
-                    ROS_INFO("[DemoAnticipatoryVsReactive] Robot in home position!");
+                    ROS_INFO("[DemoCerealsMilk] Robot in home position!");
+                    firstInState = true;
+                    state_ = TURN_CLOCKWISE;
+                }
+            }
+            break;
+            case TURN_CLOCKWISE:
+            {
+                ROS_INFO("I'M IN TURN_CLOCKWISE");
+                if (firstInState)
+                {
                     firstInState = false;
+                    turnAnticlockwiseStartTime_ = ros::Time::now();
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = 0.0;
+                    cmdVelPublisher_.publish(vel);
+                }
+                else
+                {
+                    double speed = -0.14;
+                    if ((ros::Time::now() - turnAnticlockwiseStartTime_).toSec() > (abs(angle_ / speed)))
+                    {
+                        geometry_msgs::Twist vel;
+                        vel.angular.z = 0.0;
+                        cmdVelPublisher_.publish(vel);
+                        firstInState = true;
+                        state_ = MOVE_FORWARD;
+                    }
+                    else
+                    {
+                        geometry_msgs::Twist vel;
+                        vel.angular.z = speed;
+                        cmdVelPublisher_.publish(vel);
+                    }
+                }
+            }
+            break;
+            case MOVE_FORWARD:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("I'M IN MOVE FORWARD");
+                    goBackwardsStartTime_ = ros::Time::now();
+                    firstInState = false;
+                }
+                double speed = 0.085;
+                if ((ros::Time::now() - goBackwardsStartTime_).toSec() > (abs(0.34 / speed)))
+                {
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = 0.0;
+                    cmdVelPublisher_.publish(vel);
+                    countMoveForward_++;
+                    if (countMoveForward_ >= 2)
+                    {
+                        firstInState = true;
+                        state_ = END_DEMO;
+                        ROS_INFO("CEREAL_FIRST DIALOGUE");
+                        pal_interaction_msgs::TtsGoal goal;
+                        goal.rawtext.text = endDemoVerbalMessage_;
+                        goal.rawtext.lang_id = "en_GB";
+                        acPtr_->sendGoal(goal);
+                    }
+                    else
+                    {
+                        firstInState = true;
+                        state_ = WAIT_FOR_NEW_OBJECT;
+                    }
+                }
+                else
+                {
+                    geometry_msgs::Twist vel;
+                    vel.linear.x = speed;
+                    cmdVelPublisher_.publish(vel);
+                }
+            }
+            break;
+            case WAIT_FOR_NEW_OBJECT:
+            {
+                if (firstInState)
+                {
+                    ROS_INFO("I'M IN WAIT FOR NEW OBJECT");
+                    std::string category;
+
+                    if (sqCategories_[indexSqCategory_].category.find("milk", 0) != std::string::npos)
+                    {
+                        ROS_INFO("PREVIOUS CATEGORY WAS MILK, SEARCHING FOR cereals");
+                        category = "cereals";
+                        pal_interaction_msgs::TtsGoal goal;
+                        goal.rawtext.text = cerealSecondVerbalMessage_;
+                        goal.rawtext.lang_id = "en_GB";
+                        acPtr_->sendGoal(goal);
+                    }
+                    else
+                    {
+                        ROS_INFO("PREVIOUS CATEGORY WAS cereals, SEARCHING FOR milk");
+                        category = "milk";
+                        pal_interaction_msgs::TtsGoal goal;
+                        goal.rawtext.text = milkSecondVerbalMessage_;
+                        goal.rawtext.lang_id = "en_GB";
+                        acPtr_->sendGoal(goal);
+                    }
+
+                    for (int i = 0; i < sqCategories_.size(); i++)
+                    {
+                        ROS_INFO("%s %d", sqCategories_[i].category.c_str(), sqCategories_.size());
+                        if (sqCategories_[i].category.find(category, 0) != std::string::npos)
+                        {
+                            indexSqCategory_ = i;
+                            break;
+                        }
+                    }
+                    asr_ = category;
+                    firstInState = true;
+                    state_ = COMPUTE_GRASP_POSES;
                 }
             }
             break;
             case -1:
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] I'M IN -1");
+                ROS_INFO("[DemoCerealsMilk] I'M IN -1");
 
                 // indexSqCategory_ = indexSqCategoryAsr_;
                 firstInState = true;
@@ -971,7 +1081,7 @@ namespace demo_anticipatory_vs_reactive
                 // ROS_INFO("I'M IN UNABLE_TO_REACHING_GRASP_IK");
                 if (firstInState)
                 {
-                    ROS_WARN("[DemoAnticipatoryVsReactive] Unable to found ik to any of the possible reaching poses. What now?");
+                    ROS_WARN("[DemoCerealsMilk] Unable to found ik to any of the possible reaching poses. What now?");
                     firstInState = false;
                 }
             }
@@ -981,7 +1091,7 @@ namespace demo_anticipatory_vs_reactive
 
                 if (firstInState)
                 {
-                    ROS_INFO("[DemoAnticipatoryVsReactive] I'M IN -3");
+                    ROS_INFO("[DemoCerealsMilk] I'M IN -3");
                     firstInState = false;
                 }
 
@@ -990,10 +1100,10 @@ namespace demo_anticipatory_vs_reactive
                     bool available = false;
                     for (int i = 0; i < listTrajectoriesToGraspObjects.size(); i++)
                     {
-                        ROS_INFO("[DemoAnticipatoryVsReactive] listTrajectoriesToGraspObjects %d category %s", i, listTrajectoriesToGraspObjects[i].category.c_str());
+                        ROS_INFO("[DemoCerealsMilk] listTrajectoriesToGraspObjects %d category %s", i, listTrajectoriesToGraspObjects[i].category.c_str());
                         if (listTrajectoriesToGraspObjects[i].category.find(asr_, 0) != std::string::npos)
                         {
-                            ROS_INFO("[DemoAnticipatoryVsReactive] We already have a trajectory % s, so we should move to the execute trajectory", glassesCategory_.c_str());
+                            ROS_INFO("[DemoCerealsMilk] We already have a trajectory % s, so we should move to the execute trajectory", glassesCategory_.c_str());
                             indexListTrajectories_ = i;
                             available = true;
                             break;
@@ -1022,10 +1132,12 @@ namespace demo_anticipatory_vs_reactive
             }
             break;
             }
+
+            ros::Duration(0.001).sleep();
         }
     }
 
-    bool DemoAnticipatoryVsReactive::goalReached(moveit::planning_interface::MoveGroupInterface *&groupArmTorsoPtr_)
+    bool DemoCerealsMilk::goalReached(moveit::planning_interface::MoveGroupInterface *&groupArmTorsoPtr_)
     {
         std::vector<double> currentJoints = groupArmTorsoPtr_->getCurrentJointValues();
 
@@ -1041,7 +1153,7 @@ namespace demo_anticipatory_vs_reactive
         return true;
     }
 
-    void DemoAnticipatoryVsReactive::moveGripper(const float positions[2], std::string name)
+    void DemoCerealsMilk::moveGripper(const float positions[2], std::string name)
     {
         follow_joint_control_client_Ptr auxGripperClient;
 
@@ -1054,7 +1166,7 @@ namespace demo_anticipatory_vs_reactive
             auxGripperClient = leftGripperClient_;
         }
         control_msgs::FollowJointTrajectoryGoal gripperGoal;
-        ROS_INFO("[DemoAnticipatoryVsReactive] Setting gripper %s position: (%f ,%f)", name.c_str(), positions[0], positions[1]);
+        ROS_INFO("[DemoCerealsMilk] Setting gripper %s position: (%f ,%f)", name.c_str(), positions[0], positions[1]);
         waypointGripperGoal(name, gripperGoal, positions, 0.5);
 
         // Sends the command to start the given trajectory now
@@ -1066,10 +1178,10 @@ namespace demo_anticipatory_vs_reactive
         {
             ros::Duration(0.1).sleep(); // sleep for 1 seconds
         }
-        ROS_INFO("[DemoAnticipatoryVsReactive] Gripper set to position: (%f, %f)", positions[0], positions[1]);
+        ROS_INFO("[DemoCerealsMilk] Gripper set to position: (%f, %f)", positions[0], positions[1]);
     }
 
-    bool DemoAnticipatoryVsReactive::goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance)
+    bool DemoCerealsMilk::goUp(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float upDistance)
     {
         groupArmTorsoPtr->setMaxVelocityScalingFactor(0.1);
         geometry_msgs::PoseStamped currentPose = groupArmTorsoPtr->getCurrentPose();
@@ -1088,23 +1200,23 @@ namespace demo_anticipatory_vs_reactive
             moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->move();
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Success in moving the grasped object up.");
+                ROS_INFO("[DemoCerealsMilk] Success in moving the grasped object up.");
                 return true;
             }
             else
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Error in moving the grasped object up.");
+                ROS_INFO("[DemoCerealsMilk] Error in moving the grasped object up.");
                 return false;
             }
         }
         else
         {
-            ROS_INFO("[DemoAnticipatoryVsReactive] No feasible up pose!");
+            ROS_INFO("[DemoCerealsMilk] No feasible up pose!");
             return false;
         }
     }
 
-    bool DemoAnticipatoryVsReactive::bringCloser(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float bringCloserDistance)
+    bool DemoCerealsMilk::bringCloser(moveit::planning_interface::MoveGroupInterface *groupArmTorsoPtr, float bringCloserDistance)
     {
 
         /////////////////////////
@@ -1129,23 +1241,23 @@ namespace demo_anticipatory_vs_reactive
             moveit::planning_interface::MoveItErrorCode e = groupArmTorsoPtr->move();
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Success in moving the grasped object up.");
+                ROS_INFO("[DemoCerealsMilk] Success in moving the grasped object up.");
                 return true;
             }
             else
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Error in moving the grasped object up.");
+                ROS_INFO("[DemoCerealsMilk] Error in moving the grasped object up.");
                 return false;
             }
         }
         else
         {
-            ROS_INFO("[DemoAnticipatoryVsReactive] No feasible up pose!");
+            ROS_INFO("[DemoCerealsMilk] No feasible up pose!");
             return false;
         }
     }
 
-    bool DemoAnticipatoryVsReactive::goToGraspingPose(const geometry_msgs::Pose &graspingPose)
+    bool DemoCerealsMilk::goToGraspingPose(const geometry_msgs::Pose &graspingPose)
     {
         moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
         if (listTrajectoriesToGraspObjects[indexListTrajectories_].arm == "right")
@@ -1178,7 +1290,7 @@ namespace demo_anticipatory_vs_reactive
         const double jump_threshold = 0.00;
         const double eef_step = 0.001;
         double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-        ROS_INFO("DemoAnticipatoryVsReactive] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+        ROS_INFO("DemoCerealsMilk] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
 
         // for(int i=0; i<trajectory.joint_trajectory.points.size(); i++){
         //     ROS_INFO_STREAM(trajectory.joint_trajectory.points[i]);
@@ -1193,120 +1305,24 @@ namespace demo_anticipatory_vs_reactive
         moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
 
         return true;
-        // tf::poseKDLToMsg(frameToolWrtBase, toolPose);
-        // groupRightArmTorsoPtr_->setPoseTarget(toolPose);
-
-        // moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
-        // bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        // if (successPlanning)
-        // {
-        //     moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
-        //     if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-        //     {
-        //         ROS_INFO("[DemoAnticipatoryVsReactive] Success in moving the robot to the grasping pose.");
-        //         return true;
-        //     }
-        //     else
-        //     {
-        //         ROS_INFO("[DemoAnticipatoryVsReactive] Error in moving the robot to the grasping pose.");
-        //         return false;
-        //     }
-        // }
-        // else
-        // {
-        //     ROS_INFO("[DemoAnticipatoryVsReactive] No feasible grasping pose!");
-        //     return false;
-        // }
     }
 
-    // bool DemoAnticipatoryVsReactive::goToAFeasibleReachingPose(const geometry_msgs::PoseArray &graspingPoses, int &indexFeasible)
-    // {
-
-    //     bool successPlanning = false;
-    //     robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(kinematicModel_));
-    //     kinematic_state->setToDefaultValues();
-    //     for (int idx = 0; idx < graspingPoses.poses.size(); idx++)
-    //     {
-    //         ROS_INFO("[DemoAnticipatoryVsReactive] idx: %d", idx);
-    //         ROS_INFO("DemoAnticipatoryVsReactive] Grasping Pose[%d]: %f %f %f", idx, graspingPoses.poses[idx].position.x, graspingPoses.poses[idx].position.y, graspingPoses.poses[idx].position.z);
-
-    //         KDL::Frame frameEndWrtBase;
-    //         tf::poseMsgToKDL(graspingPoses.poses[idx], frameEndWrtBase);
-    //         KDL::Frame frameReachingWrtEnd;
-    //         frameReachingWrtEnd.p[0] = -reachingDistance_ - DISTANCE_TOOL_LINK_GRIPPER_LINK;
-    //         KDL::Frame frameReachingWrtBase = frameEndWrtBase * frameReachingWrtEnd;
-
-    //         tf::poseKDLToMsg(frameReachingWrtBase, reachingPose_);
-
-    //         bool found_ik = kinematic_state->setFromIK(jointModelGroupTorsoRightArm_, reachingPose_, 0.1);
-
-    //         //     geometry_msgs::PoseStamped goal_pose;
-    //         // goal_pose.header.frame_id = "base_footprint";
-    //         // goal_pose.pose = graspingPoses.poses[idx];
-    //         if (found_ik)
-    //         {
-    //             groupRightArmTorsoPtr_->setPoseTarget(reachingPose_);
-    //             ROS_INFO("DemoAnticipatoryVsReactive] Set pose target");
-
-    //             moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(plan_);
-    //             successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-    //         }
-    //         else
-    //         {
-    //             successPlanning = false;
-    //         }
-
-    //         // if(groupRightArmTorsoPtr_->plan(plan_) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-    //         //     successPlanning = true;
-    //         // else{
-    //         //     successPlanning = false;
-    //         // }
-    //         // ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", successPlanning ? "" : "FAILED");
-
-    //         if (successPlanning)
-    //         {
-    //             indexFeasible = idx;
-    //             break;
-    //         }
-    //         // ROS_INFO("AQUI");
-    //     }
-    //     if (successPlanning)
-    //     {
-    //         moveit::planning_interface::MoveItErrorCode e = groupRightArmTorsoPtr_->asyncMove();
-    //         if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-    //         {
-    //             ROS_INFO("[DemoAnticipatoryVsReactive] Success in moving the robot to the reaching pose.");
-    //             return true;
-    //         }
-    //         else
-    //         {
-    //             ROS_INFO("[DemoAnticipatoryVsReactive] Error in moving the robot to the reaching pose.");
-    //             return false;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         ROS_INFO("[DemoAnticipatoryVsReactive] No feasible reaching pose found!");
-    //         return false;
-    //     }
-    // }
-
-    void DemoAnticipatoryVsReactive::removeCollisionObjectsPlanningScene()
+    void DemoCerealsMilk::removeCollisionObjectsPlanningScene()
     {
-        ROS_INFO("[DemoAnticipatoryVsReactive] Removing objects in the planningScene");
+        ROS_INFO("[DemoCerealsMilk] Removing objects in the planningScene");
         std::vector<std::string> objectIds = planningSceneInterface_.getKnownObjectNames();
         planningSceneInterface_.removeCollisionObjects(objectIds);
         ros::Duration(1.0).sleep(); // sleep for 2 seconds
     }
 
-    void DemoAnticipatoryVsReactive::addTablePlanningScene(const std::vector<float> &dimensions, const geometry_msgs::Pose &tablePose, const std::string &id)
+    void DemoCerealsMilk::addTablePlanningScene(const std::vector<float> &dimensions, const geometry_msgs::Pose &tablePose, const std::string &id)
     {
-        ROS_INFO("[DemoAnticipatoryVsReactive] Add table collision objects to the planning scene");
+        ROS_INFO("[DemoCerealsMilk] Add table collision objects to the planning scene");
         // Collision object
         moveit_msgs::CollisionObject collisionObject;
         collisionObject.id = id;
         collisionObject.header.frame_id = "base_footprint";
-        ROS_INFO("[DemoAnticipatoryVsReactive] Planning_frame: %s", "base_footprint");
+        ROS_INFO("[DemoCerealsMilk] Planning_frame: %s", "base_footprint");
         shape_msgs::SolidPrimitive table;
         table.type = table.BOX;
         table.dimensions.resize(3);
@@ -1321,7 +1337,7 @@ namespace demo_anticipatory_vs_reactive
         planningSceneInterface_.applyCollisionObject(collisionObject);
     }
 
-    void DemoAnticipatoryVsReactive::addSupequadricsPlanningScene()
+    void DemoCerealsMilk::addSupequadricsPlanningScene()
     {
         std::vector<moveit_msgs::CollisionObject> collisionObjects;
 
@@ -1396,7 +1412,7 @@ namespace demo_anticipatory_vs_reactive
                         radius = superquadric.a3;
                     }
 
-                    ROS_INFO("DemoAnticipatoryVsReactive] CYLINDER height: %f radius: %f", height, radius);
+                    ROS_INFO("DemoCerealsMilk] CYLINDER height: %f radius: %f", height, radius);
                     radius += inflateSize_;
                     height += inflateSize_;
 
@@ -1434,7 +1450,7 @@ namespace demo_anticipatory_vs_reactive
         planningSceneInterface_.applyCollisionObjects(collisionObjects);
     }
 
-    void DemoAnticipatoryVsReactive::initializeHeadPosition(const std::vector<float> &initHeadPositions)
+    void DemoCerealsMilk::initializeHeadPosition(const std::vector<float> &initHeadPositions)
     {
 
         ROS_INFO("Setting head to init position: (%f ,%f)", initHeadPositions[0], initHeadPositions[1]);
@@ -1467,7 +1483,7 @@ namespace demo_anticipatory_vs_reactive
         ROS_INFO("Head set to position: (%f, %f)", initHeadPositions[0], initHeadPositions[1]);
     }
 
-    void DemoAnticipatoryVsReactive::initializeTorsoPosition(float initTorsoPosition, float execution_time)
+    void DemoCerealsMilk::initializeTorsoPosition(float initTorsoPosition, float execution_time)
     {
         control_msgs::FollowJointTrajectoryGoal torsoGoal;
 
@@ -1498,7 +1514,7 @@ namespace demo_anticipatory_vs_reactive
         ROS_INFO("Torso set to position: (%f)", initTorsoPosition);
     }
 
-    bool DemoAnticipatoryVsReactive::initializeRightArmPosition(const std::vector<double> &initRightArmPositions)
+    bool DemoCerealsMilk::initializeRightArmPosition(const std::vector<double> &initRightArmPositions)
     {
         ROS_INFO("Setting RightArm to init position: (%f %f %f %f %f %f %f)", initRightArmPositions[0], initRightArmPositions[1], initRightArmPositions[2],
                  initRightArmPositions[3], initRightArmPositions[4], initRightArmPositions[5], initRightArmPositions[6]);
@@ -1513,12 +1529,12 @@ namespace demo_anticipatory_vs_reactive
             moveit::planning_interface::MoveItErrorCode e = groupRightArmPtr_->move();
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Right Arm success in moving to the initial joints position.");
+                ROS_INFO("[DemoCerealsMilk] Right Arm success in moving to the initial joints position.");
                 return true;
             }
             else
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Right Arm Error in moving  to the initial joints position.");
+                ROS_INFO("[DemoCerealsMilk] Right Arm Error in moving  to the initial joints position.");
                 return false;
             }
         }
@@ -1528,7 +1544,7 @@ namespace demo_anticipatory_vs_reactive
         }
     }
 
-    bool DemoAnticipatoryVsReactive::initializeLeftArmPosition(const std::vector<double> &initLeftArmPositions)
+    bool DemoCerealsMilk::initializeLeftArmPosition(const std::vector<double> &initLeftArmPositions)
     {
         ROS_INFO("Setting RightArm to init position: (%f %f %f %f %f %f %f)", initLeftArmPositions[0], initLeftArmPositions[1], initLeftArmPositions[2],
                  initLeftArmPositions[3], initLeftArmPositions[4], initLeftArmPositions[5], initLeftArmPositions[6]);
@@ -1543,12 +1559,12 @@ namespace demo_anticipatory_vs_reactive
             moveit::planning_interface::MoveItErrorCode e = groupLeftArmPtr_->move();
             if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Left Arm success in moving to the initial joints position.");
+                ROS_INFO("[DemoCerealsMilk] Left Arm success in moving to the initial joints position.");
                 return true;
             }
             else
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] Left Arm Error in moving  to the initial joints position.");
+                ROS_INFO("[DemoCerealsMilk] Left Arm Error in moving  to the initial joints position.");
                 return false;
             }
         }
@@ -1558,27 +1574,27 @@ namespace demo_anticipatory_vs_reactive
         }
     }
 
-    void DemoAnticipatoryVsReactive::init()
+    void DemoCerealsMilk::init()
     {
-        ROS_INFO("[DemoAnticipatoryVsReactive] init().");
+        ROS_INFO("[DemoCerealsMilk] init().");
 
-        ROS_INFO("[DemoAnticipatoryVsReactive] creating clients...");
+        ROS_INFO("[DemoCerealsMilk] creating clients...");
         clientActivateSuperquadricsComputation_ = nodeHandle_.serviceClient<companion_msgs::ActivateSupercuadricsComputation>("/grasp_objects/activate_superquadrics_computation");
         clientActivateDetectHit_ = nodeHandle_.serviceClient<companion_msgs::ActivateSupercuadricsComputation>("/detect_hit_ft/activate");
 
         clientGetSuperquadrics_ = nodeHandle_.serviceClient<companion_msgs::GetSuperquadrics>("/grasp_objects/get_superquadrics");
         clientComputeGraspPoses_ = nodeHandle_.serviceClient<companion_msgs::ComputeGraspPoses>("/grasp_objects/compute_grasp_poses");
         clientGetBboxesSuperquadrics_ = nodeHandle_.serviceClient<companion_msgs::GetBboxes>("/grasp_objects/get_bboxes_superquadrics");
-        asrSubscriber_ = nodeHandle_.subscribe("/asr_node/data", 10, &DemoAnticipatoryVsReactive::asrCallback, this);
-        amclPoseSubscriber_ = nodeHandle_.subscribe("/amcl_pose", 10, &DemoAnticipatoryVsReactive::amclPoseCallback, this);
-        glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoAnticipatoryVsReactive::glassesDataCallback, this);
-        stopDemoSubscriber_ = nodeHandle_.subscribe("/demo/stop", 2, &DemoAnticipatoryVsReactive::stopDemoCallback, this);
-        okDemoSubscriber_ = nodeHandle_.subscribe("/demo/ok", 2, &DemoAnticipatoryVsReactive::okDemoCallback, this);
-        serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo/release_gripper", &DemoAnticipatoryVsReactive::releaseGripper, this);
-        
-        serviceInitDemo_ = nodeHandle_.advertiseService("/demo/init_demo", &DemoAnticipatoryVsReactive::initDemo, this);
+        asrSubscriber_ = nodeHandle_.subscribe("/asr_node/data", 10, &DemoCerealsMilk::asrCallback, this);
+        amclPoseSubscriber_ = nodeHandle_.subscribe("/amcl_pose", 10, &DemoCerealsMilk::amclPoseCallback, this);
+        glassesDataSubscriber_ = nodeHandle_.subscribe("/comms_glasses_server/data", 10, &DemoCerealsMilk::glassesDataCallback, this);
+        stopDemoSubscriber_ = nodeHandle_.subscribe("/demo/stop", 2, &DemoCerealsMilk::stopDemoCallback, this);
+        okDemoSubscriber_ = nodeHandle_.subscribe("/demo/ok", 2, &DemoCerealsMilk::okDemoCallback, this);
+        serviceReleaseGripper_ = nodeHandle_.advertiseService("/demo/release_gripper", &DemoCerealsMilk::releaseGripper, this);
 
-        serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo/move_to_home_position", &DemoAnticipatoryVsReactive::moveToHomePosition, this);
+        serviceInitDemo_ = nodeHandle_.advertiseService("/demo/init_demo", &DemoCerealsMilk::initDemo, this);
+
+        serviceMoveToHomePosition_ = nodeHandle_.advertiseService("/demo/move_to_home_position", &DemoCerealsMilk::moveToHomePosition, this);
         statePublisher_ = nodeHandle_.advertise<std_msgs::String>("/demo/state", 10);
         superquadricsBBoxesPublisher_ = nodeHandle_.advertise<companion_msgs::BoundingBoxes>("/demo/superquadrics_bboxes", 10);
         reachingPosePublisher_ = nodeHandle_.advertise<geometry_msgs::PoseStamped>("/demo/reaching_pose", 10);
@@ -1613,6 +1629,11 @@ namespace demo_anticipatory_vs_reactive
         ros::param::get("demo/threshold_execute_trajectory", thresholdExecuteTrajectory_);
         ros::param::get("demo/goal_joint_tolerance", goalJointTolerance_);
         ros::param::get("demo/init_demo_verbal_message", initVerbalMessage_);
+        ros::param::get("demo/milk_first_verbal_message", milkFirstVerbalMessage_);
+        ros::param::get("demo/cereal_first_verbal_message", cerealFirstVerbalMessage_);
+        ros::param::get("demo/milk_second_verbal_message", milkSecondVerbalMessage_);
+        ros::param::get("demo/cereal_second_verbal_message", cerealSecondVerbalMessage_);
+        ros::param::get("demo/end_demo_verbal_message", endDemoVerbalMessage_);
         ros::param::get("demo/pass_object_verbal_message", passObjectVerbalMessage_);
         ros::param::get("demo/user_id", userId_);
         ROS_INFO("USER_ID: %d", userId_);
@@ -1625,19 +1646,19 @@ namespace demo_anticipatory_vs_reactive
         closeRightGripperDeviation_[0] = tmp[0];
         closeRightGripperDeviation_[1] = tmp[1];
 
-        ROS_INFO("[DemoAnticipatoryVsReactive] demo/reaching_distance set to %f", reachingDistance_);
+        ROS_INFO("[DemoCerealsMilk] demo/reaching_distance set to %f", reachingDistance_);
 
         groupRightArmTorsoPtr_ = new moveit::planning_interface::MoveGroupInterface(nameTorsoRightArmGroup_);
-        ROS_INFO("[DemoAnticipatoryVsReactive] Move group interface %s", nameTorsoRightArmGroup_.c_str());
+        ROS_INFO("[DemoCerealsMilk] Move group interface %s", nameTorsoRightArmGroup_.c_str());
 
         groupRightArmPtr_ = new moveit::planning_interface::MoveGroupInterface(nameRightArmGroup_);
-        ROS_INFO("[DemoAnticipatoryVsReactive] Move group interface %s", nameRightArmGroup_.c_str());
+        ROS_INFO("[DemoCerealsMilk] Move group interface %s", nameRightArmGroup_.c_str());
 
         groupLeftArmTorsoPtr_ = new moveit::planning_interface::MoveGroupInterface(nameTorsoLeftArmGroup_);
-        ROS_INFO("[DemoAnticipatoryVsReactive] Move group interface %s", nameTorsoLeftArmGroup_.c_str());
+        ROS_INFO("[DemoCerealsMilk] Move group interface %s", nameTorsoLeftArmGroup_.c_str());
 
         groupLeftArmPtr_ = new moveit::planning_interface::MoveGroupInterface(nameLeftArmGroup_);
-        ROS_INFO("[DemoAnticipatoryVsReactive] Move group interface %s", nameLeftArmGroup_.c_str());
+        ROS_INFO("[DemoCerealsMilk] Move group interface %s", nameLeftArmGroup_.c_str());
 
         groupRightArmTorsoPtr_->setPlanningTime(1.5);
         groupRightArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
@@ -1693,13 +1714,14 @@ namespace demo_anticipatory_vs_reactive
 
         std::string path = ros::package::getPath("demo_anticipatory_vs_reactive");
 
-        std::string user_id_str = "user_"+std::to_string(userId_); 
+        std::string user_id_str = "user_" + std::to_string(userId_);
         ROS_INFO_STREAM(user_id_str);
-        const char* path_dir = (path+"/csv/"+user_id_str).c_str(); 
+        const char *path_dir = (path + "/csv/" + user_id_str).c_str();
         boost::filesystem::path dir(path_dir);
 
-        if(std::experimental::filesystem::create_directory(path+"/csv/"+user_id_str));
-            ROS_INFO("DIR_CREATED %s", (path+"/csv/"+user_id_str).c_str());
+        if (std::experimental::filesystem::create_directory(path + "/csv/" + user_id_str))
+            ;
+        ROS_INFO("DIR_CREATED %s", (path + "/csv/" + user_id_str).c_str());
         // if(!fs::is_directory(path+"/csv/"+user_id_str) || !fs::exists(path+"/csv/"+user_id_str))
         //     fs::create_directory(path+"/csv/"+user_id_str); // create user folder
 
@@ -1707,31 +1729,30 @@ namespace demo_anticipatory_vs_reactive
             ROS_INFO("The path is valid!");
         else
         {
-            timesFile_.open(path + "/csv/" + user_id_str+"/"+ date + ".csv");
+            timesFile_.open(path + "/csv/" + user_id_str + "/" + date + ".csv");
         }
         return;
     }
 
-    bool DemoAnticipatoryVsReactive::releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+    bool DemoCerealsMilk::releaseGripper(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
     {
         releaseGripper_ = true;
         return true;
     }
 
-
-    bool DemoAnticipatoryVsReactive::initDemo(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+    bool DemoCerealsMilk::initDemo(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
     {
         initDemo_ = true;
         return true;
     }
 
-    bool DemoAnticipatoryVsReactive::moveToHomePosition(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
+    bool DemoCerealsMilk::moveToHomePosition(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res)
     {
         moveToHomePosition_ = true;
         return true;
     }
 
-    bool DemoAnticipatoryVsReactive::getSuperquadrics()
+    bool DemoCerealsMilk::getSuperquadrics()
     {
         companion_msgs::GetSuperquadrics srvSq;
 
@@ -1749,11 +1770,11 @@ namespace demo_anticipatory_vs_reactive
         }
     }
 
-    bool DemoAnticipatoryVsReactive::getBoundingBoxesFromSupercuadrics()
+    bool DemoCerealsMilk::getBoundingBoxesFromSupercuadrics()
     {
 
         companion_msgs::GetBboxes srvBBox;
-        ROS_INFO("[DemoAnticipatoryVsReactive] Get bounding boxes from superquadrics...");
+        ROS_INFO("[DemoCerealsMilk] Get bounding boxes from superquadrics...");
         if (clientGetBboxesSuperquadrics_.call(srvBBox))
         {
             bboxesMsg_ = srvBBox.response.bounding_boxes;
@@ -1768,29 +1789,30 @@ namespace demo_anticipatory_vs_reactive
         }
     }
 
-    void DemoAnticipatoryVsReactive::activateSuperquadricsComputation(bool activate)
+    void DemoCerealsMilk::activateSuperquadricsComputation(bool activate)
     {
         companion_msgs::ActivateSupercuadricsComputation srvActivate;
         srvActivate.request.activate = activate;
 
         if (clientActivateSuperquadricsComputation_.call(srvActivate))
         {
-            ROS_INFO("[DemoAnticipatoryVsReactive] ActivateSuperquadricsComputation: %d", (bool)srvActivate.request.activate);
+            ROS_INFO("[DemoCerealsMilk] ActivateSuperquadricsComputation: %d", (bool)srvActivate.request.activate);
         }
     }
 
-    void DemoAnticipatoryVsReactive::activateDetectHitFt(bool activate){
+    void DemoCerealsMilk::activateDetectHitFt(bool activate)
+    {
         companion_msgs::ActivateSupercuadricsComputation srvActivate;
         srvActivate.request.activate = activate;
 
         if (clientActivateDetectHit_.call(srvActivate))
         {
-            ROS_INFO("[DemoAnticipatoryVsReactive] ActivateDetectHit: %d", (bool)srvActivate.request.activate);
+            ROS_INFO("[DemoCerealsMilk] ActivateDetectHit: %d", (bool)srvActivate.request.activate);
         }
     }
 
     // Create a ROS action client to move TIAGo's head
-    void DemoAnticipatoryVsReactive::createClient(follow_joint_control_client_Ptr &actionClient, std::string name)
+    void DemoCerealsMilk::createClient(follow_joint_control_client_Ptr &actionClient, std::string name)
     {
         ROS_INFO("Creating action client to %s controller ...", name.c_str());
 
@@ -1811,7 +1833,7 @@ namespace demo_anticipatory_vs_reactive
     }
 
     // Generates a waypoint to move TIAGo's head
-    void DemoAnticipatoryVsReactive::waypointHeadGoal(control_msgs::FollowJointTrajectoryGoal &goal, const std::vector<float> &positions, const float &timeToReach)
+    void DemoCerealsMilk::waypointHeadGoal(control_msgs::FollowJointTrajectoryGoal &goal, const std::vector<float> &positions, const float &timeToReach)
     {
         // The joint names, which apply to all waypoints
         goal.trajectory.joint_names.push_back("head_1_joint");
@@ -1840,7 +1862,7 @@ namespace demo_anticipatory_vs_reactive
     }
 
     // Generates a waypoint to move TIAGo's torso
-    void DemoAnticipatoryVsReactive::waypointTorsoGoal(control_msgs::FollowJointTrajectoryGoal &goal, const float &position, const float &timeToReach)
+    void DemoCerealsMilk::waypointTorsoGoal(control_msgs::FollowJointTrajectoryGoal &goal, const float &position, const float &timeToReach)
     {
         // The joint names, which apply to all waypoints
         goal.trajectory.joint_names.push_back("torso_lift_joint");
@@ -1864,7 +1886,7 @@ namespace demo_anticipatory_vs_reactive
         goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
     }
 
-    void DemoAnticipatoryVsReactive::waypointGripperGoal(std::string name, control_msgs::FollowJointTrajectoryGoal &goal, const float positions[2], const float &timeToReach)
+    void DemoCerealsMilk::waypointGripperGoal(std::string name, control_msgs::FollowJointTrajectoryGoal &goal, const float positions[2], const float &timeToReach)
     {
         // The joint names, which apply to all waypoints
         std::string right_finger = "gripper_" + name + "_right_finger_joint";
@@ -1889,7 +1911,7 @@ namespace demo_anticipatory_vs_reactive
         goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
     }
 
-    void DemoAnticipatoryVsReactive::asrCallback(const std_msgs::StringConstPtr &asrMsg)
+    void DemoCerealsMilk::asrCallback(const std_msgs::StringConstPtr &asrMsg)
     {
         if (waitingForAsrCommand_ && useAsr_)
         {
@@ -1905,8 +1927,8 @@ namespace demo_anticipatory_vs_reactive
                     // Aqui se supone que ya tenemos el objeto que se quiere con la mirada
                     if (glassesCategory_.find(asr_, 0) != std::string::npos)
                     {
-                        ROS_INFO("[DemoAnticipatoryVsReactive] ASR command received is the same: %s", asr_.c_str());
-                        ROS_INFO("[DemoAnticipatoryVsReactive] We continue to grasp the same object");
+                        ROS_INFO("[DemoCerealsMilk] ASR command received is the same: %s", asr_.c_str());
+                        ROS_INFO("[DemoCerealsMilk] We continue to grasp the same object");
                         std_msgs::String msg;
                         std::stringstream ss;
                         ss << "ASR command received is the same: " << asr_.c_str();
@@ -1925,14 +1947,14 @@ namespace demo_anticipatory_vs_reactive
                     }
                     else
                     {
-                        ROS_INFO("[DemoAnticipatoryVsReactive] ASR command is different. Lets check if it's one of the detected objects by the robot.");
+                        ROS_INFO("[DemoCerealsMilk] ASR command is different. Lets check if it's one of the detected objects by the robot.");
                         std_msgs::String msg;
                         std::stringstream ss;
                         ss << "ASR command is different. Lets check if it's one of the detected objects by the robot";
                         msg.data = ss.str();
                         statePublisher_.publish(msg);
 
-                       indexSqCategoryAsr_ = -1;
+                        indexSqCategoryAsr_ = -1;
                         foundAsrDifferent_ = true;
                         // it's different, so we need to check if we already have a trajectory available
 
@@ -2016,7 +2038,7 @@ namespace demo_anticipatory_vs_reactive
 
                         if (indexSqCategoryAsr_ < 0)
                         {
-                            ROS_WARN("[DemoAnticipatoryVsReactive] ASR request: %s NOT found.", asr_.c_str());
+                            ROS_WARN("[DemoCerealsMilk] ASR request: %s NOT found.", asr_.c_str());
                             ss.clear();
                             ss << "ASR request: " << asr_ << "NOT FOUND";
                             msg.data = ss.str();
@@ -2068,7 +2090,7 @@ namespace demo_anticipatory_vs_reactive
                 }
                 else
                 {
-                    ROS_WARN("[DemoAnticipatoryVsReactive] Glasses command should be faster than asr command.");
+                    ROS_WARN("[DemoCerealsMilk] Glasses command should be faster than asr command.");
                     indexSqCategoryAsr_ = -1;
                     for (int i = 0; i < sqCategories_.size(); i++)
                     {
@@ -2084,6 +2106,7 @@ namespace demo_anticipatory_vs_reactive
                                        << ",Seconds from demo start time," << (asrTime_ - startDemoTime_).toSec() << "\n";
                             indexSqCategoryAsr_ = i;
                             indexSqCategory_ = indexSqCategoryAsr_;
+
                             asrCommandReceived_ = true;
                             waitingForAsrCommand_ = false;
                         }
@@ -2100,7 +2123,23 @@ namespace demo_anticipatory_vs_reactive
                     if (sqCategories_[i].category.find(asr_, 0) != std::string::npos)
                     {
                         foundAsr_ = true;
-
+                        if (asr_ == "milk")
+                        {
+                            // verbal
+                            ROS_INFO("MILK FIRST DIALOGUE");
+                            pal_interaction_msgs::TtsGoal goal;
+                            goal.rawtext.text = milkFirstVerbalMessage_;
+                            goal.rawtext.lang_id = "en_GB";
+                            acPtr_->sendGoal(goal);
+                        }
+                        else
+                        {
+                            ROS_INFO("CEREAL_FIRST DIALOGUE");
+                            pal_interaction_msgs::TtsGoal goal;
+                            goal.rawtext.text = cerealFirstVerbalMessage_;
+                            goal.rawtext.lang_id = "en_GB";
+                            acPtr_->sendGoal(goal);
+                        }
                         indexSqCategoryAsr_ = i;
                         asrCommandReceived_ = true;
                         indexSqCategory_ = indexSqCategoryAsr_;
@@ -2117,18 +2156,18 @@ namespace demo_anticipatory_vs_reactive
             mtxASR_.unlock();
         }
     }
-    void DemoAnticipatoryVsReactive::amclPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr &amclPoseMsg)
+    void DemoCerealsMilk::amclPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr &amclPoseMsg)
     {
         basePose_ = amclPoseMsg->pose.pose;
     }
 
-    void *DemoAnticipatoryVsReactive::sendcomputeGraspPosesThreadWrapper(void *object)
+    void *DemoCerealsMilk::sendcomputeGraspPosesThreadWrapper(void *object)
     {
-        reinterpret_cast<DemoAnticipatoryVsReactive *>(object)->computeGraspPosesThread(NULL);
+        reinterpret_cast<DemoCerealsMilk *>(object)->computeGraspPosesThread(NULL);
         return 0;
     }
 
-    void *DemoAnticipatoryVsReactive::computeGraspPosesThread(void *ptr)
+    void *DemoCerealsMilk::computeGraspPosesThread(void *ptr)
     {
         pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
         graspingPoses_.poses.clear();
@@ -2148,11 +2187,11 @@ namespace demo_anticipatory_vs_reactive
 
         if (clientComputeGraspPoses_.call(srvGraspingPoses))
         {
-            ROS_INFO("[DemoAnticipatoryVsReactive] ComputeGraspPoses: %d", (bool)srvGraspingPoses.response.success);
+            ROS_INFO("[DemoCerealsMilk] ComputeGraspPoses: %d", (bool)srvGraspingPoses.response.success);
             graspingPoses_ = srvGraspingPoses.response.poses;
             width_ = srvGraspingPoses.response.width;
         }
-        ROS_INFO("[DemoAnticipatoryVsReactive] NumberPoses: %d", (int)graspingPoses_.poses.size());
+        ROS_INFO("[DemoCerealsMilk] NumberPoses: %d", (int)graspingPoses_.poses.size());
 
         mtxWriteFile_.lock();
         computeGraspPosesTime_ = ros::Time::now();
@@ -2166,13 +2205,13 @@ namespace demo_anticipatory_vs_reactive
         // ros::Duration(4.0).sleep();
     }
 
-    void *DemoAnticipatoryVsReactive::sendFindReachGraspIKThreadWrapper(void *object)
+    void *DemoCerealsMilk::sendFindReachGraspIKThreadWrapper(void *object)
     {
-        reinterpret_cast<DemoAnticipatoryVsReactive *>(object)->findReachGraspIKThread(NULL);
+        reinterpret_cast<DemoCerealsMilk *>(object)->findReachGraspIKThread(NULL);
         return 0;
     }
 
-    void *DemoAnticipatoryVsReactive::findReachGraspIKThread(void *ptr)
+    void *DemoCerealsMilk::findReachGraspIKThread(void *ptr)
     {
         pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
         foundReachIk_ = false;
@@ -2188,7 +2227,7 @@ namespace demo_anticipatory_vs_reactive
 
         for (int idx = indexGraspingPose_ + 1; idx < graspingPoses_.poses.size(); idx++)
         {
-            // ROS_INFO("[DemoAnticipatoryVsReactive] idx: %d", idx);
+            // ROS_INFO("[DemoCerealsMilk] idx: %d", idx);
             // ROS_INFO("Grasping Pose[%d]: %f %f %f", idx, graspingPoses_.poses[idx].position.x, graspingPoses_.poses[idx].position.y, graspingPoses_.poses[idx].position.z);
 
             KDL::Frame frameEndWrtBase;
@@ -2249,7 +2288,7 @@ namespace demo_anticipatory_vs_reactive
             // goal_pose.pose = graspingPoses.poses[idx];
             if (foundReachIk_)
             {
-                ROS_INFO("[DemoAnticipatoryVsReactive] IK Found!");
+                ROS_INFO("[DemoCerealsMilk] IK Found!");
                 ss.clear();
                 ss << "IK Found";
                 msg.data = ss.str();
@@ -2278,13 +2317,13 @@ namespace demo_anticipatory_vs_reactive
         // ros::Duration(4.0).sleep();
     }
 
-    void *DemoAnticipatoryVsReactive::sendPlanToReachJointsThreadWrapper(void *object)
+    void *DemoCerealsMilk::sendPlanToReachJointsThreadWrapper(void *object)
     {
-        reinterpret_cast<DemoAnticipatoryVsReactive *>(object)->planToReachJointsThread(NULL);
+        reinterpret_cast<DemoCerealsMilk *>(object)->planToReachJointsThread(NULL);
         return 0;
     }
 
-    void *DemoAnticipatoryVsReactive::planToReachJointsThread(void *ptr)
+    void *DemoCerealsMilk::planToReachJointsThread(void *ptr)
     {
         pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
         successPlanning_ = false;
@@ -2317,20 +2356,19 @@ namespace demo_anticipatory_vs_reactive
         }
     }
 
-    void DemoAnticipatoryVsReactive::stopDemoCallback(const std_msgs::EmptyConstPtr &stop)
+    void DemoCerealsMilk::stopDemoCallback(const std_msgs::EmptyConstPtr &stop)
     {
         ROS_INFO("Demo stopped!");
         stopDemo_ = true;
     }
 
-    void DemoAnticipatoryVsReactive::okDemoCallback(const std_msgs::EmptyConstPtr &msg)
+    void DemoCerealsMilk::okDemoCallback(const std_msgs::EmptyConstPtr &msg)
     {
         ROS_INFO("Demo stopped!");
         okDemo_ = true;
     }
 
-
-    void DemoAnticipatoryVsReactive::glassesDataCallback(const companion_msgs::GlassesData::ConstPtr &glassesData)
+    void DemoCerealsMilk::glassesDataCallback(const companion_msgs::GlassesData::ConstPtr &glassesData)
     {
 
         std_msgs::String msg;
@@ -2359,7 +2397,7 @@ namespace demo_anticipatory_vs_reactive
                     }
                     if (!object_in_the_table)
                     {
-                        ROS_WARN("[DemoAnticipatoryVsReactive] Gaze command category %s is NOT available in the table.", glassesData->category.c_str());
+                        ROS_WARN("[DemoCerealsMilk] Gaze command category %s is NOT available in the table.", glassesData->category.c_str());
                         return;
                     }
                     // -------------------------------------------------------------------------------------------------------------------------------//
@@ -2368,7 +2406,7 @@ namespace demo_anticipatory_vs_reactive
                     if (currentDecisionProb_ > thresholdPlanTrajectory_) // The probability of the decision is greater than the planning threshold
                     {
 
-                        ROS_INFO("[DemoAnticipatoryVsReactive] Glasses command to grasp %s prob: %f", glassesData->category.c_str(), currentDecisionProb_);
+                        ROS_INFO("[DemoCerealsMilk] Glasses command to grasp %s prob: %f", glassesData->category.c_str(), currentDecisionProb_);
                         prevGlassesCategory_ = glassesCategory_;
                         glassesCategory_ = glassesData->category;
 
@@ -2423,7 +2461,7 @@ namespace demo_anticipatory_vs_reactive
 
                                 if (indexGlassesSqCategory_ >= 0)
                                 {
-                                    ROS_INFO("[DemoAnticipatoryVsReactive] Gaze command category %s is  available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
+                                    ROS_INFO("[DemoCerealsMilk] Gaze command category %s is  available in the table.", sqCategories_[indexGlassesSqCategory_].category.c_str());
                                     std::stringstream ss;
                                     ss << "Gaze command category: " << sqCategories_[indexGlassesSqCategory_].category << " is  available in the table.";
                                     msg.data = ss.str();
@@ -2500,7 +2538,7 @@ namespace demo_anticipatory_vs_reactive
                                 else
                                 {
 
-                                    ROS_WARN("[DemoAnticipatoryVsReactive] Gaze command category %s is NOT available in the table.");
+                                    ROS_WARN("[DemoCerealsMilk] Gaze command category %s is NOT available in the table.");
                                     std::stringstream ss;
                                     ss << "Gaze command category: " << sqCategories_[indexGlassesSqCategory_].category << " is NOT available in the table.";
                                     // msg.data = ss.str();
@@ -2603,7 +2641,7 @@ namespace demo_anticipatory_vs_reactive
         }
     }
 
-    bool DemoAnticipatoryVsReactive::computeIntersectionOverUnion(const std::array<int, 4> &bboxYolo, const std::array<int, 4> &bboxSq, float &IoU)
+    bool DemoCerealsMilk::computeIntersectionOverUnion(const std::array<int, 4> &bboxYolo, const std::array<int, 4> &bboxSq, float &IoU)
     {
         if (bboxYolo[0] < bboxSq[2] and bboxYolo[2] > bboxSq[0] and
             bboxYolo[1] < bboxSq[3] and bboxYolo[3] > bboxSq[1])
