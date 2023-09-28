@@ -219,6 +219,7 @@ install(PROGRAMS
         scripts/fake_glasses.py
         scripts/add_depth_filter.py
         scripts/detect_hit_ft.py
+        scripts/incorrect_tests.py
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 #############
