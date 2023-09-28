@@ -70,7 +70,7 @@ void ConstrainedSuperquadrics::compressedDepthImageCallback(const sensor_msgs::I
         // Perform the actual filtering
         pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
         sor.setInputCloud(cloudFilteredPtr);
-        sor.setLeafSize(0.005f, 0.005f, 0.005f);
+        sor.setLeafSize(0.01f, 0.01f, 0.01f);
         sor.filter(*cloudFiltered);
 
         // Create the filtering object
@@ -146,6 +146,9 @@ void ConstrainedSuperquadrics::compressedDepthImageCallback(const sensor_msgs::I
                 lccp_labeled_cloud->push_back(point);
             }
         } //*
+
+
+
 
         // // Convert to ROS data type
         // pcl::toPCLPointCloud2(*lccp_labeled_cloud, *cloudFiltered);

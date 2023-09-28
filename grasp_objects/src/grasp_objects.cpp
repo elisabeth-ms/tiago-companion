@@ -33,10 +33,11 @@ namespace grasp_objects
         ros::param::get("grasp_objects/th_points", th_points_);
         ros::param::get("demo/table_dimensions", table_dimensions_);
 
+        table_dimensions_[2] = 0.7;
         nodeHandle_.param("subscribers/point_cloud/topic", pointCloudTopicName, std::string("/xtion/depth/points"));
         nodeHandle_.param("subscribers/camera_info/topic", cameraInfoTopicName, std::string("/xtion/depth/camera_info"));
-        // nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth/image_rect"));
-        nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth_registered/image_raw"));
+        nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth/image_rect"));
+        // nodeHandle_.param("subscribers/compressed_depth_image/topic", compressedDepthImageTopicName, std::string("/xtion/depth_registered/image_raw"));
 
         image_transport::ImageTransport it(nodeHandle_);
         ROS_INFO("[GraspObjects] grasp_objects/eps_angle set to %f", epsAnglePlaneSegmentation_);
@@ -637,7 +638,7 @@ namespace grasp_objects
                 pcl::PointXYZRGB tmp_point_projected;
                 tmp_point_projected.x = lccp_labeled_cloud->points[i].x;
                 tmp_point_projected.y = lccp_labeled_cloud->points[i].y;
-                tmp_point_projected.z = table_dimensions_[2]-0.1;
+                tmp_point_projected.z = table_dimensions_[2];
                 tmp_point_projected.r = rand() % 256;
                 tmp_point_projected.g = rand() % 256;
                 tmp_point_projected.b = rand() % 256;
@@ -685,7 +686,7 @@ namespace grasp_objects
         {
             ROS_INFO("[GraspObjects] label: %d", detectedObjects_[i].label);
             ROS_INFO("[GraspObjects] size: %d", detectedObjects_[i].object_cloud.size());
-            float min_height = table_dimensions_[2]-0.05;
+            float min_height = table_dimensions_[2];
             int r = rand()%256;
             int g = rand()%256;
             int b = rand()%256;
@@ -926,10 +927,10 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
 
             std::vector<pcl::PointIndices> cluster_indices;
             pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-            ec.setClusterTolerance (0.04); // 2cm
-            ec.setMinClusterSize (100);
+            ec.setClusterTolerance (0.02); // 2cm
+            ec.setMinClusterSize (50);
             
-            ec.setMaxClusterSize (25000);
+            ec.setMaxClusterSize (10000);
             ec.setSearchMethod (tree);
             ec.setInputCloud (cloud_without_table_projected);
             ec.extract (cluster_indices);
@@ -983,10 +984,10 @@ void GraspObjects::compressedDepthImageCallback(const sensor_msgs::ImageConstPtr
 
 
                     // --------- TEST WITHOUTH OBJECT EXTRUSION--------//
-                    pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
+                    // pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud, point_cloud);
 
                     // --------- TEST WITH OBJECT EXTRUSION--------//
-                    // pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud_hull, point_cloud);
+                    pclPointCloudToSuperqPointCloud(detectedObjects_[idx].object_cloud_hull, point_cloud);
                     ROS_INFO("pointCloud points: %d", point_cloud.n_points);
                     std::vector<SuperqModel::Superquadric> superqs;
                     getSuperquadricFromPointCloud(point_cloud, superqs);
