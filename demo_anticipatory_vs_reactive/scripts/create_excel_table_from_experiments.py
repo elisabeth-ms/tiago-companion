@@ -15,11 +15,13 @@ ws.append(["User_Id", "Predictive/Reactive", "Task", "Threshold Plan", "Threshol
 
 general_directory = "../experimentos"
 users_ids = []
-for id in range(3,23):
-    if os.path.isdir(general_directory+"/user_"+str(id)):
-        users_ids.append("user_"+str(id))
+# for id in range(3,23):
+#     if os.path.isdir(general_directory+"/user_"+str(id)):
+#         users_ids.append("user_"+str(id))
+users_ids.append("user_100")
 print(users_ids)     
-for str_predictive in ["Predictive", "Reactive"]:
+# for str_predictive in ["Predictive", "Reactive"]:
+for str_predictive in ["Predictive"]:
     for str_user_id in users_ids:
         for str_task in os.listdir(general_directory+"/"+str_user_id+"/"+str_predictive):
             print(str_task)
@@ -124,15 +126,20 @@ for i in range(25, 45):
     predictive_all_tests.append(res[0][1])
     predictive_all_tests.append(res[0][2])
 
-    # reactive_all_tests.append(res_reactive[0][0])
-    # reactive_all_tests.append(res_reactive[0][1])
-    # reactive_all_tests.append(res_reactive[0][2])
+    reactive_all_tests.append(res_reactive[0][0])
+    reactive_all_tests.append(res_reactive[0][1])
+    reactive_all_tests.append(res_reactive[0][2])
 
 
 print(predictive_all_tests)
 for i in range(len(predictive_all_tests)):
     print(predictive_all_tests[i])
     ws.cell(row=2+i, column=3, value=predictive_all_tests[i])
+
+print(reactive_all_tests)
+for i in range(len(reactive_all_tests)):
+    print(reactive_all_tests[i])
+    ws.cell(row=62+i, column=3, value=reactive_all_tests[i])
 # for i in range(0, len(predictive_all_tests)):
 #     ws.cell(row=22+i, column=4, value=reactive_all_tests[i])
 
