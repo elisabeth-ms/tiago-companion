@@ -149,6 +149,7 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/demo_sharon_node.cpp)
 add_executable(${PROJECT_NAME}_node src/demo_anticipatory_vs_reactive.cpp src/demo_anticipatory_vs_reactive_node.cpp)
 add_executable(demo_cereals_milk_node src/demo_cereals_milk.cpp src/demo_cereals_milk_node.cpp)
+add_executable(basic_demo_asr_node src/basic_demo_asr.cpp src/basic_demo_asr_node.cpp)
 
 
 ## Rename C++ executable without prefix
@@ -162,6 +163,7 @@ add_executable(demo_cereals_milk_node src/demo_cereals_milk.cpp src/demo_cereals
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(demo_cereals_milk_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(basic_demo_asr_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
@@ -174,6 +176,11 @@ target_link_libraries(${PROJECT_NAME}_node
 )
 
 target_link_libraries(demo_cereals_milk_node
+  ${catkin_LIBRARIES}
+  stdc++fs
+)
+
+target_link_libraries(basic_demo_asr_node
   ${catkin_LIBRARIES}
   stdc++fs
 )

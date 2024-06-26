@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+    <rosparam file="$(find grasp_objects)/config/grasp_objects.yaml" command="load" ns="grasp_objects"/>
+    <rosparam file="$(find demo_anticipatory_vs_reactive)/config/basic_demo_asr.yaml" command="load" ns="demo"/>
+
+    <node name="grasp_objects_node" pkg="grasp_objects" type="grasp_objects_node" output="screen"/>
+    <node name="basic_demo_asr" pkg="demo_anticipatory_vs_reactive" type="basic_demo_asr_node" output="screen"/>
+    <!--include file="$(find darknet_ros)/launch/darknet_ros.launch"/-->
+</launch>
