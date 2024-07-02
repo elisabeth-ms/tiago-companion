@@ -1,0 +1,45 @@
+<?xml version='1.0'?>
+<sdf version='1.6'>
+  <model name='apple_juice_box'>
+    <link name="link">
+      <inertial>
+        <mass value="0.1" />
+        <pose frame=''>0 0 -0.0 0 0 0</pose>
+        <inertia>
+          <ixx>0.001</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.001</izz>
+        </inertia>
+        <!--inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" /-->
+      </inertial>
+      <pose frame=''>0 0 0.0 0 0 0</pose>
+      <visual name='visual'>
+        <pose frame=''>0 0 0.0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://apple_juice_box/apple_juice_box.dae</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+        <cast_shadows>1</cast_shadows>
+        <material> <!-- Wheel material -->
+					<lighting>1</lighting>
+
+        </material> <!-- End wheel material -->
+      </visual>
+      <collision name='collision'>
+        <pose frame=''>0 0 0.0055 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.062 0.07 0.251</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+    <static>0</static>
+    <allow_auto_disable>1</allow_auto_disable>
+  </model>
+</sdf>
