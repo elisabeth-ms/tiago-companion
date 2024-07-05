@@ -1,0 +1,9 @@
+geometry_msgs/PoseStamped target_pose
+
+---
+string result
+geometry_msgs/PoseStamped updated_goal
+
+---
+geometry_msgs/PoseStamped current_pose
+string feedback
