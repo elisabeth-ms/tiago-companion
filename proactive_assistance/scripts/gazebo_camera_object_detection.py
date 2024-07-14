@@ -131,14 +131,12 @@ class GetData(object):
         for model_geometry_info in self.geometry_models:
             print("Model name: " + model_geometry_info.object_name)
             self.classes.append(model_geometry_info.object_name)
+            
+            if model_geometry_info.object_name  == 'cocacola':
+                model_geometry_info.pose.position.z += model_geometry_info.shape.dimensions[0]/2
+            elif model_geometry_info.object_name == 'pringles':
+                model_geometry_info.pose.position.z += model_geometry_info.shape.dimensions[0]/2
 
-            dimensions = [0,0,0]
-            if len(model_geometry_info.shape.dimensions) == 3:
-                dimensions = model_geometry_info.shape.dimensions
-            elif len(model_geometry_info.shape.dimensions) == 2:
-                dimensions = [model_geometry_info.shape.dimensions[0], model_geometry_info.shape.dimensions[1], 0]
-            elif len(model_geometry_info.shape.dimensions) == 1:
-                dimensions = [model_geometry_info.shape.dimensions[0], 0, 0]
             pc_model_wrt_world = self.createPointCloud(model_geometry_info.shape, 'world', model_geometry_info.pose, 3)
             self.pc_models_wrt_world.append(pc_model_wrt_world)
 

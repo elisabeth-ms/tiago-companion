@@ -20,7 +20,7 @@ class LinkStateToTF(object):
         # self.base_link_str = 'tiago_dual::base_footprint2'
         # self.tf_frame_base_link_str = 'base_link'
         self.subscriber = rospy.Subscriber(
-            "/gazebo/link_states", LinkStates, self.linkStateCallback,  queue_size=10)
+            "/gazebo/link_states", LinkStates, self.linkStateCallback,  queue_size=1)
         self.transformations = [
             geometry_msgs.msg.TransformStamped()]
 
