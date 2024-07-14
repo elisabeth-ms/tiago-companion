@@ -35,6 +35,7 @@
     <!-- A ground plane -->
     <include>
       <uri>model://ground_plane</uri>
+      <pose>0.4 0.5 0.0 0.0 0.0 1.5708</pose>
     </include>
 
     <include>
@@ -111,13 +112,37 @@
       <name>wall4</name>
       <pose>-3.117256 -1.403707 0 0 0 1.5708</pose>
     </include>
+    
+    <include>
+      <uri>model://cocacola</uri>
+      <name>cocacola</name>
+      <pose>-2.15 -0.05 0.61 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://pringles2</uri>
+      <name>pringles</name>
+      <pose>-2.122 0.44 0.61 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://biscuits</uri>
+      <name>biscuits</name>
+      <pose>-2.052 0.788 0.685 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://milk2</uri>
+      <name>milk</name>
+      <pose>-2.124 1.2785 0.712 0 0 0</pose>
+    </include>
 
     <!-- <include>
       <uri>model://cereal3</uri>
       <name>cereal3</name>
       <pose>0.681849 -0.135557 0.979998 0.000012 0.000012 -0.000100</pose>
     </include> -->
-
+    <plugin name="gazebo_ros_get_geometries_plugin" filename="libgazebo_ros_get_geometries_plugin.so"/>
     <gui fullscreen="0">
       <camera name="user_camera">
         <pose>1.152670 -0.041479 3.496780 0.000000 1.123640 3.132190</pose>

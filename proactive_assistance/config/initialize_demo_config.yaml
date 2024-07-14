@@ -1,0 +1,7 @@
+initial_state:
+  head_controller:
+    pan: 0.0  # Initial pan angle for the head in radians
+    tilt: -0.3  # Initial tilt angle for the head in radians
+
+  torso_controller:
+    height: 0.35  # Initial height for the torso lift in meters

@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-#!/usr/bin/env python
 import rospy
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
@@ -73,10 +72,7 @@ class NavigationMacroActionServer:
                     return
                 elif self._move_base_client.get_state() == actionlib.GoalStatus.ACTIVE:
                     rospy.loginfo("NavigationMacroActionServer: Goal active")
-                    self._result.result = "active"
-                    self._result.updated_goal = PoseStamped()
-                    return self._result
-                    
+
 
             self._as.publish_feedback(NavigateWaypointFeedback(feedback="Navigating"))
             rate.sleep()

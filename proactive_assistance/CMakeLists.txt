@@ -169,6 +169,7 @@ catkin_install_python(PROGRAMS
    scripts/navigation_macro_actions.py
    scripts/state_machine.py
    scripts/fake_goal_update_server.py
+   scripts/fake_task_navigation_goal.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

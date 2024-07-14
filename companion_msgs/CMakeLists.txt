@@ -7,7 +7,7 @@ project(companion_msgs)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS message_generation std_msgs geometry_msgs)
+find_package(catkin REQUIRED COMPONENTS message_generation std_msgs geometry_msgs sensor_msgs)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -50,6 +50,9 @@ add_message_files(
     GlassesData.msg
     BoundingBox.msg
     BoundingBoxes.msg
+    CropsWithIDs.msg
+    TaskNavigationGoal.msg
+    BoundingBoxesLabels.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -74,6 +77,7 @@ generate_messages(
     DEPENDENCIES
         std_msgs
         geometry_msgs
+        sensor_msgs
 )
 
 ################################################
@@ -106,7 +110,7 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-    CATKIN_DEPENDS message_runtime std_msgs geometry_msgs
+    CATKIN_DEPENDS message_runtime std_msgs geometry_msgs sensor_msgs
 )
 
 ###########

@@ -5,6 +5,7 @@ from proactive_assistance.msg import NewWaypointAction, NewWaypointGoal, NewWayp
 from geometry_msgs.msg import PoseStamped
 import random
 from std_srvs.srv import SetBool
+from math import sin, cos
 
 class FakeGoalUpdateServer:
     def __init__(self, name):
@@ -32,7 +33,15 @@ class FakeGoalUpdateServer:
           new_goal.target_pose.pose.position.x = random.uniform(-0.2, 0.8)
           new_goal.target_pose.pose.position.y = random.uniform(-0.2, 0.8)
           new_goal.target_pose.pose.position.z = 0.0
-          new_goal.target_pose.pose.orientation.z = 1.0
+          
+          angle_in_vertical_axis = random.uniform(-3.14159, 3.14159)
+          # Transform the angle to a quaternion
+          new_goal.target_pose.pose.orientation.x = 0.0
+          new_goal.target_pose.pose.orientation.y = 0.0
+          new_goal.target_pose.pose.orientation.z = sin(angle_in_vertical_axis/2)
+          new_goal.target_pose.pose.orientation.w = cos(angle_in_vertical_axis/2)
+
+          
 
           rospy.loginfo("FakeGoalUpdateServer: New goal generated at x: %f, y: %f",
                         new_goal.target_pose.pose.position.x, new_goal.target_pose.pose.position.y)
