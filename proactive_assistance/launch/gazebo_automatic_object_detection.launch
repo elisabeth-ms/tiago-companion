@@ -1,0 +1,7 @@
+<launch>
+
+  <node name="link_state_to_tf" pkg="proactive_assistance" type="link_state_to_tf.py" output="screen"/>
+  <node name="gazebo_camera_object_detection" pkg="proactive_assistance" type="gazebo_camera_object_detection.py" output="screen"/>
+  <node name="image_bounding_box_drawer" pkg="proactive_assistance" type="image_bounding_box_drawer.py" output="screen"/>
+
+</launch>

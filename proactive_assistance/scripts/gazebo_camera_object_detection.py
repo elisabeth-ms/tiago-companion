@@ -116,7 +116,6 @@ class GetData(object):
 
         #self.image_sub = rospy.Subscriber('/xtion/rgb/image_raw', Image, self.image_callback)
         
-        self.bbox_pub = rospy.Publisher('/xtion/bounding_boxes_image', Image, queue_size=20)
         self.publish_bboxes_cam = rospy.Publisher("/xtion/bounding_boxes", BoundingBoxesLabels, queue_size=20)
         print("Initialization done")
         
@@ -150,7 +149,7 @@ class GetData(object):
         nameObjects = []
         id = 0
         count = 0
-        start_time_transform = time.time()
+        # start_time_transform = time.time()
         transform = self.get_transform(self.tf_buffer, 'world', self.camera_frame)
         if transform is None:
             return
@@ -186,7 +185,7 @@ class GetData(object):
             boundingBoxes.header.frame_id = self.camera_frame
             boundingBoxes.header.stamp = rospy.Time.now()
             self.publish_bboxes_cam.publish(boundingBoxes)
-            print("Time to get transform: ", time.time() - start_time_transform)
+            # print("Time to get transform: ", time.time() - start_time_transform)
 
 
         #           # Assuming you have a function to get bounding boxes

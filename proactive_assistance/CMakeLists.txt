@@ -170,6 +170,9 @@ catkin_install_python(PROGRAMS
    scripts/state_machine.py
    scripts/fake_goal_update_server.py
    scripts/fake_task_navigation_goal.py
+   scripts/gazebo_camera_object_detection.py
+   scripts/link_state_to_tf.py
+   scripts/image_bounding_box_drawer.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
