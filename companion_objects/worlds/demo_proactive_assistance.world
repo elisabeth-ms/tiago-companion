@@ -114,27 +114,33 @@
     </include>
     
     <include>
-      <uri>model://cocacola</uri>
-      <name>cocacola</name>
-      <pose>-2.15 -0.05 0.61 0 0 0</pose>
+      <uri>model://butter</uri>
+      <name>butter</name>
+      <pose>-2.2 -0.2 0.61 0 0 0</pose>
     </include>
 
     <include>
-      <uri>model://pringles2</uri>
-      <name>pringles</name>
-      <pose>-2.122 0.44 0.61 0 0 0</pose>
+      <uri>model://tomato_sauce</uri>
+      <name>tomato_sauce</name>
+      <pose>-2.15 0.1 0.61 0 0 0</pose>
     </include>
 
     <include>
-      <uri>model://biscuits</uri>
-      <name>biscuits</name>
-      <pose>-2.052 0.788 0.685 0 0 0</pose>
+      <uri>model://nutella</uri>
+      <name>nutella</name>
+      <pose>-2.16 0.4 0.685 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://apricot_jam</uri>
+      <name>apricot_jam</name>
+      <pose>-2.224 0.75 0.712 0 0 0</pose>
     </include>
 
     <include>
       <uri>model://milk2</uri>
       <name>milk</name>
-      <pose>-2.124 1.2785 0.712 0 0 0</pose>
+      <pose>-2.324 1.15 0.712 0 0 0</pose>
     </include>
 
     <!-- <include>

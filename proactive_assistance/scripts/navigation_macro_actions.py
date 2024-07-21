@@ -12,17 +12,17 @@ class NavigationMacroActionServer:
         self._feedback = NavigateWaypointFeedback()
         self._result = NavigateWaypointResult()
         self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
-        self._goal_update_client = actionlib.SimpleActionClient('goal_update', NewWaypointAction)
+        # self._goal_update_client = actionlib.SimpleActionClient('goal_update', NewWaypointAction)
         rospy.loginfo("Waiting for move_base action server...")
         self._move_base_client.wait_for_server()
-        rospy.loginfo("Waiting for goal_update action server...")
-        self._goal_update_client.wait_for_server()
+        # rospy.loginfo("Waiting for goal_update action server...")
+        # self._goal_update_client.wait_for_server()
         rospy.loginfo("NavigationMacroActionServer started.")
         self._as.start()
 
     def execute_cb(self, goal):
         rospy.loginfo("NavigationMacroActionServer: Executing goal")
-
+        
         move_base_goal = MoveBaseGoal()
         move_base_goal.target_pose = goal.target_pose
         print("move_base_goal: ", goal)
@@ -35,27 +35,32 @@ class NavigationMacroActionServer:
                 self._move_base_client.cancel_goal()
                 self._as.set_preempted()
                 return
-
+            print("---------------------------------------------------------------------------------------------------")
+            print(goal)
+                      
 
             # Check if an update is required
-            self._goal_update_client.send_goal(NewWaypointGoal())
-            if self._goal_update_client.wait_for_result(rospy.Duration(0.5)):
-                new_goal_result = self._goal_update_client.get_result()
-                print("new_goal_result: ", new_goal_result)
-                print("---------------------------------------------------------------------------------------------------")
-                if new_goal_result.result == "new_goal":
-                    new_goal = new_goal_result.target_pose
-                    if new_goal != move_base_goal.target_pose:
-                        rospy.loginfo("NavigationMacroActionServer: Goal update required")
-                        self._move_base_client.cancel_goal()
-                        move_base_goal.target_pose = new_goal
-                        self._feedback.feedback = 'new_goal'
-                        self._as.publish_feedback(self._feedback)
-                        print("new_goal: ", new_goal) 
-                        self._result.result = "new_goal"
-                        self._result.updated_goal = new_goal
-                        self._as.set_preempted(self._result)
-                        return 
+            new_goal = NewWaypointGoal()
+            new_goal.object_name = goal.object_name
+            # self._goal_update_client.send_goal(new_goal)
+            # if self._goal_update_client.wait_for_result(rospy.Duration(0.5)):
+            #     new_goal_result = self._goal_update_client.get_result()
+            
+            #     if new_goal_result.result == "new_goal":
+            #         print("new_goal_result: ", new_goal_result)
+            #         print("---------------------------------------------------------------------------------------------------")
+            #         new_goal = new_goal_result.target_pose
+            #         if new_goal != move_base_goal.target_pose:
+            #             rospy.loginfo("NavigationMacroActionServer: Goal update required")
+            #             self._move_base_client.cancel_goal()
+            #             move_base_goal.target_pose = new_goal
+            #             self._feedback.feedback = 'new_goal'
+            #             self._as.publish_feedback(self._feedback)
+            #             print("new_goal: ", new_goal) 
+            #             self._result.result = "new_goal"
+            #             self._result.updated_goal = new_goal
+            #             self._as.set_preempted(self._result)
+            #             return 
 
             if self._move_base_client.wait_for_result(rospy.Duration(1.0)):
                 if self._move_base_client.get_state() == actionlib.GoalStatus.SUCCEEDED:

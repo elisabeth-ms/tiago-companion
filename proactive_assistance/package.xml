@@ -56,7 +56,8 @@
   <build_depend>actionlib_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>move_base_msgs</build_depend>
-
+  <build_depend>companion_msgs</build_depend>
+  <build_depend>shape_msgs</build_depend>
 
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
@@ -65,6 +66,8 @@
   <build_export_depend>actionlib_msgs</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>move_base_msgs</build_export_depend>
+  <build_export_depend>companion_msgs</build_export_depend>
+  <build_export_depend>shape_msgs</build_export_depend>
 
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
@@ -73,6 +76,8 @@
   <exec_depend>actionlib_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>move_base_msgs</exec_depend>
+  <exec_depend>companion_msgs</exec_depend>
+  <exec_depend>shape_msgs</exec_depend>
   
 
 

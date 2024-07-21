@@ -23,7 +23,7 @@ class LinkStateToTF(object):
             "/gazebo/link_states", LinkStates, self.linkStateCallback,  queue_size=1)
         self.transformations = [
             geometry_msgs.msg.TransformStamped()]
-
+        self.last_published_time = rospy.Time.now()
         self.image_color = None
 
 
@@ -33,6 +33,13 @@ class LinkStateToTF(object):
         linkIndexes = [data.name.index(
             self.floating_camera_link_str)]
         br = tf2_ros.TransformBroadcaster()
+        
+        current_time = rospy.Time.now()
+        
+        # Rate limiting: Publish only if 0.1 seconds have passed since the last publication (10 Hz)
+        if (current_time - self.last_published_time).to_sec() < 0.01:
+            return
+        self.last_published_time = current_time
 
         for i in range(0, len(linkIndexes)):
             if linkIndexes[i] > -1:
@@ -86,6 +93,3 @@ if __name__ == '__main__':
     rospy.init_node('link_state_to_tf_node')
     linkStateToTF = LinkStateToTF()
     rospy.spin()
-
-    while rospy.is_shutdown() == False:
-        linkStateToTF.update()

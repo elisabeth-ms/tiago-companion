@@ -1,0 +1,19 @@
+# ObjectManipulation.action
+
+# Define the goal
+bool gripper_empty  # true if the gripper is empty, false if holding an object
+companion_msgs/Superquadric desired_object
+geometry_msgs/PoseArray grasping_poses
+shape_msgs/SolidPrimitive[] obstacles
+geometry_msgs/Pose[] obstacle_poses
+string[] reference_frames_of_obstacles
+
+---
+# Define the result
+bool success
+string message
+
+---
+# Define the feedback
+string status
+int32 percent_complete

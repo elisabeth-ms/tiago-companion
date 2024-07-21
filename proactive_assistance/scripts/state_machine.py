@@ -13,7 +13,8 @@ from control_msgs.msg import PointHeadAction, PointHeadGoal
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from companion_msgs.msg import TaskNavigationGoal
-
+from companion_msgs.srv import ActivateSupercuadricsComputation, ActivateSupercuadricsComputationRequest, GetSuperquadrics, GetSuperquadricsRequest, GetSuperquadricsResponse
+from companion_msgs.srv import GetBboxes, GetBboxesRequest, GetBboxesResponse
 def find_package_path(package_name):
     rospack = rospkg.RosPack()
     try:
@@ -87,8 +88,9 @@ class WaitToPick(smach.State):
         self.goal_pose = PoseStamped()
         self.goal_received = False
         self.goal_subscriber = rospy.Subscriber('/proactive_assistance/task_navigation_goal', TaskNavigationGoal, self.goal_cb)
-        self._goal_update_client = actionlib.SimpleActionClient('goal_update', NewWaypointAction)
+        # self._goal_update_client = actionlib.SimpleActionClient('goal_update', NewWaypointAction)
         self.task_navigation_goal = TaskNavigationGoal()
+        
 
 
     def goal_cb(self, msg):
@@ -104,14 +106,13 @@ class WaitToPick(smach.State):
             if self.preempt_requested():
                 self.service_preempt()
                 return 'preempted'
-            self._goal_update_client.send_goal(NewWaypointGoal())
-            if self._goal_update_client.wait_for_result(rospy.Duration(0.5)):
-                new_goal_result = self._goal_update_client.get_result()
-                if new_goal_result.result == "new_goal":
-                    self.goal_pose = new_goal_result.target_pose
-                    print("new_goal: ", self.goal_pose)
-                    self.goal_received = True
-            rospy.sleep(1)
+            # self._goal_update_client.send_goal(NewWaypointGoal())
+            # if self._goal_update_client.wait_for_result(rospy.Duration(0.5)):
+            #     new_goal_result = self._goal_update_client.get_result()
+            #     if new_goal_result.result == "new_goal":
+            #         self.goal_pose = new_goal_result.target_pose
+            #         print("new_goal: ", self.goal_pose)
+            rospy.sleep(0.1)
         if self.goal_received:
             self.goal_received = False
             userdata.task_navigation_goal = self.task_navigation_goal
@@ -128,6 +129,7 @@ class NavToPick(smach.State):
         self._ac.wait_for_server()
 
         goal = NavigateWaypointGoal()
+        goal.object_name = userdata.task_navigation_goal.object_name
         goal.target_pose = userdata.task_navigation_goal.target_pose
         # self._ac.send_goal(goal, feedback_cb=self.feedback_cb)
         self._ac.send_goal(goal)
@@ -139,11 +141,11 @@ class NavToPick(smach.State):
         print("Result: ", result)
         print("Result: ", result.result)
         
-        if result.result == "new_goal":
-            print("new_goal")
-            userdata.task_navigation_goal.target_pose = result.updated_goal
-            return 'update_goal'
-        elif result.result == 'succeeded':
+        # if result.result == "new_goal":
+        #     print("new_goal")
+        #     userdata.task_navigation_goal.target_pose = result.updated_goal
+        #     return 'update_goal'
+        if result.result == 'succeeded':
             print("succeeded")
             return 'goal_reached'
         elif result.result == 'failed':
@@ -160,26 +162,110 @@ class NavToPick(smach.State):
         #     self._ac.cancel_goal()
         #     return 'update_required'
 
+class ObjectBasedGoal(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['goal_updated', 'goal_not_updated', 'close_enough'],
+                             input_keys=['task_navigation_goal'], output_keys=['task_navigation_goal'])
+        self._goal_update_client = actionlib.SimpleActionClient('goal_update', NewWaypointAction)
+        self._goal_update_client.wait_for_server()
+        self.need_update = True
+
+    def execute(self, userdata):
+        rospy.loginfo('ObjectBasedGoal: Executing goal update check...')
+        
+        rate = rospy.Rate(10)  # 1 Hz
+            # Call the goal_update action server
+        goal = NewWaypointGoal()
+        goal.object_name = userdata.task_navigation_goal.object_name
+        self._goal_update_client.send_goal(goal)
+            
+        # Wait for result with a timeout
+        if self._goal_update_client.wait_for_result(rospy.Duration(1.0)):
+            result = self._goal_update_client.get_result()
+            print("result: ", result.result)
+            if result.result == "new_goal":
+                new_goal_pose = result.target_pose
+
+                # Check if the goal is far enough to the previous navigation goal
+                rospy.loginfo('ObjectBasedGoal: Checking if the new goal is far enough...')
+                if not self.is_close_enough(userdata.task_navigation_goal.target_pose, new_goal_pose, 0.15) or self.need_update:
+                    rospy.loginfo('ObjectBasedGoal: Navigation goal updated.')
+                    userdata.task_navigation_goal.target_pose = new_goal_pose
+                    self.need_update = False
+                    return 'goal_updated'
+                
+                rospy.loginfo('ObjectBasedGoal: No need to update the goal.')
+                if not self.need_update and self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose, 0.2):
+                    return 'close_enough'
+                else:
+                    return 'goal_not_updated'
+            else:
+                rospy.loginfo('ObjectBasedGoal: No new goal.')
+                if self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose):
+                    return 'close_enough'
+                else:
+                    return 'goal_not_updated'
+
+
+    def is_close_enough(self, current_pose, new_pose, distance_threshold):
+        distance = self.calculate_distance(current_pose.pose.position, new_pose.pose.position)
+        rospy.loginfo('ObjectBasedGoal: Distance to new goal: %f', distance)
+        return distance <= distance_threshold
+
+    def calculate_distance(self, position1, position2):
+        return ((position1.x - position2.x) ** 2 + 
+                (position1.y - position2.y) ** 2 + 
+                (position1.z - position2.z) ** 2) ** 0.5
+
+
 class IdentifyObjectsState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['object_identified', 'object_not_identified'],
-                                   input_keys=['goal_pose'],
-                                   output_keys=['shapes', 'poses'])
+                                   input_keys=['task_navigation_goal'],
+                                   output_keys=['task_navigation_goal'])
+        
+        # Two services to call for object shape and pose identification using python client
+        self.client_activate_object_shape_computation_ =rospy.ServiceProxy("/grasp_objects/activate_superquadrics_computation", ActivateSupercuadricsComputation)
+        # rospy.wait_for_service('/grasp_objects/activate_object_shape_computation')
+        self.client_get_superquadrics_ = rospy.ServiceProxy("/grasp_objects/get_superquadrics", GetSuperquadrics)
+        
+        self.client_get_bboxes_ = rospy.ServiceProxy("/grasp_objects/get_bboxes_superquadrics", GetBboxes)
+        # rospy.wait_for_service('/grasp_objects/get_superquadrics')
 
     def execute(self, userdata):
         # Identify objects logic here
-        while not rospy.is_shutdown():
-            rospy.loginfo('Identifying objects...')
-            rospy.sleep(1)
-        objects_identified = False
-        detected_shapes = []  # List of detected shapes
-        detected_poses = []  # List of detected poses
-        if objects_identified:
-            userdata.shapes = detected_shapes
-            userdata.poses = detected_poses
+        rospy.loginfo('Identifying objects...')
+        activateRequest = ActivateSupercuadricsComputationRequest()
+        activateRequest.activate = True
+        self.client_activate_object_shape_computation_.call(activateRequest)
+        
+        srvSq = GetSuperquadricsRequest()
+        superquadrics_msg = self.client_get_superquadrics_.call(srvSq)
+        print("superquadrics_msg: ", superquadrics_msg)
+        
+        # This is the current bbox of my object of interest [(406, 265), (461, 359)]
+        tlx_bbox = 406
+        tly_bbox = 265
+        brx_bbox = 461
+        bry_bbox = 359
+        if len(superquadrics_msg.superquadrics.superquadrics) != 0:
+            rospy.loginfo('Objects identified.')
+            bboxes = self.client_get_bboxes_.call(GetBboxesRequest())
+            print("bboxes: ", bboxes)
+            for i in range(len(bboxes.bounding_boxes.bounding_boxes)):
+                bbox = bboxes.bounding_boxes.bounding_boxes[i]
+                if bbox.tlx <= tlx_bbox and bbox.tly <= tly_bbox and bbox.brx >= brx_bbox and bbox.bry >= bry_bbox:
+                    print("bbox: ", bbox.id)
+                    return 'object_identified'
             return 'object_identified'
         else:
+            rospy.loginfo('No objects identified.')
             return 'object_not_identified'
+        
+        
+        
+        
+
             
 
 class GraspingPositionsState(smach.State):
@@ -537,6 +623,20 @@ def create_place_object_state_machine():
     
     return sm_place_object
 
+def outcome_nav_pick_cb(outcome_map):
+    print("outcome_map: ", outcome_map)
+    if outcome_map['NAV_TO_PICK'] == 'goal_reached' and outcome_map['OBJECT_BASED_GOAL'] == 'close_enough':
+        return 'succeeded'
+    if outcome_map['NAV_TO_PICK'] == 'goal_unreachable':
+        return 'goal_unreachable'
+    if outcome_map['NAV_TO_PICK'] == 'preempted' or outcome_map['OBJECT_BASED_GOAL'] == 'preempted':
+        return 'preempted'
+    if outcome_map['OBJECT_BASED_GOAL'] == 'goal_updated':
+        return 'goal_updated'
+    if outcome_map['OBJECT_BASED_GOAL'] == 'goal_not_updated':
+        return 'goal_not_updated'
+    return 'goal_unreachable'
+
 
 class ProactiveAssistanceStateMachine:
     def __init__(self, package_path):
@@ -551,52 +651,71 @@ class ProactiveAssistanceStateMachine:
                                                   'aborted': 'aborted'})
                   
             smach.StateMachine.add('WAIT_TO_PICK', WaitToPick(),
-                                   transitions={'new_goal': 'NAV_TO_PICK',
+                                   transitions={'new_goal': 'CONCURRENT_OBJECT_NAV',
                                                 'aborted': 'aborted',
                                                 'preempted': 'preempted'})
 
-            smach.StateMachine.add('NAV_TO_PICK', NavToPick(),
-                                   transitions={'goal_reached': 'IDENTIFY_OBJECTS',
-                                                'goal_unreachable': 'WAIT_TO_PICK',
-                                                'preempted': 'preempted',
-                                                'update_goal': 'NAV_TO_PICK'})
+            sm_nav_pick_con = smach.Concurrence(outcomes=['succeeded', 'goal_unreachable','goal_updated', 'goal_not_updated','preempted'],
+                                   default_outcome='goal_unreachable',
+                                   input_keys=['task_navigation_goal'],
+                                   output_keys=['task_navigation_goal'],
+                                  child_termination_cb=lambda outcome_map: True,
+                                   outcome_cb=outcome_nav_pick_cb)
+
+            with sm_nav_pick_con:
+                smach.Concurrence.add('NAV_TO_PICK', NavToPick(),
+                                      remapping={'task_navigation_goal':'task_navigation_goal'})
+                smach.Concurrence.add('OBJECT_BASED_GOAL', ObjectBasedGoal(),
+                                      remapping={'task_navigation_goal':'task_navigation_goal'})
+
+            smach.StateMachine.add('CONCURRENT_OBJECT_NAV', sm_nav_pick_con,
+                                      transitions={'succeeded':'IDENTIFY_OBJECTS',
+                                                    'goal_unreachable':'aborted',
+                                                    'preempted':'preempted',
+                                                    'goal_updated':'CONCURRENT_OBJECT_NAV',
+                                                    'goal_not_updated':'CONCURRENT_OBJECT_NAV'})
+
+
             smach.StateMachine.add('IDENTIFY_OBJECTS', IdentifyObjectsState(),
-                                   transitions={'object_identified': 'GRASP_OBJECT',
-                                                'object_not_identified': 'NAV_TO_PICK'})
+                                   transitions={'object_identified': 'succeeded',
+                                                'object_not_identified': 'WAIT_TO_PICK'})
             
             
-            smach.StateMachine.add('GRASP_OBJECT', create_grasp_object_sm(),
-                               transitions={'succeeded': 'NAV_OBJECT_USER',
-                                            'failed': 'NAV_TO_PICK'})
             
-            sm_con = smach.Concurrence(outcomes=['correct_object', 'incorrect_object'],
-                                   default_outcome='incorrect_object',
-                                   outcome_map={'correct_object':
-                                                {'NAV_TO_PLACE': 'goal_reached',
-                                                 'RECOGNIZE_EMOTION': 'positive_emotion'},
-                                                'incorrect_object':
-                                                {'RECOGNIZE_EMOTION': 'negative_emotion'}},
-                                   child_termination_cb=child_termination_cb,
-                                   outcome_cb=outcome_cb)
+            # smach.StateMachine.add('GRASP_OBJECT', create_grasp_object_sm(),
+            #                    transitions={'succeeded': 'NAV_OBJECT_USER',
+            #                                 'failed': 'NAV_TO_PICK'})
             
-            with sm_con:
-                smach.Concurrence.add('NAV_TO_PLACE', NavToPlace())
-                smach.Concurrence.add('RECOGNIZE_EMOTION', RecognizeEmotion())
+            # sm_con = smach.Concurrence(outcomes=['correct_object', 'incorrect_object'],
+            #                        default_outcome='incorrect_object',
+            #                        outcome_map={'correct_object':
+            #                                     {'NAV_TO_PLACE': 'goal_reached',
+            #                                      'RECOGNIZE_EMOTION': 'positive_emotion'},
+            #                                     'incorrect_object':
+            #                                     {'RECOGNIZE_EMOTION': 'negative_emotion'}},
+            #                        child_termination_cb=child_termination_cb,
+            #                        outcome_cb=outcome_cb)
+            
+          
+            
+            # with sm_con:
+            #     smach.Concurrence.add('NAV_TO_PLACE', NavToPlace())
+            #     smach.Concurrence.add('RECOGNIZE_EMOTION', RecognizeEmotion())
 
-            self.sm.add('NAV_OBJECT_USER', sm_con,
-                  transitions={'correct_object': 'succeeded',
-                               'incorrect_object': 'NAV_TO_PLACE'})
+            # self.sm.add('NAV_OBJECT_USER', sm_con,
+            #       transitions={'correct_object': 'succeeded',
+            #                    'incorrect_object': 'NAV_TO_PLACE'})
             
-            self.sm.add('NAV_TO_PLACE', NavToPlace(),
-                  transitions={'goal_reached': 'succeeded',
-                               'goal_unreachable': 'aborted',
-                               'preempted': 'preempted'})
+            # self.sm.add('NAV_TO_PLACE', NavToPlace(),
+            #       transitions={'goal_reached': 'succeeded',
+            #                    'goal_unreachable': 'aborted',
+            #                    'preempted': 'preempted'})
 
-            smach.StateMachine.add('PLACE_OBJECT', create_place_object_state_machine(),
-                                    transitions={'place_object_succeeded': 'succeeded',
-                                                  'place_object_failed': 'aborted',
-                                                  'nav_home': 'succeeded',
-                                                  'new_object': 'IDENTIFY_OBJECTS'})
+            # smach.StateMachine.add('PLACE_OBJECT', create_place_object_state_machine(),
+            #                         transitions={'place_object_succeeded': 'succeeded',
+            #                                       'place_object_failed': 'aborted',
+            #                                       'nav_home': 'succeeded',
+            #                                       'new_object': 'IDENTIFY_OBJECTS'})
             
             
             

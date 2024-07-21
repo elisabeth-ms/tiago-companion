@@ -1,5 +1,5 @@
 geometry_msgs/PoseStamped target_pose
-
+string object_name
 ---
 string result
 geometry_msgs/PoseStamped updated_goal

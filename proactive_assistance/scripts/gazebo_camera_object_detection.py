@@ -185,30 +185,6 @@ class GetData(object):
             boundingBoxes.header.frame_id = self.camera_frame
             boundingBoxes.header.stamp = rospy.Time.now()
             self.publish_bboxes_cam.publish(boundingBoxes)
-            # print("Time to get transform: ", time.time() - start_time_transform)
-
-
-        #           # Assuming you have a function to get bounding boxes
-        # count = 0
-        # img_msg = rospy.wait_for_message(self.robot_camera_rgb_topic, Image)
-        # try:
-        #     cv_image = self.bridge.imgmsg_to_cv2(img_msg, "bgr8")
-        # except CvBridgeError as e:
-        #     print(e)
-        #     return
-        # for count in range(0, len(boundingBoxes.bounding_boxes)):
-        #     box = boundingBoxes.bounding_boxes[count]
-        #     name = boundingBoxes.classes[count]
-        #     # Drawing the bounding box
-        #     p1 = (int(box.tlx), int(box.tly))
-        #     p2 = (int(box.brx), int(box.bry))
-        #     cv2.rectangle(cv_image, p1, p2, (0, 255, 0), 2)
-        #     cv2.putText(cv_image, name, (p1[0], p1[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)        
-        
-        # try:
-        #     self.bbox_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-        # except CvBridgeError as e:
-        #     print(e)
 
                     
 

@@ -14,23 +14,27 @@ def publish_fake_goals():
 
     # Create a new TaskNavigationGoal message
     task_goal = TaskNavigationGoal()
+    
+    
+    
+    for i in range(5):
+        # Define the task_pose
+        task_goal.target_pose = PoseStamped()
+        task_goal.target_pose.header.frame_id = "map"
+        task_goal.target_pose.header.stamp = rospy.Time.now()
+        
+        task_goal.target_pose.pose.position = Point( 0.2,  0.0, 0.0)  # Example position
+        task_goal.target_pose.pose.orientation = Quaternion(0.0, 0.0, 0.68820891652, 0.725512568618)  # Example orientation
 
-    # Define the task_pose
-    task_goal.target_pose = PoseStamped()
-    task_goal.target_pose.header.frame_id = "map"
-    task_goal.target_pose.header.stamp = rospy.Time.now()
-    task_goal.target_pose.pose.position = Point( 0.0648090763919,  0.915440795809, 0.0)  # Example position
-    task_goal.target_pose.pose.orientation = Quaternion(0.0, 0.0, 0.68820891652, 0.725512568618)  # Example orientation
+            # Set the zone and object
+        task_goal.zone = 'robot_table'
+        task_goal.object_name = 'biscuits'
 
-        # Set the zone and object
-    task_goal.zone = "robot_table"
-    task_goal.object_name = "jam"
-
-        # Publish the TaskNavigationGoal
-    rospy.loginfo("Publishing fake TaskNavigationGoal")
-    pub.publish(task_goal)
-    pub.publish(task_goal)
-
+            # Publish the TaskNavigationGoal
+        rospy.loginfo("Publishing fake TaskNavigationGoal")
+        pub.publish(task_goal)
+        rospy.loginfo("Published TaskNavigationGoal: %s", task_goal)
+        rate.sleep()
 
 if __name__ == '__main__':
     try:

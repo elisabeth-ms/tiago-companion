@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sdf version="1.6">
-  <model name="tomato_sauce">
+  <model name="strawberry_jam">
     <link name="link">
       <visual name="visual">
         <geometry>
@@ -10,8 +10,8 @@
           </cylinder>
         </geometry>
         <material>
-          <ambient>1 0.2 0.2 1</ambient> <!-- Bright tomato red -->
-          <diffuse>1 0.2 0.2 1</diffuse>
+          <ambient>0.8 0.1 0.1 1</ambient> <!-- Reddish color for Strawberry Jam -->
+          <diffuse>0.8 0.1 0.1 1</diffuse>
           <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>

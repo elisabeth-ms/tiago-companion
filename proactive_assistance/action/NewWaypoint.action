@@ -1,7 +1,8 @@
-
+string object_name
 ---
 string result
 geometry_msgs/PoseStamped target_pose
+geometry_msgs/PoseStamped current_pose
 
 ---
 geometry_msgs/PoseStamped current_pose
