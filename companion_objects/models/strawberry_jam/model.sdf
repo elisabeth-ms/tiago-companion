@@ -2,6 +2,17 @@
 <sdf version="1.6">
   <model name="strawberry_jam">
     <link name="link">
+      <inertial>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.00030625</ixx> <!-- Computed as 1/12 * 0.2 * (3*0.035^2 + 0.1^2) -->
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.00030625</iyy> <!-- Same as ixx -->
+          <iyz>0.0</iyz>
+          <izz>0.0001225</izz> <!-- Computed as 1/2 * 0.2 * 0.035^2 -->
+        </inertia>
+      </inertial>
       <visual name="visual">
         <geometry>
           <cylinder>

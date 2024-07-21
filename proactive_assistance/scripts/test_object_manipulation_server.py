@@ -37,19 +37,19 @@ def call_server():
     # Define obstacles
     obstacle = SolidPrimitive()
     obstacle.type = SolidPrimitive.BOX
-    obstacle.dimensions = [3.0, 1.3, 0.6]  # Example dimensions
+    obstacle.dimensions = [1.3, 3.0, 0.6]  # Example dimensions
     goal.obstacles.append(obstacle)
     
     obstacle_pose = Pose()
-    obstacle_pose.position.x = 0.5
-    obstacle_pose.position.y = 2.1
+    obstacle_pose.position.x = 1.0
+    obstacle_pose.position.y = 0.0
     obstacle_pose.position.z = 0.3
     obstacle_pose.orientation.w = 1.0
     grasping_poses = PoseArray()
     goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
     
     
-    goal.reference_frames_of_obstacles.append('map')
+    goal.reference_frames_of_obstacles.append('base_footprint')
     
     client_activate_object_shape_computation =rospy.ServiceProxy("/grasp_objects/activate_superquadrics_computation", ActivateSupercuadricsComputation)
     client_get_superquadrics = rospy.ServiceProxy("/grasp_objects/get_superquadrics", GetSuperquadrics)
@@ -65,7 +65,7 @@ def call_server():
     superquadrics_msg = client_get_superquadrics.call(srvSq)
     print("superquadrics_msg: ", superquadrics_msg)
     
-    desired_id = 1
+    desired_id = 2
     id = 0
     for i in range(len(superquadrics_msg.superquadrics.superquadrics)):
         print("superquadrics_msg.superquadrics.superquadrics[i].id: ", superquadrics_msg.superquadrics.superquadrics[i].id)

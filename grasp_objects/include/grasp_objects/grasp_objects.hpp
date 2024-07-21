@@ -96,7 +96,7 @@ namespace grasp_objects{
 
         void getSuperquadricFromPointCloud(SuperqModel::PointCloud point_cloud, std::vector<SuperqModel::Superquadric> &superqs);
 
-        void createPointCloudFromSuperquadric(const std::vector<SuperqModel::Superquadric> &superqs, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloudSuperquadric,
+        void createPointCloudFromSuperquadric(const Vector11d & params, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloudSuperquadric,
                                              int indexDetectedObjects);
 
 
@@ -118,6 +118,10 @@ namespace grasp_objects{
 
         void addGraspPoses(geometry_msgs::PoseArray &graspingPoses,std::vector<float>&width, const  KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp, 
                                      const KDL::Vector &xgrasp, const std::string ax_line_grasp, const Vector11d &params, const float &step, const std::string &side);
+        
+         void addGraspPosesAroundZ(geometry_msgs::PoseArray &graspingPoses, std::vector<float>& width, const KDL::Frame &frame_object_wrt_world, const KDL::Vector &zgrasp,
+                                            const std::string ax_line_grasp, const Vector11d &params, const float &step, float rotation_step);
+        
         bool pointInsideHull(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_hull, const pcl::PointXYZRGB& o);
 
         private:

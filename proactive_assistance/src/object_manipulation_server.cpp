@@ -7,6 +7,7 @@
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/MoveGroupAction.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 class ObjectManipulationAction
 {
 protected:
@@ -92,6 +93,7 @@ public:
     ROS_INFO("%s: Processing the manipulation task", action_name_.c_str());
     // Remove all objects in the planning scene
     removeCollisionObjectsPlanningScene();
+    ROS_INFO("Removed all objects in the planning scene");
     addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
     bool success = true; // example processing result
 
@@ -102,10 +104,13 @@ public:
     ROS_INFO("Number of grasping poses: %d", goal->grasping_poses.poses.size());
 
     // Lets plan the motion of the robot to the grasping poses
-    for (int i = 0; i < goal->grasping_poses.poses.size(); i++)
+    std::vector<geometry_msgs::Pose> pregrasp_poses;
+    getPregrasp(goal->grasping_poses, pregrasp_poses, 0.15);
+
+    for (int i = 0; i < pregrasp_poses.size(); i++)
     {
-      ROS_INFO("Moving to grasping pose %d", i);
-      geometry_msgs::Pose pose = goal->grasping_poses.poses[i];
+      ROS_INFO("Moving to pregrasp pose %d", i);
+      geometry_msgs::Pose pose = pregrasp_poses[i];
       groupRightArmTorsoPtr_->setPoseTarget(pose);
       moveit::planning_interface::MoveGroupInterface::Plan my_plan;
 
@@ -165,6 +170,31 @@ public:
       planningSceneInterface_.applyCollisionObject(collisionObject);
     }
   }
+
+
+void getPregrasp(const geometry_msgs::PoseArray& grasping_poses, std::vector<geometry_msgs::Pose>& pregrasp_poses, double pregrasp_distance)
+{
+    pregrasp_poses.clear();
+
+    for (const auto& pose : grasping_poses.poses)
+    {
+        // Convert geometry_msgs::Pose to tf2::Transform
+        tf2::Transform transform;
+        tf2::fromMsg(pose, transform);
+
+        // Define the translation along the local negative x-axis
+        tf2::Vector3 pregrasp_translation(-pregrasp_distance, 0.0, 0.0);
+
+        // Apply the translation to the transform
+        transform.setOrigin(transform.getOrigin() + transform.getBasis() * pregrasp_translation);
+
+        // Convert tf2::Transform back to geometry_msgs::Pose
+        geometry_msgs::Pose pregrasp_pose;
+        tf2::toMsg(transform, pregrasp_pose);
+
+        pregrasp_poses.push_back(pregrasp_pose);
+    }
+}
 };
 
 int main(int argc, char **argv)

@@ -1,11 +1,11 @@
 eps_angle: 6.0
-distance_threshold: 0.03
+distance_threshold: 0.005
 tol_superq: 0.0001
 optimizer_points: 1000
 random_sampling: true
 max_iter: 100000000
-minimum_points: 700
-fraction_pc: 4
+minimum_points: 800
+fraction_pc: 6
 threshold_axis: 0.8
 threshold_section1: 0.7
 threshold_section2: 0.3
