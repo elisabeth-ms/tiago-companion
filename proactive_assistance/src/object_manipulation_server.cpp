@@ -8,6 +8,14 @@
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/MoveGroupAction.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf_conversions/tf_kdl.h>
+
+#include <control_msgs/FollowJointTrajectoryAction.h>
+
+
+typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
+typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_client_Ptr;
+
 class ObjectManipulationAction
 {
 protected:
@@ -34,6 +42,14 @@ protected:
   robot_state::RobotStatePtr kinematicState_;
   const robot_state::JointModelGroup *jointModelGroupTorsoRightArm_;
   const robot_state::JointModelGroup *jointModelGroupTorsoLeftArm_;
+  float reachingDistance_ = 0.3; // TODO: Define the reaching distance as a rosparam
+
+  follow_joint_control_client_Ptr rightGripperClient_;
+  follow_joint_control_client_Ptr leftGripperClient_;
+
+  float openGripperPositions_[2] = {0.07, 0.07};
+  float closeGripperPositions_[2] = {0.0, 0.0};
+
 
 public:
   ObjectManipulationAction(std::string name) : as_(nh_, name, boost::bind(&ObjectManipulationAction::executeCB, this, _1), false),
@@ -78,6 +94,9 @@ public:
     groupLeftArmPtr_->setPoseReferenceFrame("base_footprint");
     groupLeftArmPtr_->setMaxVelocityScalingFactor(0.4);
 
+    createClient(rightGripperClient_, std::string("gripper_right"));
+    createClient(leftGripperClient_, std::string("gripper_left"));
+
     as_.start();
   }
 
@@ -97,33 +116,59 @@ public:
     addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
     bool success = true; // example processing result
 
-    ROS_INFO("Processing the manipulation task");
-    ROS_INFO("Number of obstacles: %d", goal->obstacles.size());
-    ROS_INFO("Number of obstacle poses: %d", goal->obstacle_poses.size());
-    ROS_INFO("Number of reference frames of obstacles: %d", goal->reference_frames_of_obstacles.size());
-    ROS_INFO("Number of grasping poses: %d", goal->grasping_poses.poses.size());
-
-    // Lets plan the motion of the robot to the grasping poses
-    std::vector<geometry_msgs::Pose> pregrasp_poses;
-    getPregrasp(goal->grasping_poses, pregrasp_poses, 0.15);
-
-    for (int i = 0; i < pregrasp_poses.size(); i++)
+    if (goal->task == "pick")
     {
-      ROS_INFO("Moving to pregrasp pose %d", i);
-      geometry_msgs::Pose pose = pregrasp_poses[i];
-      groupRightArmTorsoPtr_->setPoseTarget(pose);
-      moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+      ROS_INFO("Processing the manipulation task");
+      ROS_INFO("Number of obstacles: %d", goal->obstacles.size());
+      ROS_INFO("Number of obstacle poses: %d", goal->obstacle_poses.size());
+      ROS_INFO("Number of reference frames of obstacles: %d", goal->reference_frames_of_obstacles.size());
+      ROS_INFO("Number of grasping poses: %d", goal->grasping_poses.poses.size());
 
-      moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(my_plan);
-      bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-      if (successPlanning)
+      float closeGripperPositions[2] = {0.0, 0.0};
+      moveGripper(closeGripperPositions, "right");
+      // Lets plan the motion of the robot to the grasping poses
+      std::vector<geometry_msgs::Pose> pregrasp_poses;
+      getPregrasp(goal->grasping_poses, pregrasp_poses, reachingDistance_);
+
+      int index_grasp = 0;
+      for (index_grasp = 0; index_grasp < pregrasp_poses.size(); index_grasp++)
       {
-        groupRightArmTorsoPtr_->execute(my_plan);
-        break;
+        ROS_INFO("Moving to pregrasp pose %d", index_grasp);
+        geometry_msgs::Pose pose = pregrasp_poses[index_grasp];
+        groupRightArmTorsoPtr_->setPoseTarget(pose);
+        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+
+        moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(my_plan);
+        bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        bool successExecution = false;
+        if (successPlanning)
+        {
+          moveit::planning_interface::MoveItErrorCode codeExecute = groupRightArmTorsoPtr_->execute(my_plan);
+          successExecution = (codeExecute == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+          if (successExecution)
+          {
+            ROS_INFO("Successfully moved to the grasping pose %d", index_grasp);
+          }
+          break;
+        }
+        else
+        {
+          ROS_INFO("Failed to plan to the grasping pose %d", index_grasp);
+        }
       }
-      else
+
+      if (index_grasp == pregrasp_poses.size())
       {
-        ROS_INFO("Failed to plan to the grasping pose %d", i);
+        ROS_INFO("Failed to move to any of the grasping poses");
+        success = false;
+      }
+
+      if (index_grasp < pregrasp_poses.size())
+      {
+        moveGripper(openGripperPositions_, "right");
+        success = goToGraspingPose(goal->grasping_poses.poses[index_grasp]);
+        float close[2] = {goal->width[index_grasp]/2.0, goal->width[index_grasp]/2.0};
+        moveGripper(close, "right");
       }
     }
 
@@ -144,6 +189,34 @@ public:
       // set the action state to succeeded
       as_.setSucceeded(result_);
     }
+    else
+    {
+      result_.success = false;
+      result_.message = "Failed to process the manipulation task";
+      ROS_INFO("%s: Failed", action_name_.c_str());
+      // set the action state to succeeded
+      as_.setAborted(result_);
+    }
+  }
+  // Create a ROS action client to move TIAGo's head
+  void createClient(follow_joint_control_client_Ptr &actionClient, std::string name)
+  {
+    ROS_INFO("[ObjectManipulation] Creating action client to %s controller ...", name.c_str());
+
+    std::string controller_name = name + "_controller/follow_joint_trajectory";
+
+    actionClient.reset(new follow_joint_control_client(controller_name));
+
+    int iterations = 0, max_iterations = 3;
+    // Wait for arm controller action server to come up
+    while (!actionClient->waitForServer(ros::Duration(0.5)) && ros::ok() && iterations < max_iterations)
+    {
+      ROS_DEBUG("[ObjectManipulation] Waiting for the %s_controller_action server to come up", name.c_str());
+      ++iterations;
+    }
+
+    if (iterations == max_iterations)
+      ROS_ERROR("[ObjectManipulation] createClient: %s controller action server not available", name.c_str());
   }
 
   void removeCollisionObjectsPlanningScene()
@@ -171,30 +244,124 @@ public:
     }
   }
 
-
-void getPregrasp(const geometry_msgs::PoseArray& grasping_poses, std::vector<geometry_msgs::Pose>& pregrasp_poses, double pregrasp_distance)
-{
+  void getPregrasp(const geometry_msgs::PoseArray &grasping_poses, std::vector<geometry_msgs::Pose> &pregrasp_poses, double pregrasp_distance)
+  {
     pregrasp_poses.clear();
 
-    for (const auto& pose : grasping_poses.poses)
+    for (const auto &pose : grasping_poses.poses)
     {
-        // Convert geometry_msgs::Pose to tf2::Transform
-        tf2::Transform transform;
-        tf2::fromMsg(pose, transform);
+      // Convert geometry_msgs::Pose to tf2::Transform
+      tf2::Transform transform;
+      tf2::fromMsg(pose, transform);
 
-        // Define the translation along the local negative x-axis
-        tf2::Vector3 pregrasp_translation(-pregrasp_distance, 0.0, 0.0);
+      // Define the translation along the local negative x-axis
+      tf2::Vector3 pregrasp_translation(-pregrasp_distance, 0.0, 0.0);
 
-        // Apply the translation to the transform
-        transform.setOrigin(transform.getOrigin() + transform.getBasis() * pregrasp_translation);
+      // Apply the translation to the transform
+      transform.setOrigin(transform.getOrigin() + transform.getBasis() * pregrasp_translation);
 
-        // Convert tf2::Transform back to geometry_msgs::Pose
-        geometry_msgs::Pose pregrasp_pose;
-        tf2::toMsg(transform, pregrasp_pose);
+      // Convert tf2::Transform back to geometry_msgs::Pose
+      geometry_msgs::Pose pregrasp_pose;
+      tf2::toMsg(transform, pregrasp_pose);
 
-        pregrasp_poses.push_back(pregrasp_pose);
+      pregrasp_poses.push_back(pregrasp_pose);
     }
-}
+  }
+
+  bool goToGraspingPose(const geometry_msgs::Pose &graspingPose)
+  {
+    moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+
+    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+
+    groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+    groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
+
+    geometry_msgs::PoseStamped currentPose = groupAuxArmTorsoPtr_->getCurrentPose();
+    KDL::Frame frameEndWrtBase;
+    tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
+    KDL::Frame frameToolWrtEnd;
+    frameToolWrtEnd.p[0] = +reachingDistance_;
+    KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
+
+    geometry_msgs::Pose toolPose;
+    tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+
+    std::vector<geometry_msgs::Pose> waypoints;
+    waypoints.push_back(toolPose);
+
+    groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+
+    moveit_msgs::RobotTrajectory trajectory;
+    const double jump_threshold = 0.00;
+    const double eef_step = 0.001;
+    double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+    ROS_INFO("ObjectManipulationServer] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+
+    moveit::planning_interface::MoveGroupInterface::Plan planAproach;
+
+    planAproach.trajectory_ = trajectory;
+
+    sleep(1.0);
+
+    moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
+
+    return true;
+  }
+
+  void waypointGripperGoal(std::string name, control_msgs::FollowJointTrajectoryGoal &goal, const float positions[2], const float &timeToReach)
+  {
+    // The joint names, which apply to all waypoints
+    std::string right_finger = "gripper_" + name + "_right_finger_joint";
+    std::string left_finger = "gripper_" + name + "_left_finger_joint";
+
+    goal.trajectory.joint_names.push_back(right_finger);
+    goal.trajectory.joint_names.push_back(left_finger);
+
+    int index = 0;
+    goal.trajectory.points.resize(1);
+    goal.trajectory.points[index].positions.resize(2);
+    goal.trajectory.points[index].positions[0] = positions[0];
+    goal.trajectory.points[index].positions[1] = positions[1];
+
+    // Velocities
+    goal.trajectory.points[index].velocities.resize(2);
+    for (int j = 0; j < 2; ++j)
+    {
+      goal.trajectory.points[index].velocities[j] = 0.0;
+    }
+    // To be reached 2 second after starting along the trajectory
+    goal.trajectory.points[index].time_from_start = ros::Duration(timeToReach);
+  }
+
+  void moveGripper(const float positions[2], std::string name)
+  {
+    follow_joint_control_client_Ptr auxGripperClient;
+
+    if (name == "right")
+    {
+      auxGripperClient = rightGripperClient_;
+    }
+    else if (name == "left")
+    {
+      auxGripperClient = leftGripperClient_;
+    }
+
+    control_msgs::FollowJointTrajectoryGoal gripperGoal;
+    ROS_INFO("[ObjectManipulationServer] Setting gripper %s position: (%f ,%f)", name.c_str(), positions[0], positions[1]);
+    waypointGripperGoal(name, gripperGoal, positions, 0.5);
+
+    // Sends the command to start the given trajectory now
+    gripperGoal.trajectory.header.stamp = ros::Time(0);
+    auxGripperClient->sendGoal(gripperGoal);
+
+    // Wait for trajectory execution
+    while (!(auxGripperClient->getState().isDone()) && ros::ok())
+    {
+      ros::Duration(0.1).sleep(); // sleep for 1 seconds
+    }
+    ROS_INFO("[ObjectManipulationServer] Gripper set to position: (%f, %f)", positions[0], positions[1]);
+  }
 };
 
 int main(int argc, char **argv)

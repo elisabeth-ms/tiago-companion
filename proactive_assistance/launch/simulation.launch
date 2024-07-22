@@ -13,7 +13,7 @@
   <arg name="has_screen"  default="False"/>
   <arg name="multi" default=""/>
   <arg name="gzpose" default="-x 0.4 -y 0.5 -z 0.0 -R 0.0 -P 0.0 -Y 1.5708"/>
-  <arg name="gui" default="false"/>
+  <arg name="gui" default="true"/>
   <arg name="debug" default="false"/>
   <arg name="public_sim" default="true"/>
   <arg name="tuck_arm" default="true"/>

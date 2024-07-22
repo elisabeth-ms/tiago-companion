@@ -372,7 +372,7 @@ namespace grasp_objects
       neg = -1;
     }
 
-    for (float height = 0; height <= height_above_object; height += 0.02)
+    for (float height = height_above_object+0.02; height > 0; height -= 0.02)
     {
       float used_height = height * neg;
 
@@ -395,6 +395,7 @@ namespace grasp_objects
         geometry_msgs::Pose pose;
         tf::poseKDLToMsg(frame_grasping_wrt_world, pose);
         graspingPoses.poses.push_back(pose);
+        width.push_back(2 * radius);
       }
     }
 

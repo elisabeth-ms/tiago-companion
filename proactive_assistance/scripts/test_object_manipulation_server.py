@@ -37,7 +37,7 @@ def call_server():
     # Define obstacles
     obstacle = SolidPrimitive()
     obstacle.type = SolidPrimitive.BOX
-    obstacle.dimensions = [1.3, 3.0, 0.6]  # Example dimensions
+    obstacle.dimensions = [1.3, 3.0, 0.62]  # Example dimensions
     goal.obstacles.append(obstacle)
     
     obstacle_pose = Pose()
@@ -65,7 +65,7 @@ def call_server():
     superquadrics_msg = client_get_superquadrics.call(srvSq)
     print("superquadrics_msg: ", superquadrics_msg)
     
-    desired_id = 2
+    desired_id = 5
     id = 0
     for i in range(len(superquadrics_msg.superquadrics.superquadrics)):
         print("superquadrics_msg.superquadrics.superquadrics[i].id: ", superquadrics_msg.superquadrics.superquadrics[i].id)
@@ -74,6 +74,7 @@ def call_server():
             id = i
             break
     print("id: ", id)
+    goal.task = 'pick'
     goal.desired_object = superquadrics_msg.superquadrics.superquadrics[id]
     grasp_poses_request = ComputeGraspPosesRequest()
     grasp_poses_request.id = desired_id
@@ -81,6 +82,7 @@ def call_server():
     goal.grasping_poses = grasp_poses.poses
 
     goal.gripper_empty = True
+    goal.width = grasp_poses.width
     print("grasp_poses: ", grasp_poses)
     
     

@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
   move_base_msgs
   companion_msgs
   shape_msgs
+  tf
+  tf_conversions
   moveit_ros_planning_interface
   
 )
