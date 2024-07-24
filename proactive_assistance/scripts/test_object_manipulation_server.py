@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import actionlib
-from geometry_msgs.msg import Pose, PoseArray
+from geometry_msgs.msg import Pose, PoseArray, Point
 from shape_msgs.msg import SolidPrimitive
 from proactive_assistance.msg import ObjectManipulationAction, ObjectManipulationGoal
 from companion_msgs.srv import ActivateSupercuadricsComputation, ActivateSupercuadricsComputationRequest, GetSuperquadrics, GetSuperquadricsRequest, GetSuperquadricsResponse
@@ -37,7 +37,7 @@ def call_server():
     # Define obstacles
     obstacle = SolidPrimitive()
     obstacle.type = SolidPrimitive.BOX
-    obstacle.dimensions = [1.3, 3.0, 0.62]  # Example dimensions
+    obstacle.dimensions = [1.48, 3.0, 0.78]  # Example dimensions
     goal.obstacles.append(obstacle)
     
     obstacle_pose = Pose()
@@ -65,7 +65,7 @@ def call_server():
     superquadrics_msg = client_get_superquadrics.call(srvSq)
     print("superquadrics_msg: ", superquadrics_msg)
     
-    desired_id = 5
+    desired_id = 1
     id = 0
     for i in range(len(superquadrics_msg.superquadrics.superquadrics)):
         print("superquadrics_msg.superquadrics.superquadrics[i].id: ", superquadrics_msg.superquadrics.superquadrics[i].id)
@@ -95,6 +95,39 @@ def call_server():
     # Prints out the result of executing the action
     result = client.get_result()
     print('[Result] Success: %s, Message: %s' % (result.success, result.message))
+    
+    
+    rospy.loginfo('Move to confortable pose...')
+    goal.task = 'comfortable'
+    goal.gripper_empty = False
+    client.send_goal(goal, feedback_cb=feedback_cb)
+    client.wait_for_result()
+    result = client.get_result()
+    print('[Result] Success: %s, Message: %s' % (result.success, result.message))
+    
+    rospy.loginfo('Move to place pose...')
+    goal.task = 'place'
+    goal.gripper_empty = True
+    # Define a zone of 4 points
+    x = [0.45, 0.45, 0.65, 0.65]
+    y = [-0.2,-0.2, -0.05, -0.05]
+    height = [0.8,0.84]
+    zone_points = []
+    for h in height:
+      for i in range(4):
+          point = Point()
+          point.x = x[i]
+          point.y = y[i]
+          point.z = h
+          zone_points.append(point)
+    goal.zone_place = zone_points
+    client.send_goal(goal, feedback_cb=feedback_cb)
+    client.wait_for_result()
+    result = client.get_result()
+    print('[Result] Success: %s, Message: %s' % (result.success, result.message))
+    
+    
+    
 
 if __name__ == '__main__':
     try:

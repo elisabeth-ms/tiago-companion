@@ -11,7 +11,8 @@
 #include <tf_conversions/tf_kdl.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
-
+#include <moveit_msgs/OrientationConstraint.h>
+#include <moveit_msgs/Constraints.h>
 
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
 typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_client_Ptr;
@@ -42,13 +43,21 @@ protected:
   robot_state::RobotStatePtr kinematicState_;
   const robot_state::JointModelGroup *jointModelGroupTorsoRightArm_;
   const robot_state::JointModelGroup *jointModelGroupTorsoLeftArm_;
-  float reachingDistance_ = 0.3; // TODO: Define the reaching distance as a rosparam
+  float reachingDistance_ = 0.12;    // TODO: Define the reaching distance as a rosparam
+  float gripperLinkDistance_ = 0.18; // TODO: Define the distance between the gripper link and the tool link as a rosparam
 
   follow_joint_control_client_Ptr rightGripperClient_;
   follow_joint_control_client_Ptr leftGripperClient_;
 
   float openGripperPositions_[2] = {0.07, 0.07};
   float closeGripperPositions_[2] = {0.0, 0.0};
+  float closeGripperDeviation_ = 0.033;
+  geometry_msgs::Pose comfortablePoseRight_;
+  geometry_msgs::Pose comfortablePoseLeft_;
+
+  ros::Publisher target_pose_pub_; 
+  
+
 
 
 public:
@@ -97,6 +106,15 @@ public:
     createClient(rightGripperClient_, std::string("gripper_right"));
     createClient(leftGripperClient_, std::string("gripper_left"));
 
+    comfortablePoseRight_.position.x = 0.527;
+    comfortablePoseRight_.position.y = -0.325;
+    comfortablePoseRight_.position.z = 0.960;
+    comfortablePoseRight_.orientation.x = 0.018;
+    comfortablePoseRight_.orientation.y = 0.706;
+    comfortablePoseRight_.orientation.z = -0.696;
+    comfortablePoseRight_.orientation.w = -0.131;
+
+    target_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("target_poses", 10); // Add this line
     as_.start();
   }
 
@@ -167,9 +185,26 @@ public:
       {
         moveGripper(openGripperPositions_, "right");
         success = goToGraspingPose(goal->grasping_poses.poses[index_grasp]);
-        float close[2] = {goal->width[index_grasp]/2.0, goal->width[index_grasp]/2.0};
+        float close[2] = {goal->width[index_grasp] / 2.0-closeGripperDeviation_, goal->width[index_grasp] / 2.0-closeGripperDeviation_};
         moveGripper(close, "right");
       }
+    }
+    else if (goal->task == "comfortable")
+    {
+      ROS_INFO("Moving to comfortable pose");
+      moveToConfortablePose(comfortablePoseRight_);
+    }
+    else if (goal->task == "place")
+    {
+      ROS_INFO("Placing the object");
+      placeObject(goal->zone_place);
+      moveGripper(openGripperPositions_, "right");
+      goToDistancedPose(0.2);
+    }
+    else
+    {
+      ROS_INFO("Unknown task");
+      success = false;
     }
 
     // Check that preempt has not been requested by the client
@@ -199,7 +234,8 @@ public:
     }
   }
   // Create a ROS action client to move TIAGo's head
-  void createClient(follow_joint_control_client_Ptr &actionClient, std::string name)
+  void
+  createClient(follow_joint_control_client_Ptr &actionClient, std::string name)
   {
     ROS_INFO("[ObjectManipulation] Creating action client to %s controller ...", name.c_str());
 
@@ -255,7 +291,7 @@ public:
       tf2::fromMsg(pose, transform);
 
       // Define the translation along the local negative x-axis
-      tf2::Vector3 pregrasp_translation(-pregrasp_distance, 0.0, 0.0);
+      tf2::Vector3 pregrasp_translation(-pregrasp_distance - gripperLinkDistance_, 0.0, 0.0);
 
       // Apply the translation to the transform
       transform.setOrigin(transform.getOrigin() + transform.getBasis() * pregrasp_translation);
@@ -270,6 +306,7 @@ public:
 
   bool goToGraspingPose(const geometry_msgs::Pose &graspingPose)
   {
+
     moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
 
     groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
@@ -282,6 +319,48 @@ public:
     tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
     KDL::Frame frameToolWrtEnd;
     frameToolWrtEnd.p[0] = +reachingDistance_;
+    KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
+
+    geometry_msgs::Pose toolPose;
+    tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+
+    std::vector<geometry_msgs::Pose> waypoints;
+    waypoints.push_back(toolPose);
+
+    groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+
+    moveit_msgs::RobotTrajectory trajectory;
+    const double jump_threshold = 0.00;
+    const double eef_step = 0.001;
+    double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+    ROS_INFO("ObjectManipulationServer] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+
+    moveit::planning_interface::MoveGroupInterface::Plan planAproach;
+
+    planAproach.trajectory_ = trajectory;
+
+    sleep(1.0);
+
+    moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
+
+    return true;
+  }
+
+  bool goToDistancedPose(double distanced)
+  {
+
+    moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+
+    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+
+    groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+    groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
+
+    geometry_msgs::PoseStamped currentPose = groupAuxArmTorsoPtr_->getCurrentPose();
+    KDL::Frame frameEndWrtBase;
+    tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
+    KDL::Frame frameToolWrtEnd;
+    frameToolWrtEnd.p[0] = - distanced;
     KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
 
     geometry_msgs::Pose toolPose;
@@ -362,6 +441,130 @@ public:
     }
     ROS_INFO("[ObjectManipulationServer] Gripper set to position: (%f, %f)", positions[0], positions[1]);
   }
+
+  bool moveToConfortablePose(const geometry_msgs::Pose &pose)
+  {
+
+
+    moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+
+    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+
+    groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.3);
+    groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.3);
+
+    geometry_msgs::PoseStamped grasp_pose_stamped = groupAuxArmTorsoPtr_->getCurrentPose();
+    geometry_msgs::Pose grasp_pose = grasp_pose_stamped.pose;
+
+    // Define comfortable pose with fixed position
+    geometry_msgs::Pose comfortable_pose;
+    comfortable_pose.position.x = 0.527;
+    comfortable_pose.position.y = -0.325;
+    comfortable_pose.position.z = 0.960;
+
+    // Set orientation to be the same as the grasp pose to maintain level
+    comfortable_pose.orientation = grasp_pose.orientation;
+
+    // Apply orientation constraints
+    // moveit_msgs::OrientationConstraint ocm;
+    // ocm.link_name = "gripper_right_tool_link";  // Change to the appropriate end effector link
+    // ocm.header.frame_id = "base_footprint";  // Change to the appropriate reference frame
+    // ocm.orientation = grasp_pose.orientation;
+    // ocm.absolute_x_axis_tolerance = 0.01;
+    // ocm.absolute_y_axis_tolerance = 0.01;
+    // ocm.absolute_z_axis_tolerance = 0.8;
+    // ocm.weight = 1.0;
+
+    // moveit_msgs::Constraints constraints;
+    // constraints.orientation_constraints.push_back(ocm);
+    // groupAuxArmTorsoPtr_->setPathConstraints(constraints);
+
+        // Set the target pose
+    groupAuxArmTorsoPtr_->setPoseTarget(comfortable_pose);
+
+    // Plan and execute the motion
+    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    bool success = (groupAuxArmTorsoPtr_->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+
+    if (success) {
+        groupAuxArmTorsoPtr_->move();
+        return true;
+    } else {
+        ROS_WARN("Planning to the comfortable pose failed.");
+        return false;
+    }
+
+  }
+bool placeObject(const std::vector<geometry_msgs::Point>& bounding_zone)
+{
+
+    //lETS PRINT THE BOUNDING ZONE
+    for (int i = 0; i < bounding_zone.size(); i++)
+    {
+      ROS_INFO("Bounding zone %d: x=%f, y=%f, z=%f", i, bounding_zone[i].x, bounding_zone[i].y, bounding_zone[i].z);
+    }
+    moveit::planning_interface::MoveGroupInterface* groupAuxArmTorsoPtr_;
+    groupAuxArmTorsoPtr_ = groupRightArmPtr_;
+
+    groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.3);
+    groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.3);
+
+    geometry_msgs::PoseStamped grasp_pose_stamped = groupAuxArmTorsoPtr_->getCurrentPose();
+    geometry_msgs::Pose grasp_pose = grasp_pose_stamped.pose;
+
+    // Calculate the center of the bounding zone
+    geometry_msgs::Point center;
+    center.x = (bounding_zone[0].x + bounding_zone[1].x + bounding_zone[2].x + bounding_zone[3].x) / 4.0;
+    center.y = (bounding_zone[0].y + bounding_zone[1].y + bounding_zone[2].y + bounding_zone[3].y) / 4.0;
+    center.z = (bounding_zone[0].z + bounding_zone[1].z + bounding_zone[2].z + bounding_zone[3].z) / 4.0;
+
+    // Define a function to interpolate points within the bounding zone
+    auto interpolate = [&](double alpha, double beta) {
+        geometry_msgs::Pose target_pose;
+        target_pose.position.x = (1 - alpha) * ((1 - beta) * bounding_zone[0].x + beta * bounding_zone[1].x) + alpha * ((1 - beta) * bounding_zone[2].x + beta * bounding_zone[3].x);
+        target_pose.position.y = (1 - alpha) * ((1 - beta) * bounding_zone[0].y + beta * bounding_zone[1].y) + alpha * ((1 - beta) * bounding_zone[2].y + beta * bounding_zone[3].y);
+        target_pose.position.z = (1 - alpha) * ((1 - beta) * bounding_zone[0].z + beta * bounding_zone[1].z) + alpha * ((1 - beta) * bounding_zone[2].z + beta * bounding_zone[3].z);
+        target_pose.orientation = grasp_pose.orientation; // Maintain the same orientation
+        return target_pose;
+    };
+
+    bool success = false;
+    // Test points within the bounding zone starting from the center
+    for (double step = 0.0; step <= 1.0; step += 0.1) {
+        for (double alpha = 0.5 - step; alpha <= 0.5 + step; alpha += step) {
+            for (double beta = 0.5 - step; beta <= 0.5 + step; beta += step) {
+                if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) continue;
+                geometry_msgs::Pose target_pose = interpolate(alpha, beta);
+
+                groupAuxArmTorsoPtr_->setPoseTarget(target_pose);
+
+                geometry_msgs::PoseStamped target_pose_stamped;
+                target_pose_stamped.header.frame_id = "base_footprint"; // Change to your reference frame
+                target_pose_stamped.header.stamp = ros::Time::now();
+                target_pose_stamped.pose = target_pose;
+                target_pose_pub_.publish(target_pose_stamped);
+
+                moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+                success = (groupAuxArmTorsoPtr_->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+
+                if (success) {
+                    groupAuxArmTorsoPtr_->move();
+                    return true; // Exit the function after the first successful motion
+                }
+            }
+        }
+    }
+
+
+    ROS_WARN("Planning to the bounding zone failed.");
+    return false;
+
+
+
+
+}
+
+  
 };
 
 int main(int argc, char **argv)

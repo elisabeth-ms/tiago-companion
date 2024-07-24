@@ -188,7 +188,7 @@ class ObjectBasedGoal(smach.State):
 
                 # Check if the goal is far enough to the previous navigation goal
                 rospy.loginfo('ObjectBasedGoal: Checking if the new goal is far enough...')
-                if not self.is_close_enough(userdata.task_navigation_goal.target_pose, new_goal_pose, 0.15) or self.need_update:
+                if not self.is_close_enough(userdata.task_navigation_goal.target_pose, new_goal_pose, 0.2) or self.need_update:
                     rospy.loginfo('ObjectBasedGoal: Navigation goal updated.')
                     userdata.task_navigation_goal.target_pose = new_goal_pose
                     self.need_update = False
@@ -201,7 +201,7 @@ class ObjectBasedGoal(smach.State):
                     return 'goal_not_updated'
             else:
                 rospy.loginfo('ObjectBasedGoal: No new goal.')
-                if self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose):
+                if self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose, 0.2):
                     return 'close_enough'
                 else:
                     return 'goal_not_updated'

@@ -372,9 +372,9 @@ namespace grasp_objects
       neg = -1;
     }
 
-    for (float height = height_above_object+0.02; height > 0; height -= 0.02)
+    for (float height = height_above_object+0.05; height > 0; height -= 0.02)
     {
-      float used_height = height * neg;
+      float used_height = height*neg;
 
       for (double angle = 0; angle < 2 * M_PI; angle += angle_step)
       {
@@ -1064,39 +1064,43 @@ namespace grasp_objects
           Vector11d params = superqs[0].getSuperqParams();
 
           // we need to check which axix is the longest one
-          float real_height = 0.6;
+          float real_height = 0.7;
           float longest_a = 0;
           int longest_a_idx = 0;
-          for (int i = 0; i < 3; i++)
-          {
-            if (params[i] > longest_a)
-            {
-              longest_a = params[i];
-              longest_a_idx = i;
-            }
-          }
-          if (longest_a_idx == 0)
-          {
-            float new_a1 = params[7] + params[0] / 2.0 - real_height; // 0.6 is the real height of the table
-            params[0] = new_a1;                               // - params[0]/ 2.0;
-            params[7] = real_height + params[0] / 2.0;
-          }
-          else if (longest_a_idx == 1)
-          {
-            float new_a2 = params[7] + params[1] / 2.0 - real_height; // 0.6 is the real height of the table
-            params[1] = new_a2;                               // - params[0]/ 2.0;
-            params[7] = real_height + params[1] / 2.0;
-          }
-          else
-          {
-            float new_a3 = params[7] + params[2] / 2.0 - real_height; // 0.6 is the real height of the table
-            params[2] = new_a3;                               // - params[0]/ 2.0;
-            params[7] = real_height + params[2] / 2.0;
-          }
+          // for (int i = 0; i < 3; i++)
+          // {
+          //   if (params[i] > longest_a)
+          //   {
+          //     longest_a = params[i];
+          //     longest_a_idx = i;
+          //   }
+          // }
+          // if (longest_a_idx == 0)
+          // {
+          //   float new_a1 = params[7] + params[0] / 2.0 - real_height; // 0.6 is the real height of the table
+          //   params[0] = new_a1;                               // - params[0]/ 2.0;
+          //   params[7] = real_height + params[0] / 2.0;
+          // }
+          // else if (longest_a_idx == 1)
+          // {
+          //   float new_a2 = params[7] + params[1] / 2.0 - real_height; // 0.6 is the real height of the table
+          //   params[1] = new_a2;                               // - params[0]/ 2.0;
+          //   params[7] = real_height + params[1] / 2.0;
+          // }
+          // else
+          // {
+          //   float new_a3 = params[7] + params[2] / 2.0 - real_height; // 0.6 is the real height of the table
+          //   params[2] = new_a3;                               // - params[0]/ 2.0;
+          //   params[7] = real_height + params[2] / 2.0;
+          // }
 
-          // float new_a1 = params[7]+params[0]/2.0-0.6; // 0.6 is the real height of the table
+          float new_a1 = params[0]/2.0+params[7]-real_height; // 0.6 is the real height of the table
+          //print new_a1
+          ROS_INFO("new_a1: %f", new_a1);
           // params[0] = new_a1;// - params[0]/ 2.0;
-          // params[7] = 0.6 + params[0]/2.0;
+          params[0] = new_a1;
+          params[7] = real_height+params[0];
+          // params[7] = real_height + params[0]/2.0;
           superquadric.id = detectedObjects_[idx].label;
           superquadric.a1 = params[0];
           superquadric.a2 = params[1];
@@ -1109,6 +1113,8 @@ namespace grasp_objects
           superquadric.roll = params[8];
           superquadric.pitch = params[9];
           superquadric.yaw = params[10];
+
+          superqs[0].setSuperqParams(params);
 
           pcl::PointCloud<pcl::PointXYZRGBA>::Ptr auxCloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
 

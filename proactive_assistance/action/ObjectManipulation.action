@@ -2,18 +2,20 @@
 
 # Define the goal
 bool gripper_empty  # true if the gripper is empty, false if holding an object
-string task  # "pick" or "place" or "conform"
+string task  # "pick" or "place" or "comfortable"
 companion_msgs/Superquadric desired_object
 geometry_msgs/PoseArray grasping_poses
 float64[] width
 shape_msgs/SolidPrimitive[] obstacles
 geometry_msgs/Pose[] obstacle_poses
 string[] reference_frames_of_obstacles
+geometry_msgs/Point[] zone_place # x, y (Only used for "place" task)
 
 ---
 # Define the result
 bool success
 string message
+string arm_name # Arm that executed the task (left or right)
 
 ---
 # Define the feedback
