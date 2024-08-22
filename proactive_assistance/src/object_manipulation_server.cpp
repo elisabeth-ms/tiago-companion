@@ -115,7 +115,9 @@ public:
     comfortablePoseRight_.orientation.w = -0.131;
 
     target_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("target_poses", 10); // Add this line
+
     as_.start();
+    ROS_INFO("[ObjectManipulation] Action server started");
   }
 
   ~ObjectManipulationAction(void)
@@ -200,6 +202,9 @@ public:
       placeObject(goal->zone_place);
       moveGripper(openGripperPositions_, "right");
       goToDistancedPose(0.2);
+    }
+    else if(goal->task == "add_remove_obstacles"){
+        ROS_INFO("Removing obstacles");
     }
     else
     {

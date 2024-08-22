@@ -2,7 +2,7 @@
 
 # Define the goal
 bool gripper_empty  # true if the gripper is empty, false if holding an object
-string task  # "pick" or "place" or "comfortable"
+string task  # "pick" or "place" or "comfortable" or "add_remove_obstacles"
 companion_msgs/Superquadric desired_object
 geometry_msgs/PoseArray grasping_poses
 float64[] width

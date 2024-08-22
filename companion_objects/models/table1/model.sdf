@@ -24,7 +24,7 @@
         </inertia>
       </inertial>
       <visual name='visual1'>
-        <pose frame=''>0 0 0.59 0 -0 0</pose>
+        <pose frame=''>0 0 0.75 0 -0 0</pose>
         <geometry>
           <box>
             <size>1 2.0 0.03</size>
@@ -47,11 +47,11 @@
         <cast_shadows>1</cast_shadows>
       </visual>
       <visual name='front_left_leg'>
-        <pose frame=''>0.48 0.38 0.3 0 -0 0</pose>
+        <pose frame=''>0.48 0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <material>
@@ -71,11 +71,11 @@
         <cast_shadows>1</cast_shadows>
       </visual>
       <visual name='front_right_leg'>
-        <pose frame=''>0.48 -0.38 0.3 0 -0 0</pose>
+        <pose frame=''>0.48 -0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <material>
@@ -95,11 +95,11 @@
         <cast_shadows>1</cast_shadows>
       </visual>
       <visual name='back_right_leg'>
-        <pose frame=''>-0.48 -0.38 0.3 0 -0 0</pose>
+        <pose frame=''>-0.48 -0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <material>
@@ -119,11 +119,11 @@
         <cast_shadows>1</cast_shadows>
       </visual>
       <visual name='back_left_leg'>
-        <pose frame=''>-0.48 0.38 0.3 0 -0 0</pose>
+        <pose frame=''>-0.48 0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <material>
@@ -145,7 +145,7 @@
       <collision name='surface'>
         <laser_retro>0</laser_retro>
         <max_contacts>10</max_contacts>
-        <pose frame=''>0 0 0.6 0 -0 0</pose>
+        <pose frame=''>0 0 0.75 0 -0 0</pose>
         <geometry>
           <box>
             <size>1 2.0 0.015</size>
@@ -200,11 +200,11 @@
       <collision name='front_left_leg'>
         <laser_retro>0</laser_retro>
         <max_contacts>10</max_contacts>
-        <pose frame=''>0.48 0.38 0.3 0 -0 0</pose>
+        <pose frame=''>0.48 0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <surface>
@@ -256,11 +256,11 @@
       <collision name='front_right_leg'>
         <laser_retro>0</laser_retro>
         <max_contacts>10</max_contacts>
-        <pose frame=''>0.48 -0.38 0.3 0 -0 0</pose>
+        <pose frame=''>0.48 -0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <surface>
@@ -312,11 +312,11 @@
       <collision name='back_right_leg'>
         <laser_retro>0</laser_retro>
         <max_contacts>10</max_contacts>
-        <pose frame=''>-0.48 -0.38 0.3 0 -0 0</pose>
+        <pose frame=''>-0.48 -0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <surface>
@@ -368,11 +368,11 @@
       <collision name='back_left_leg'>
         <laser_retro>0</laser_retro>
         <max_contacts>10</max_contacts>
-        <pose frame=''>-0.48 0.38 0.3 0 -0 0</pose>
+        <pose frame=''>-0.48 0.38 0.3525 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.02</radius>
-            <length>0.6</length>
+            <length>0.75</length>
           </cylinder>
         </geometry>
         <surface>

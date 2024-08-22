@@ -932,20 +932,20 @@ namespace grasp_objects
       sor.setLeafSize(0.005f, 0.005f, 0.005f);
       sor.filter(*cloudFiltered);
 
-      // Create the filtering object
+      // // Create the filtering object
       pcl::PassThrough<pcl::PCLPointCloud2> pass;
       pass.setInputCloud(cloudFilteredPtr);
       pass.setFilterFieldName("x");
-      pass.setFilterLimits(0.3, 1.6);
+      pass.setFilterLimits(0.3, 1.2);
       // pass.setFilterLimitsNegative (true);
       pass.filter(*cloudFiltered);
 
-      // Create the filtering object
+      // // Create the filtering object
       pcl::PassThrough<pcl::PCLPointCloud2> passZ;
       passZ.setInputCloud(cloudFilteredPtr);
       passZ.setFilterFieldName("z");
-      passZ.setFilterLimits(0.3, 1.6);
-      // pass.setFilterLimitsNegative (true);
+      passZ.setFilterLimits(0.76, 1.5);
+      // passZ.setFilterLimitsNegative (true);
       passZ.filter(*cloudFiltered);
 
       pcl::fromPCLPointCloud2(*cloudFiltered, *cloud_without_table);

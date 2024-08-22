@@ -37,11 +37,14 @@ class ObjectBasedNavigationServer:
         new_goal.target_pose = PoseStamped()
         new_goal.target_pose.header.stamp = rospy.Time.now()
         new_goal.target_pose.header.frame_id = "map"
-        new_goal.target_pose.pose.position.x = 0.0
-        new_goal.target_pose.pose.position.y = 0.0
+        
+        new_goal.target_pose.pose.position.x = -0.24989964702
+        new_goal.target_pose.pose.position.y =  0.519080992038
         new_goal.target_pose.pose.position.z = 0.0
-        new_goal.target_pose.pose.orientation.z = 0.7212835242072623
-        new_goal.target_pose.pose.orientation.w = 0.6923883162821826
+        new_goal.target_pose.pose.orientation.z = 0.7333432028
+        new_goal.target_pose.pose.orientation.w = 0.679858622735
+        
+
         new_goal.current_pose = new_goal.target_pose
         rospy.loginfo("ObjectBasedNavigationServer: New goal generated at x: %f, y: %f",
                               new_goal.target_pose.pose.position.x, new_goal.target_pose.pose.position.y)

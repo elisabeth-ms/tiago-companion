@@ -12,9 +12,14 @@ from geometry_msgs.msg import PoseStamped
 from control_msgs.msg import PointHeadAction, PointHeadGoal
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-from companion_msgs.msg import TaskNavigationGoal
+from companion_msgs.msg import TaskNavigationGoal, BoundingBoxesLabels
 from companion_msgs.srv import ActivateSupercuadricsComputation, ActivateSupercuadricsComputationRequest, GetSuperquadrics, GetSuperquadricsRequest, GetSuperquadricsResponse
-from companion_msgs.srv import GetBboxes, GetBboxesRequest, GetBboxesResponse
+from companion_msgs.srv import GetBboxes, GetBboxesRequest, GetBboxesResponse, ComputeGraspPoses, ComputeGraspPosesRequest
+from proactive_assistance.msg import ObjectManipulationAction, ObjectManipulationGoal
+from geometry_msgs.msg import Pose, PoseArray, Point
+from shape_msgs.msg import SolidPrimitive
+
+
 def find_package_path(package_name):
     rospack = rospkg.RosPack()
     try:
@@ -183,33 +188,41 @@ class ObjectBasedGoal(smach.State):
         if self._goal_update_client.wait_for_result(rospy.Duration(1.0)):
             result = self._goal_update_client.get_result()
             print("result: ", result.result)
+            print("result current_pose: ", result.current_pose)
+            
             if result.result == "new_goal":
                 new_goal_pose = result.target_pose
 
                 # Check if the goal is far enough to the previous navigation goal
                 rospy.loginfo('ObjectBasedGoal: Checking if the new goal is far enough...')
-                if not self.is_close_enough(userdata.task_navigation_goal.target_pose, new_goal_pose, 0.2) or self.need_update:
+                if not self.is_close_enough(userdata.task_navigation_goal.target_pose, new_goal_pose, 0.25) or self.need_update:
                     rospy.loginfo('ObjectBasedGoal: Navigation goal updated.')
                     userdata.task_navigation_goal.target_pose = new_goal_pose
                     self.need_update = False
                     return 'goal_updated'
-                
                 rospy.loginfo('ObjectBasedGoal: No need to update the goal.')
-                if not self.need_update and self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose, 0.2):
+                print("goal_pose: ", userdata.task_navigation_goal.target_pose)
+                print("new_goal_pose: ", new_goal_pose)
+                if not self.need_update and self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose, 0.25):
+                    rospy.loginfo('ObjectBasedGoal: Close enough to the new goal.')
                     return 'close_enough'
                 else:
+                    rospy.loginfo('ObjectBasedGoal: Not close enough to the new goal. Goal not updated.')
                     return 'goal_not_updated'
             else:
                 rospy.loginfo('ObjectBasedGoal: No new goal.')
-                if self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose, 0.2):
+                if self.is_close_enough(userdata.task_navigation_goal.target_pose, result.current_pose, 0.25):
                     return 'close_enough'
                 else:
                     return 'goal_not_updated'
 
 
     def is_close_enough(self, current_pose, new_pose, distance_threshold):
+        print("Inside is_close_enough")
+        print("Position1: ", current_pose.pose.position)
+        print("Position2: ", new_pose.pose.position)
         distance = self.calculate_distance(current_pose.pose.position, new_pose.pose.position)
-        rospy.loginfo('ObjectBasedGoal: Distance to new goal: %f', distance)
+        rospy.loginfo('ObjectBasedGoal: Distance: %f', distance)
         return distance <= distance_threshold
 
     def calculate_distance(self, position1, position2):
@@ -217,12 +230,50 @@ class ObjectBasedGoal(smach.State):
                 (position1.y - position2.y) ** 2 + 
                 (position1.z - position2.z) ** 2) ** 0.5
 
+class MoveHeadState(smach.State):
+    def __init__(self, head_pan, head_tilt):
+        smach.State.__init__(self, outcomes=['succeeded', 'aborted'])
+        self.head_client = actionlib.SimpleActionClient('/head_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
+
+        rospy.loginfo("Waiting for head action server...")
+        self.head_client.wait_for_server()
+        rospy.loginfo("Head action server is up.")
+        self.head_pan = head_pan
+        self.head_tilt = head_tilt
+
+    def execute(self, userdata):
+        rospy.loginfo("Moving head to the desired position...")
+        
+        head_goal = FollowJointTrajectoryGoal()
+        head_trajectory = JointTrajectory()
+        head_trajectory.joint_names = ['head_1_joint', 'head_2_joint']
+        
+        head_point = JointTrajectoryPoint()
+        head_point.positions = [self.head_pan, self.head_tilt]
+        head_point.time_from_start = rospy.Duration(2.0)
+        head_trajectory.points.append(head_point)
+        head_goal.trajectory = head_trajectory
+
+
+
+        self.head_client.send_goal(head_goal)
+
+        self.head_client.wait_for_result()
+
+        if  self.head_client.get_state() == actionlib.GoalStatus.SUCCEEDED:
+            rospy.loginfo("Head moved to the desired position.")
+            return 'succeeded'
+        else:
+            rospy.logwarn("Failed to move head to the desired position.")
+            return 'aborted'
+
+
 
 class IdentifyObjectsState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['object_identified', 'object_not_identified'],
                                    input_keys=['task_navigation_goal'],
-                                   output_keys=['task_navigation_goal'])
+                                   output_keys=['task_navigation_goal', 'superquadrics', 'object_superquadric_id'])
         
         # Two services to call for object shape and pose identification using python client
         self.client_activate_object_shape_computation_ =rospy.ServiceProxy("/grasp_objects/activate_superquadrics_computation", ActivateSupercuadricsComputation)
@@ -231,10 +282,24 @@ class IdentifyObjectsState(smach.State):
         
         self.client_get_bboxes_ = rospy.ServiceProxy("/grasp_objects/get_bboxes_superquadrics", GetBboxes)
         # rospy.wait_for_service('/grasp_objects/get_superquadrics')
+        
+        # wait for a message to be published
 
     def execute(self, userdata):
         # Identify objects logic here
         rospy.loginfo('Identifying objects...')
+        boundingBoxes_msg = rospy.wait_for_message("/xtion/bounding_boxes", BoundingBoxesLabels)
+        print("boundingBoxes_msg: ", boundingBoxes_msg)
+        
+        object_name = userdata.task_navigation_goal.object_name
+        object_index_object_detection = -1
+        # find the object bounding box in the message
+        for i in range(len(boundingBoxes_msg.classes)):
+            if boundingBoxes_msg.classes[i] == object_name:
+                object_index_object_detection = i
+                break
+        boundingBoxes_msg.classes 
+        
         activateRequest = ActivateSupercuadricsComputationRequest()
         activateRequest.activate = True
         self.client_activate_object_shape_computation_.call(activateRequest)
@@ -243,11 +308,11 @@ class IdentifyObjectsState(smach.State):
         superquadrics_msg = self.client_get_superquadrics_.call(srvSq)
         print("superquadrics_msg: ", superquadrics_msg)
         
-        # This is the current bbox of my object of interest [(406, 265), (461, 359)]
-        tlx_bbox = 406
-        tly_bbox = 265
-        brx_bbox = 461
-        bry_bbox = 359
+        tlx_bbox = boundingBoxes_msg.bounding_boxes[object_index_object_detection].tlx
+        tly_bbox = boundingBoxes_msg.bounding_boxes[object_index_object_detection].tly
+        brx_bbox = boundingBoxes_msg.bounding_boxes[object_index_object_detection].brx
+        bry_bbox = boundingBoxes_msg.bounding_boxes[object_index_object_detection].bry
+        
         if len(superquadrics_msg.superquadrics.superquadrics) != 0:
             rospy.loginfo('Objects identified.')
             bboxes = self.client_get_bboxes_.call(GetBboxesRequest())
@@ -256,17 +321,117 @@ class IdentifyObjectsState(smach.State):
                 bbox = bboxes.bounding_boxes.bounding_boxes[i]
                 if bbox.tlx <= tlx_bbox and bbox.tly <= tly_bbox and bbox.brx >= brx_bbox and bbox.bry >= bry_bbox:
                     print("bbox: ", bbox.id)
+                    userdata.object_superquadric_id = bbox.id
+                    userdata.superquadrics = superquadrics_msg.superquadrics
                     return 'object_identified'
             return 'object_identified'
         else:
             rospy.loginfo('No objects identified.')
             return 'object_not_identified'
-        
-        
-        
-        
 
+class GraspObjectState(smach.State):
+    def __init__(self, config):
+        smach.State.__init__(self, outcomes=['object_grasped', 'object_not_grasped'],
+                                   input_keys=['task_navigation_goal', 'superquadrics', 'object_superquadric_id'],
+                                   output_keys=['task_navigation_goal', 'manipulation_goal'])
+        self.config = config
+        self.client_get_grasp_poses = rospy.ServiceProxy("/grasp_objects/compute_grasp_poses", ComputeGraspPoses)
+        self.client_object_manipulation = actionlib.SimpleActionClient('object_manipulation', ObjectManipulationAction)
+        self.client_object_manipulation.wait_for_server()
+        
+    def execute(self, userdata):
+        grasp_poses_request = ComputeGraspPosesRequest()
+        grasp_poses_request.id = userdata.object_superquadric_id
+        grasp_poses = self.client_get_grasp_poses.call(grasp_poses_request)
+        
+        print("grasp_poses: ", grasp_poses)
+        goal = ObjectManipulationGoal()
+        
+        index_object = -1
+        for i in range(len(userdata.superquadrics.superquadrics)):
+            if userdata.superquadrics.superquadrics[i].id == userdata.object_superquadric_id:
+                print("found")
+                index_object = i
+                break
+        if grasp_poses.poses !=[]:
+            goal.task = 'pick'
+            goal.desired_object = userdata.superquadrics.superquadrics[index_object]
+            # Define obstacles
+            obstacle = SolidPrimitive()
+            obstacle.type = SolidPrimitive.BOX
+            obstacle.dimensions = self.config['robot_table']['dimensions']
+            print("dimensions: ", obstacle.dimensions)
+            goal.obstacles.append(obstacle)
             
+            obstacle_pose = Pose()
+            obstacle_pose.position.x = self.config['robot_table']['pose']['position']['x']
+            obstacle_pose.position.y = self.config['robot_table']['pose']['position']['y']
+            obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
+            obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
+            goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
+            
+            goal.reference_frames_of_obstacles.append('base_footprint')
+            
+            goal.grasping_poses = grasp_poses.poses
+
+            goal.gripper_empty = True
+            goal.width = grasp_poses.width
+            # Sends the goal to the action server
+            self.client_object_manipulation.send_goal(goal, feedback_cb=self.feedback_cb)
+
+            # Waits for the server to finish performing the action
+            self.client_object_manipulation.wait_for_result()
+
+            # Prints out the result of executing the action
+            result = self.client_object_manipulation.get_result()
+            
+            userdata.manipulation_goal = goal
+            print('[Result] Success: %s, Message: %s' % (result.success, result.message))
+            rospy.loginfo('Object grasped.')
+            return 'object_grasped'
+        else:
+            rospy.loginfo('Object not grasped.')
+            return 'object_not_grasped'
+          
+    def feedback_cb(self,feedback):
+        print('[Feedback] Current Status: %s' % feedback.status)
+
+class SafetyArmPositionState(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['arm_positioned', 'arm_not_positioned'],
+                                   input_keys=['task_navigation_goal', 'manipulation_goal'],
+                                   output_keys=['task_navigation_goal'])
+        self.client_object_manipulation = actionlib.SimpleActionClient('object_manipulation', ObjectManipulationAction)
+        
+    def execute(self, userdata):
+        rospy.loginfo('Move to confortable pose...')
+        goal = ObjectManipulationGoal()
+        goal.task = 'comfortable'
+        goal.gripper_empty = False
+        goal.obstacle_poses = userdata.manipulation_goal.obstacle_poses
+        goal.obstacles = userdata.manipulation_goal.obstacles
+        goal.reference_frames_of_obstacles = userdata.manipulation_goal.reference_frames_of_obstacles
+        
+        self.client_object_manipulation.send_goal(goal)
+        self.client_object_manipulation.wait_for_result()
+        result = self.client_object_manipulation.get_result()
+        print('[Result] Success: %s, Message: %s' % (result.success, result.message))
+        
+        if result.success:
+            goal = ObjectManipulationGoal()
+            goal.task = 'add_remove_obstacles'
+            self.client_object_manipulation.send_goal(goal)
+            self.client_object_manipulation.wait_for_result()
+            result = self.client_object_manipulation.get_result()
+            print('[Result] Success: %s, Message: %s' % (result.success, result.message))
+        
+            return 'arm_positioned'
+        else:
+            return 'arm_not_positioned'
+        
+        
+        
+        
 
 class GraspingPositionsState(smach.State):
     def __init__(self):
@@ -669,16 +834,27 @@ class ProactiveAssistanceStateMachine:
                                       remapping={'task_navigation_goal':'task_navigation_goal'})
 
             smach.StateMachine.add('CONCURRENT_OBJECT_NAV', sm_nav_pick_con,
-                                      transitions={'succeeded':'IDENTIFY_OBJECTS',
+                                      transitions={'succeeded':'MOVE_HEAD',
                                                     'goal_unreachable':'aborted',
                                                     'preempted':'preempted',
                                                     'goal_updated':'CONCURRENT_OBJECT_NAV',
                                                     'goal_not_updated':'CONCURRENT_OBJECT_NAV'})
+            
+            smach.StateMachine.add('MOVE_HEAD', MoveHeadState(0.0, -0.7),  # Adjust pan and tilt values as needed
+                                   transitions={'succeeded': 'IDENTIFY_OBJECTS',
+                                                'aborted': 'aborted'})
 
 
             smach.StateMachine.add('IDENTIFY_OBJECTS', IdentifyObjectsState(),
-                                   transitions={'object_identified': 'succeeded',
+                                   transitions={'object_identified': 'GRASP_OBJECT',
                                                 'object_not_identified': 'WAIT_TO_PICK'})
+            
+            smach.StateMachine.add('GRASP_OBJECT', GraspObjectState(initialize_demo_config),
+                                    transitions={'object_grasped': 'SAFETY_ARM_POSITION',
+                                                  'object_not_grasped': 'WAIT_TO_PICK'})
+            smach.StateMachine.add('SAFETY_ARM_POSITION', SafetyArmPositionState(),
+                                    transitions={'arm_positioned': 'succeeded',
+                                                  'arm_not_positioned': 'aborted'})
             
             
             

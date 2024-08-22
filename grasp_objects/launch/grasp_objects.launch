@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+    <rosparam file="$(find grasp_objects)/config/grasp_objects.yaml" command="load" ns="grasp_objects"/>
+    <rosparam file="$(find demo_anticipatory_vs_reactive)/config/demo.yaml" command="load" ns="demo"/>
+
+    <node name="grasp_objects_node" pkg="grasp_objects" type="grasp_objects_node" output="screen"/>
+</launch>

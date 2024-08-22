@@ -45,8 +45,8 @@ class ObjectBasedNavigationServer:
         
         # Define the table border points (example coordinates)
         self.table_border_points = [
-            Point(x=-0.712, y=1.1, z=0.0),
-            Point(x=0.85, y=1.1, z=0.0)]
+            Point(x=-0.319864451885, y=1.15, z=0.0), 
+            Point(x=1.34349691868, y=1.15, z=0.0)]
 
 
     def object_detection_callback(self, data):
@@ -71,6 +71,7 @@ class ObjectBasedNavigationServer:
             rospy.logwarn("Point cloud data is not available")
             return
         
+        print("len(self.point_cloud): ", len(self.point_cloud.data))
         
         center_x = int((bounding_box.tlx + bounding_box.brx) / 2)
         center_y = int((bounding_box.tly + bounding_box.bry) / 2)
@@ -153,13 +154,20 @@ class ObjectBasedNavigationServer:
             new_goal.target_pose.header.frame_id = "map"
             new_goal.target_pose.pose.position = self.closest_border_point
             new_goal.target_pose.pose.position.z = 0.0
-            new_goal.target_pose.pose.orientation.z = 0.7212835242072623
-            new_goal.target_pose.pose.orientation.w = 0.6923883162821826
+            new_goal.target_pose.pose.orientation.x = 0.0
+            new_goal.target_pose.pose.orientation.y = 0.0
+            new_goal.target_pose.pose.orientation.z = 0.790255188966
+            new_goal.target_pose.pose.orientation.w = 0.612777884974
+            
+
+
+
             new_goal.current_pose = self.amcl_pose
             rospy.loginfo("ObjectBasedNavigationServer: New goal generated at x: %f, y: %f",
                               new_goal.target_pose.pose.position.x, new_goal.target_pose.pose.position.y)
             self.previous_closest_border_point = self.closest_border_point
-                
+
+
 
             self._as.set_succeeded(new_goal)
 
@@ -208,6 +216,6 @@ if __name__ == '__main__':
     obj_nav = ObjectBasedNavigationServer('goal_update')
     
     # Periodically process the bounding box and point cloud to send a new goal
-    rate = rospy.Rate(1)  # Adjust the rate as needed
+    rate = rospy.Rate(5)  # Adjust the rate as needed
 
     rospy.spin()
