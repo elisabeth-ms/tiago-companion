@@ -13,6 +13,9 @@
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <moveit_msgs/OrientationConstraint.h>
 #include <moveit_msgs/Constraints.h>
+#include <moveit_msgs/AllowedCollisionMatrix.h>
+#include <moveit_msgs/AllowedCollisionEntry.h>
+#include <moveit_msgs/GetPlanningScene.h>
 
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
 typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_client_Ptr;
@@ -124,6 +127,60 @@ public:
   {
   }
 
+void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface& planning_scene_interface, 
+                              const std::string& object_id, 
+                              const std::string& link_name)
+{
+ // Create a service client to get the planning scene
+    ros::ServiceClient get_planning_scene_client = nh_.serviceClient<moveit_msgs::GetPlanningScene>("get_planning_scene");
+    moveit_msgs::GetPlanningScene srv;
+    srv.request.components.components = moveit_msgs::PlanningSceneComponents::ALLOWED_COLLISION_MATRIX;
+
+    if (!get_planning_scene_client.call(srv)) {
+        ROS_ERROR("Failed to call service get_planning_scene");
+        return;
+    }
+
+    // Modify the AllowedCollisionMatrix
+    moveit_msgs::PlanningScene planning_scene;
+    planning_scene.is_diff = true;
+
+    moveit_msgs::AllowedCollisionMatrix& acm = srv.response.scene.allowed_collision_matrix;
+
+    // Add the link and object to the ACM if they are not present
+    if (std::find(acm.entry_names.begin(), acm.entry_names.end(), link_name) == acm.entry_names.end()) {
+        acm.entry_names.push_back(link_name);
+    }
+
+    if (std::find(acm.entry_names.begin(), acm.entry_names.end(), object_id) == acm.entry_names.end()) {
+        acm.entry_names.push_back(object_id);
+    }
+
+    // Ensure the entry_values vector is resized to match entry_names
+    size_t new_size = acm.entry_names.size();
+    if (acm.entry_values.size() < new_size) {
+        acm.entry_values.resize(new_size);
+    }
+
+    // Enable collision between the specific link and object
+    size_t link_index = std::distance(acm.entry_names.begin(), std::find(acm.entry_names.begin(), acm.entry_names.end(), link_name));
+    size_t object_index = std::distance(acm.entry_names.begin(), std::find(acm.entry_names.begin(), acm.entry_names.end(), object_id));
+
+    // Resize the enabled vector for each entry to the correct size
+    for (size_t i = 0; i < acm.entry_values.size(); ++i) {
+        acm.entry_values[i].enabled.resize(new_size, false);
+    }
+
+    // Enable collision between the link and object
+    acm.entry_values[link_index].enabled[object_index] = true;
+    acm.entry_values[object_index].enabled[link_index] = true;
+
+    // Apply the updated ACM to the planning scene using the PlanningSceneInterface
+    planning_scene.allowed_collision_matrix = acm;
+
+    // Apply the changes to the planning scene
+    planning_scene_interface.applyPlanningScene(planning_scene);
+}
   void executeCB(const proactive_assistance::ObjectManipulationGoalConstPtr &goal)
   {
     // Start processing the goal
@@ -131,9 +188,9 @@ public:
     // Publish feedback and result
     ROS_INFO("%s: Processing the manipulation task", action_name_.c_str());
     // Remove all objects in the planning scene
-    removeCollisionObjectsPlanningScene();
-    ROS_INFO("Removed all objects in the planning scene");
-    addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
+    // removeCollisionObjectsPlanningScene();
+    // ROS_INFO("Removed all objects in the planning scene");
+    // addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
     bool success = true; // example processing result
 
     if (goal->task == "pick")
@@ -143,6 +200,8 @@ public:
       ROS_INFO("Number of obstacle poses: %d", goal->obstacle_poses.size());
       ROS_INFO("Number of reference frames of obstacles: %d", goal->reference_frames_of_obstacles.size());
       ROS_INFO("Number of grasping poses: %d", goal->grasping_poses.poses.size());
+      
+      addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
 
       float closeGripperPositions[2] = {0.0, 0.0};
       moveGripper(closeGripperPositions, "right");
@@ -189,6 +248,57 @@ public:
         success = goToGraspingPose(goal->grasping_poses.poses[index_grasp]);
         float close[2] = {goal->width[index_grasp] / 2.0-closeGripperDeviation_, goal->width[index_grasp] / 2.0-closeGripperDeviation_};
         moveGripper(close, "right");
+
+        // Lets attach the object to the robot
+        moveit_msgs::AttachedCollisionObject attached_object;
+        attached_object.link_name = "gripper_right_tool_link";
+        attached_object.object.id = "object";
+        attached_object.object.header.frame_id = "base_footprint";
+
+        // Check the superquadric shape of the object
+        if(goal->desired_object.e1<=0.98 && goal->desired_object.e1 >= 0.6 && goal->desired_object.e2<=0.98 && goal->desired_object.e2 >= 0.6){
+          attached_object.object.primitives.resize(1);
+          attached_object.object.primitives[0].type = attached_object.object.primitives[0].CYLINDER;
+          attached_object.object.primitives[0].dimensions.resize(3);
+          attached_object.object.primitives[0].dimensions[0] = goal->desired_object.a1;
+          // check the radius of the cylinder
+          if(goal->desired_object.a2 > goal->desired_object.a3)
+            attached_object.object.primitives[0].dimensions[1] = goal->desired_object.a2;
+          else
+            attached_object.object.primitives[0].dimensions[1] = goal->desired_object.a3;
+
+        // Pose of the object
+        geometry_msgs::Pose pose;
+        pose.position.x = goal->desired_object.x;
+        pose.position.y = goal->desired_object.y;
+        pose.position.z = goal->desired_object.z;
+        // transform Orientation of the object (roll, pitch, yaw) as quaternion
+
+        Eigen::AngleAxisf rollAngle(goal->desired_object.roll, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf yawAngle(goal->desired_object.yaw, Eigen::Vector3f::UnitY());
+        Eigen::AngleAxisf pitchAngle(goal->desired_object.pitch, Eigen::Vector3f::UnitZ());
+
+        Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
+
+
+        pose.orientation.x = q.x();
+        pose.orientation.y = q.y();
+        pose.orientation.z = q.z();
+        pose.orientation.w = q.w();
+        attached_object.object.primitive_poses.push_back(pose);
+        attached_object.object.operation = attached_object.object.ADD;
+
+        // Add object to the planning scene
+        planningSceneInterface_.applyAttachedCollisionObject(attached_object);
+
+        disableCollisionChecking(planningSceneInterface_, "object", "gripper_right_left_finger_link");
+        disableCollisionChecking(planningSceneInterface_, "object", "gripper_right_right_finger_link");
+        disableCollisionChecking(planningSceneInterface_, "object", "gripper_right_tool_link");
+        // disableCollisionChecking(planningSceneInterface_, "gripper_right_left_finger_link", "object");
+        // disableCollisionChecking(planningSceneInterface_, "gripper_right_right_finger_link", "object");
+
+        }
+
       }
     }
     else if (goal->task == "comfortable")
@@ -205,6 +315,8 @@ public:
     }
     else if(goal->task == "add_remove_obstacles"){
         ROS_INFO("Removing obstacles");
+        removeCollisionObjectsPlanningScene();
+        ROS_INFO("Removed all objects in the planning scene");
     }
     else
     {

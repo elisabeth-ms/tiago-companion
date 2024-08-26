@@ -1064,7 +1064,7 @@ namespace grasp_objects
           Vector11d params = superqs[0].getSuperqParams();
 
           // we need to check which axix is the longest one
-          float real_height = 0.7;
+          float real_height = 0.75;
           float longest_a = 0;
           int longest_a_idx = 0;
           // for (int i = 0; i < 3; i++)
@@ -1116,6 +1116,8 @@ namespace grasp_objects
 
           superqs[0].setSuperqParams(params);
 
+          if(superquadric.a1>0.0 && superquadric.a2>0.0 && superquadric.a3>0){
+
           pcl::PointCloud<pcl::PointXYZRGBA>::Ptr auxCloudSuperquadric(new pcl::PointCloud<pcl::PointXYZRGBA>);
 
           // This is only for visulazition of the superquadrics
@@ -1129,6 +1131,7 @@ namespace grasp_objects
 
           superquadricObjects_.push_back(objectSuperquadric);
           superquadricsMsg_.superquadrics.push_back(superquadric);
+          }
         }
 
         ROS_INFO("AQUI!!");

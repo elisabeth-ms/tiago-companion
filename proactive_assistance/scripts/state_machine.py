@@ -317,17 +317,49 @@ class IdentifyObjectsState(smach.State):
             rospy.loginfo('Objects identified.')
             bboxes = self.client_get_bboxes_.call(GetBboxesRequest())
             print("bboxes: ", bboxes)
+            max_iou = 0
             for i in range(len(bboxes.bounding_boxes.bounding_boxes)):
-                bbox = bboxes.bounding_boxes.bounding_boxes[i]
-                if bbox.tlx <= tlx_bbox and bbox.tly <= tly_bbox and bbox.brx >= brx_bbox and bbox.bry >= bry_bbox:
-                    print("bbox: ", bbox.id)
-                    userdata.object_superquadric_id = bbox.id
+                iou = self.calculate_iou(tlx_bbox, tly_bbox, brx_bbox, bry_bbox, bboxes.bounding_boxes.bounding_boxes[i].tlx,
+                              bboxes.bounding_boxes.bounding_boxes[i].tly, bboxes.bounding_boxes.bounding_boxes[i].brx,
+                              bboxes.bounding_boxes.bounding_boxes[i].bry)
+                if iou>max_iou:
+                    max_iou = iou
+                    userdata.object_superquadric_id = bboxes.bounding_boxes.bounding_boxes[i].id
                     userdata.superquadrics = superquadrics_msg.superquadrics
-                    return 'object_identified'
+            if max_iou > 0.0:
+                return 'object_identified'
             return 'object_identified'
         else:
             rospy.loginfo('No objects identified.')
             return 'object_not_identified'
+          
+    def calculate_iou(self, tlx_ref, tly_ref, brx_ref, bry_ref, tlx_pred, tly_pred, brx_pred, bry_pred):
+        # Coordinates of the intersection rectangle
+        xA = max(tlx_ref, tlx_pred)
+        yA = max(tly_ref, tly_pred)
+        xB = min(brx_ref, brx_pred)
+        yB = min(bry_ref, bry_pred)
+
+        # Compute the area of intersection rectangle
+        interWidth = max(0, xB - xA)
+        interHeight = max(0, yB - yA)
+        interArea = interWidth * interHeight
+
+        # If there is no intersection, the intersection area will be zero
+        if interArea == 0:
+            return 0.0
+
+        # Compute the area of both bounding boxes
+        area_ref = (brx_ref - tlx_ref) * (bry_ref - tly_ref)
+        area_pred = (brx_pred - tlx_pred) * (bry_pred - tly_pred)
+
+        # Compute the union area
+        unionArea = area_ref + area_pred - interArea
+
+        # Compute IoU
+        iou = interArea / float(unionArea)
+
+        return iou
 
 class GraspObjectState(smach.State):
     def __init__(self, config):
@@ -847,7 +879,10 @@ class ProactiveAssistanceStateMachine:
 
             smach.StateMachine.add('IDENTIFY_OBJECTS', IdentifyObjectsState(),
                                    transitions={'object_identified': 'GRASP_OBJECT',
-                                                'object_not_identified': 'WAIT_TO_PICK'})
+                                                'object_not_identified': 'WAIT_TO_PICK'},
+                                   remapping={'task_navigation_goal':'task_navigation_goal',
+                                              'superquadrics':'superquadrics',
+                                              'object_superquadric_id':'object_superquadric_id'})
             
             smach.StateMachine.add('GRASP_OBJECT', GraspObjectState(initialize_demo_config),
                                     transitions={'object_grasped': 'SAFETY_ARM_POSITION',
