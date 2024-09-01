@@ -111,7 +111,7 @@ public:
 
     comfortablePoseRight_.position.x = 0.527;
     comfortablePoseRight_.position.y = -0.325;
-    comfortablePoseRight_.position.z = 0.960;
+    comfortablePoseRight_.position.z = 1.20;
     comfortablePoseRight_.orientation.x = 0.018;
     comfortablePoseRight_.orientation.y = 0.706;
     comfortablePoseRight_.orientation.z = -0.696;
@@ -214,15 +214,15 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       {
         ROS_INFO("Moving to pregrasp pose %d", index_grasp);
         geometry_msgs::Pose pose = pregrasp_poses[index_grasp];
-        groupRightArmTorsoPtr_->setPoseTarget(pose);
+        groupRightArmPtr_->setPoseTarget(pose);
         moveit::planning_interface::MoveGroupInterface::Plan my_plan;
 
-        moveit::planning_interface::MoveItErrorCode code = groupRightArmTorsoPtr_->plan(my_plan);
+        moveit::planning_interface::MoveItErrorCode code = groupRightArmPtr_->plan(my_plan);
         bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
         bool successExecution = false;
         if (successPlanning)
         {
-          moveit::planning_interface::MoveItErrorCode codeExecute = groupRightArmTorsoPtr_->execute(my_plan);
+          moveit::planning_interface::MoveItErrorCode codeExecute = groupRightArmPtr_->execute(my_plan);
           successExecution = (codeExecute == moveit::planning_interface::MoveItErrorCode::SUCCESS);
           if (successExecution)
           {
@@ -274,17 +274,10 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
         pose.position.z = goal->desired_object.z;
         // transform Orientation of the object (roll, pitch, yaw) as quaternion
 
-        Eigen::AngleAxisf rollAngle(goal->desired_object.roll, Eigen::Vector3f::UnitZ());
-        Eigen::AngleAxisf yawAngle(goal->desired_object.yaw, Eigen::Vector3f::UnitY());
-        Eigen::AngleAxisf pitchAngle(goal->desired_object.pitch, Eigen::Vector3f::UnitZ());
+        tf2::Quaternion q;
+        q.setRPY(goal->desired_object.roll, goal->desired_object.pitch, goal->desired_object.yaw);
+        pose.orientation = tf2::toMsg(q);
 
-        Eigen::Quaternionf q = rollAngle * yawAngle * pitchAngle;
-
-
-        pose.orientation.x = q.x();
-        pose.orientation.y = q.y();
-        pose.orientation.z = q.z();
-        pose.orientation.w = q.w();
         attached_object.object.primitive_poses.push_back(pose);
         attached_object.object.operation = attached_object.object.ADD;
 
@@ -309,9 +302,15 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     else if (goal->task == "place")
     {
       ROS_INFO("Placing the object");
+      addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
       placeObject(goal->zone_place);
       moveGripper(openGripperPositions_, "right");
+      moveit_msgs::AttachedCollisionObject attached_object;
+      attached_object.object.id = "object";
+      attached_object.object.operation = attached_object.object.REMOVE;
       goToDistancedPose(0.2);
+      removeCollisionObjectsPlanningScene();
+
     }
     else if(goal->task == "add_remove_obstacles"){
         ROS_INFO("Removing obstacles");
@@ -426,7 +425,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
     moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
 
-    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+    groupAuxArmTorsoPtr_ = groupRightArmPtr_;
 
     groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
     groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
@@ -468,7 +467,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
     moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
 
-    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+    groupAuxArmTorsoPtr_ = groupRightArmPtr_;
 
     groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
     groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
@@ -565,7 +564,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
     moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
 
-    groupAuxArmTorsoPtr_ = groupRightArmTorsoPtr_;
+    groupAuxArmTorsoPtr_ = groupRightArmPtr_;
 
     groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.3);
     groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.3);
