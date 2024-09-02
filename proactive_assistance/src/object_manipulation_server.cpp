@@ -646,10 +646,9 @@ bool placeObject(const std::vector<geometry_msgs::Point>& bounding_zone)
 
     bool success = false;
     // Test points within the bounding zone starting from the center
-    for (double step = 0.0; step <= 1.0; step += 0.1) {
-        for (double alpha = 0.5 - step; alpha <= 0.5 + step; alpha += step) {
-            for (double beta = 0.5 - step; beta <= 0.5 + step; beta += step) {
-                if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) continue;
+    for (double step = 0.1; step <= 1.0; step += 0.1) {  // Start from a small positive step
+        for (double alpha = std::max(0.0, 0.5 - step); alpha <= std::min(1.0, 0.5 + step); alpha += step) {
+            for (double beta = std::max(0.0, 0.5 - step); beta <= std::min(1.0, 0.5 + step); beta += step) {
                 geometry_msgs::Pose target_pose = interpolate(alpha, beta);
 
                 groupAuxArmTorsoPtr_->setPoseTarget(target_pose);
@@ -662,7 +661,10 @@ bool placeObject(const std::vector<geometry_msgs::Point>& bounding_zone)
 
                 moveit::planning_interface::MoveGroupInterface::Plan my_plan;
                 success = (groupAuxArmTorsoPtr_->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-
+                ROS_INFO("Alpha: %f, Beta: %f", alpha, beta);
+                ROS_INFO("SUCCESS: %d", success);
+                ROS_INFO("Target pose: x=%f, y=%f, z=%f", target_pose.position.x, target_pose.position.y, target_pose.position.z);
+                
                 if (success) {
                     groupAuxArmTorsoPtr_->move();
                     return true; // Exit the function after the first successful motion

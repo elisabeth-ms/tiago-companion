@@ -1021,7 +1021,7 @@ class ProactiveAssistanceStateMachine:
             pose_place = PoseStamped()
             pose_place.header.frame_id = 'map'
             pose_place.pose.position.x = -0.126075468196
-            pose_place.pose.position.y = -0.848073005676
+            pose_place.pose.position.y = -0.90073005676
             pose_place.pose.position.z = 0.0
             pose_place.pose.orientation.x = 0.0
             pose_place.pose.orientation.y = 0.0
