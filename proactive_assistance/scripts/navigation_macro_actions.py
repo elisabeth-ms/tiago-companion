@@ -35,8 +35,7 @@ class NavigationMacroActionServer:
                 self._move_base_client.cancel_goal()
                 self._as.set_preempted()
                 return
-            print("---------------------------------------------------------------------------------------------------")
-            print(goal)
+
                       
 
             # Check if an update is required

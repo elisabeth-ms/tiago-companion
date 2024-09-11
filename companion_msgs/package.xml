@@ -41,12 +41,17 @@
   <build_depend>std_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
+  <build_depend>darknet_ros_msgs</build_depend>
+  <build_depend>actionlib_msgs</build_depend>
 
 
   <!-- Use build_export_depend for packages you need in order to build against this package: -->
   <build_export_depend>message_generation</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
   <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>darknet_ros_msgs</build_export_depend>
+  <build_export_depend>actionlib_msgs</build_export_depend>
+
 
   <!-- Use buildtool_depend for build tool packages: -->
   <buildtool_depend>catkin</buildtool_depend>
@@ -55,6 +60,8 @@
   <build_depend>std_msgs</build_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>darknet_ros_msgs</exec_depend>
+  <exec_depend>actionlib_msgs</exec_depend>
 
 
   <!-- Use test_depend for packages you need only for testing: -->

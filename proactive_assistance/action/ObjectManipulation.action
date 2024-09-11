@@ -2,7 +2,7 @@
 
 # Define the goal
 bool gripper_empty  # true if the gripper is empty, false if holding an object
-string task  # "pick" or "place" or "comfortable" or "add_remove_obstacles"
+string task  # "pick" or "place" or "comfortable" or "add_remove_obstacles" or "move_to_joint_state"
 companion_msgs/Superquadric desired_object
 geometry_msgs/PoseArray grasping_poses
 float64[] width
@@ -10,7 +10,7 @@ shape_msgs/SolidPrimitive[] obstacles
 geometry_msgs/Pose[] obstacle_poses
 string[] reference_frames_of_obstacles
 geometry_msgs/Point[] zone_place # x, y (Only used for "place" task)
-
+sensor_msgs/JointState joint_states
 ---
 # Define the result
 bool success

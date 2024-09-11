@@ -7,7 +7,7 @@ project(companion_msgs)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS message_generation std_msgs geometry_msgs sensor_msgs)
+find_package(catkin REQUIRED COMPONENTS message_generation std_msgs geometry_msgs sensor_msgs actionlib_msgs darknet_ros_msgs)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -63,6 +63,7 @@ add_service_files(
   GetSuperquadrics.srv
   GetBboxes.srv
   ActivateASR.srv
+  ObjectDetection.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -78,6 +79,8 @@ generate_messages(
         std_msgs
         geometry_msgs
         sensor_msgs
+        darknet_ros_msgs
+
 )
 
 ################################################
@@ -110,7 +113,7 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-    CATKIN_DEPENDS message_runtime std_msgs geometry_msgs sensor_msgs
+    CATKIN_DEPENDS message_runtime std_msgs geometry_msgs sensor_msgs darknet_ros_msgs
 )
 
 ###########

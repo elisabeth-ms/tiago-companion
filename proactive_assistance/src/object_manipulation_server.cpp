@@ -242,7 +242,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
         success = false;
       }
 
-      if (index_grasp < pregrasp_poses.size())
+      if (success && index_grasp < pregrasp_poses.size())
       {
         moveGripper(openGripperPositions_, "right");
         success = goToGraspingPose(goal->grasping_poses.poses[index_grasp]);
@@ -253,30 +253,48 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
         moveit_msgs::AttachedCollisionObject attached_object;
         attached_object.link_name = "gripper_right_tool_link";
         attached_object.object.id = "object";
-        attached_object.object.header.frame_id = "base_footprint";
+        attached_object.object.header.frame_id = "gripper_right_tool_link";
 
         // Check the superquadric shape of the object
-        if(goal->desired_object.e1<=0.98 && goal->desired_object.e1 >= 0.6 && goal->desired_object.e2<=0.98 && goal->desired_object.e2 >= 0.6){
           attached_object.object.primitives.resize(1);
-          attached_object.object.primitives[0].type = attached_object.object.primitives[0].CYLINDER;
+          attached_object.object.primitives[0].type = attached_object.object.primitives[0].BOX;
           attached_object.object.primitives[0].dimensions.resize(3);
-          attached_object.object.primitives[0].dimensions[0] = goal->desired_object.a1;
+          attached_object.object.primitives[0].dimensions[1] = goal->desired_object.a1*0.9;
           // check the radius of the cylinder
-          if(goal->desired_object.a2 > goal->desired_object.a3)
-            attached_object.object.primitives[0].dimensions[1] = goal->desired_object.a2;
-          else
-            attached_object.object.primitives[0].dimensions[1] = goal->desired_object.a3;
+          if(goal->desired_object.a2 > goal->desired_object.a3){
+            attached_object.object.primitives[0].dimensions[0] = goal->desired_object.a2*2;
+            attached_object.object.primitives[0].dimensions[2] = goal->desired_object.a2*2;
+          }
+          else{
+            attached_object.object.primitives[0].dimensions[0] = goal->desired_object.a3*2;
+            attached_object.object.primitives[0].dimensions[2] = goal->desired_object.a3*2;
+          }
 
         // Pose of the object
         geometry_msgs::Pose pose;
-        pose.position.x = goal->desired_object.x;
-        pose.position.y = goal->desired_object.y;
-        pose.position.z = goal->desired_object.z;
-        // transform Orientation of the object (roll, pitch, yaw) as quaternion
+        pose.position.z = -0.2;
+        pose.orientation.w = 1.0;  // Default quaternion (no rotation)
+        // tf2::Quaternion q;
+        // q.setRPY(0, M_PI / 2, 0);  // 90-degree rotation around the y-axis
+        // pose.orientation = tf2::toMsg(q);  // Apply the quaternion to the pose
 
-        tf2::Quaternion q;
-        q.setRPY(goal->desired_object.roll, goal->desired_object.pitch, goal->desired_object.yaw);
-        pose.orientation = tf2::toMsg(q);
+        // pose.position.x = goal->desired_object.x;
+
+        // pose.position.y = goal->desired_object.y;
+        // pose.position.z = goal->desired_object.z;
+        // // transform Orientation of the object (roll, pitch, yaw) as quaternion
+
+        // tf2::Quaternion q, q_rot;
+        // q.setRPY(goal->desired_object.roll, goal->desired_object.pitch, goal->desired_object.yaw);
+
+        // // Create a quaternion representing a 90-degree (pi/2 radians) rotation around the x-axis
+        // q_rot.setRPY(0, M_PI / 2, 0);
+
+        // // Combine the two quaternions (first apply the original rotation, then the 90-degree x-axis rotation)
+        // q = q_rot * q;  // Order matters: q_rot * q means "apply q_rot first, then q"
+
+        // Convert the resulting quaternion back to a message and assign it to the pose
+        // pose.orientation = tf2::toMsg(q);
 
         attached_object.object.primitive_poses.push_back(pose);
         attached_object.object.operation = attached_object.object.ADD;
@@ -290,7 +308,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
         // disableCollisionChecking(planningSceneInterface_, "gripper_right_left_finger_link", "object");
         // disableCollisionChecking(planningSceneInterface_, "gripper_right_right_finger_link", "object");
 
-        }
+        
 
       }
     }
@@ -308,14 +326,41 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       moveit_msgs::AttachedCollisionObject attached_object;
       attached_object.object.id = "object";
       attached_object.object.operation = attached_object.object.REMOVE;
+      planningSceneInterface_.applyAttachedCollisionObject(attached_object);
       goToDistancedPose(0.2);
       removeCollisionObjectsPlanningScene();
-
+      moveGripper(closeGripperPositions_, "right");
     }
     else if(goal->task == "add_remove_obstacles"){
         ROS_INFO("Removing obstacles");
         removeCollisionObjectsPlanningScene();
         ROS_INFO("Removed all objects in the planning scene");
+    }
+    else if (goal->task == "move_to_joint_state"){
+      ROS_INFO("Moving to joint state");
+      addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
+      moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+      groupAuxArmTorsoPtr_ = groupRightArmPtr_;
+      std::vector<double> rightArmPositions;
+      for(int i = 0; i < goal->joint_states.position.size(); i++){
+        rightArmPositions.push_back(goal->joint_states.position[i]);
+        ROS_INFO("Joint %d: %f", i, goal->joint_states.position[i]);
+      }
+      ROS_INFO("Moving to joint state");
+
+      groupAuxArmTorsoPtr_->setJointValueTarget(rightArmPositions);
+      groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+
+      moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+      success = (groupAuxArmTorsoPtr_->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+      if (success) {
+          moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(my_plan);
+
+      } else {
+          ROS_WARN("Planning to the joint state failed.");
+      }
+      removeCollisionObjectsPlanningScene();
+
     }
     else
     {
@@ -459,7 +504,13 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
     moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
 
-    return true;
+    // check if there is an error
+    if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS){
+      return true;
+    }
+    else{
+      return false;
+    }
   }
 
   bool goToDistancedPose(double distanced)
@@ -573,11 +624,11 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     geometry_msgs::Pose grasp_pose = grasp_pose_stamped.pose;
 
     // Define comfortable pose with fixed position
-    geometry_msgs::Pose comfortable_pose;
-    comfortable_pose.position.x = 0.527;
-    comfortable_pose.position.y = -0.325;
-    comfortable_pose.position.z = 0.960;
-
+    geometry_msgs::Pose comfortable_pose = grasp_pose;
+    // comfortable_pose.position.x = 0.527;
+    // comfortable_pose.position.y = -0.325;
+    comfortable_pose.position.z +=0.25;
+    
     // Set orientation to be the same as the grasp pose to maintain level
     comfortable_pose.orientation = grasp_pose.orientation;
 

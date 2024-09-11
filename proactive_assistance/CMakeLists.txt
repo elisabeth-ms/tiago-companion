@@ -182,6 +182,7 @@ catkin_install_python(PROGRAMS
    scripts/gazebo_camera_object_detection.py
    scripts/link_state_to_tf.py
    scripts/image_bounding_box_drawer.py
+   scripts/object_based_navigation.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

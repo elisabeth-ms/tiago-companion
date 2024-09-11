@@ -27,21 +27,29 @@ def publish_fake_goals():
     
     
     
-    for i in range(5):
+    for i in range(2):
         # Define the task_pose
         task_goal.target_pose = PoseStamped()
         task_goal.target_pose.header.frame_id = "map"
         task_goal.target_pose.header.stamp = rospy.Time.now()
         
-        
-        # Set the position and orientation far from the objects table looking at the table, so that we can see all the objects
-        task_goal.target_pose.pose.position = Point(0.303321372078,  -0.65445398636, 0.0) 
-        
-        task_goal.target_pose.pose.orientation = Quaternion(0.0, 0.0,  0.641472789054,  0.767145788559) 
 
-            # Set the zone and object
+
+
+        task_goal.target_pose.pose.position = Point(-0.35, -0.0043135567279, 0.0)
+        task_goal.target_pose.pose.orientation = Quaternion(0.0, 0.0, 0, 1)
+        # Set the position and orientation far from the objects table looking at the table, so that we can see all the objects
+        #task_goal.target_pose.pose.position = Point(-0.56,  0.336918167052, 0.0) 
+
+
+
+
+        
+        #task_goal.target_pose.pose.orientation = Quaternion(0.0, 0.0, -0.00103007814223, 0.999999469469)
+
+        # Set the zone and object
         task_goal.zone = 'robot_table'
-        task_goal.object_name = 'nutella'
+        task_goal.object_name = "tomato sauce"
 
             # Publish the TaskNavigationGoal
         rospy.loginfo("Publishing fake TaskNavigationGoal")

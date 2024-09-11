@@ -1,0 +1,7 @@
+<launch>
+
+  <node name="state_machine" pkg="proactive_assistance" type="state_machine.py" output="screen"/>
+  <node name="object_based_navigation" pkg="proactive_assistance" type="object_based_navigation.py" output="screen"/>
+  <node name="navigation_macro_actions" pkg="proactive_assistance" type="navigation_macro_actions.py" output="screen"/>
+
+</launch>

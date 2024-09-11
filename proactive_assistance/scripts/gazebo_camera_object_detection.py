@@ -19,8 +19,8 @@ import tf_conversions.posemath as pm
 from gazebo_msgs.srv import SetModelState, SetModelStateRequest, SetModelStateResponse
 import rospkg
 import random
-from companion_msgs.msg import BoundingBox, BoundingBoxesLabels
-
+# from companion_msgs.msg import BoundingBox, BoundingBoxesLabels
+from darknet_ros_msgs.msg import BoundingBoxes, BoundingBox
 from cv_bridge import CvBridge, CvBridgeError
 # OpenCV2 for saving an image
 import cv2
@@ -28,6 +28,9 @@ import csv
 from std_srvs.srv import Empty
 # from concaveHull import ConcaveHull
 import time
+
+from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
+
 
 class GetData(object):
     def __init__(self):
@@ -47,7 +50,9 @@ class GetData(object):
         self.unpause_physics = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
 
 
-        self.get_geometry_of_models.wait_for_service()
+        self.activate_object_detection = rospy.Service('/object_detection/activate', SetBool, self.handle_set_bool)
+        self.enable_object_detection = False
+
         print("Service get_geometries available")
         # self.set_model_state.wait_for_service()
         self.request_geometry_models = GetGeometryOfModelsRequest()
@@ -116,7 +121,7 @@ class GetData(object):
 
         #self.image_sub = rospy.Subscriber('/xtion/rgb/image_raw', Image, self.image_callback)
         
-        self.publish_bboxes_cam = rospy.Publisher("/xtion/bounding_boxes", BoundingBoxesLabels, queue_size=20)
+        self.publish_bboxes_cam = rospy.Publisher("/object_detection/bounding_boxes", BoundingBoxes, queue_size=20)
         print("Initialization done")
         
         result = self.get_geometry_of_models(self.request_geometry_models)
@@ -143,48 +148,66 @@ class GetData(object):
             self.update(self.pc_models_wrt_world)
             rospy.sleep(0.01)
 
+    def handle_set_bool(self, req):
+        if req.data:
+            rospy.loginfo("Activation object detection.")
+            self.enable_object_detection = True
+
+            # Place your code here that should be executed when activated
+            try:
+                rospy.loginfo("Activation code executed successfully.")
+                return SetBoolResponse(success=True, message="Code activated successfully.")
+            except Exception as e:
+                rospy.logerr("Error during activation: ", e)
+                return SetBoolResponse(success=False, message="Activation failed.")
+        else:
+            rospy.loginfo("Deactivation received. No action taken.")
+            self.enable_object_detection = False
+            return SetBoolResponse(success=True, message="Deactivation successful.")
         
     def update(self, pc_models_wrt_world):
-        boundingBoxes = BoundingBoxesLabels()
-        nameObjects = []
-        id = 0
-        count = 0
-        # start_time_transform = time.time()
-        transform = self.get_transform(self.tf_buffer, 'world', self.camera_frame)
-        if transform is None:
-            return
-        else:
-            # start_time_all  = time.time()
-            for pc_model_wrt_world in pc_models_wrt_world:
-                # start_time = time.time()
-                points_wrt_camera, _ = self.transform_point_cloud(pc_model_wrt_world, transform)
-                # pc_model_wrt_camera = self.mat_to_point_cloud(points_wrt_camera, self.camera_frame)
-                # ok, points_image, mean_distance = self.getPixelCoordinatesAllPointsAndMeanDistance(self.camera_info, '-XY', pc_model_wrt_camera)
-                pixel_coords = self.convert_point_cloud_to_pixel_coordinates(self.camera_info, points_wrt_camera)
-                if pixel_coords is not None:
-                    # print("Pixel Coordinates:", pixel_coords)
-                # else:
-                #     print("Invalid or too few points.")
-                # if ok:
-                    bbox = self.computeBoundingBox(self.camera_info, pixel_coords)
-                    # print(bbox)
-                    boundingBox = BoundingBox()
-                    boundingBox.id = id
-                    boundingBox.tlx = bbox[0]
-                    boundingBox.tly = bbox[1]
-                    boundingBox.brx = bbox[2]
-                    boundingBox.bry = bbox[3]
-                    boundingBoxes.classes.append(self.classes[count])
-                    boundingBoxes.bounding_boxes.append(boundingBox)
-                    id+=1
-                count+=1
-                # update_time = time.time() - start_time
-                # print("Time to update: ", update_time)
-            # print("Time to update all: ", time.time() - start_time_all)
-            boundingBoxes.header = Header()
-            boundingBoxes.header.frame_id = self.camera_frame
-            boundingBoxes.header.stamp = rospy.Time.now()
-            self.publish_bboxes_cam.publish(boundingBoxes)
+        if self.enable_object_detection:
+            boundingBoxes = BoundingBoxes()
+            nameObjects = []
+            id = 0
+            count = 0
+            # start_time_transform = time.time()
+            transform = self.get_transform(self.tf_buffer, 'world', self.camera_frame)
+            if transform is None:
+                return
+            else:
+                # start_time_all  = time.time()
+                for pc_model_wrt_world in pc_models_wrt_world:
+                    # start_time = time.time()
+                    points_wrt_camera, _ = self.transform_point_cloud(pc_model_wrt_world, transform)
+                    # pc_model_wrt_camera = self.mat_to_point_cloud(points_wrt_camera, self.camera_frame)
+                    # ok, points_image, mean_distance = self.getPixelCoordinatesAllPointsAndMeanDistance(self.camera_info, '-XY', pc_model_wrt_camera)
+                    pixel_coords = self.convert_point_cloud_to_pixel_coordinates(self.camera_info, points_wrt_camera)
+                    if pixel_coords is not None:
+                        # print("Pixel Coordinates:", pixel_coords)
+                    # else:
+                    #     print("Invalid or too few points.")
+                    # if ok:
+                        bbox = self.computeBoundingBox(self.camera_info, pixel_coords)
+                        # print(bbox)
+                        boundingBox = BoundingBox()
+                        boundingBox.id = id
+                        boundingBox.xmin = bbox[0]
+                        boundingBox.ymin = bbox[1]
+                        boundingBox.xmax = bbox[2]
+                        boundingBox.ymax = bbox[3]
+                        boundingBox.probability = 1.0
+                        boundingBox.Class = self.classes[count]
+                        boundingBoxes.bounding_boxes.append(boundingBox)
+                        id+=1
+                    count+=1
+                    # update_time = time.time() - start_time
+                    # print("Time to update: ", update_time)
+                # print("Time to update all: ", time.time() - start_time_all)
+                boundingBoxes.header = Header()
+                boundingBoxes.header.frame_id = self.camera_frame
+                boundingBoxes.header.stamp = rospy.Time.now()
+                self.publish_bboxes_cam.publish(boundingBoxes)
 
                     
 
