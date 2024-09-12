@@ -18,7 +18,20 @@ initial_nav_to_pick:
       w: 0.8104516536175095
       
 robot_table:
-    dimensions: [1.48, 3.0, 0.73]
+    dimensions: [1.48, 3.0, 0.72]
+    pose:
+        position:
+            x: 1.15
+            y: 0.0
+            z: 0.3
+        orientation:
+            x: 0.0
+            y: 0.0
+            z: 0.0
+            w: 1.0
+
+user_table:
+    dimensions: [1.48, 3.0, 0.72]
     pose:
         position:
             x: 1.05
@@ -29,5 +42,4 @@ robot_table:
             y: 0.0
             z: 0.0
             w: 1.0
-
 

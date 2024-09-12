@@ -75,8 +75,8 @@ class ObjectBasedNavigationServer:
         self.cloud_msg = PointCloud2()
         
         self.table_border_points = [
-            Point(x=0.42, y= 0.577332573952, z=0.0), 
-            Point(x=0.42, y= -0.371430256809, z=0.0)]
+            Point(x=0.4, y= 0.677332573952, z=0.0), 
+            Point(x=0.42, y= -0.481430256809, z=0.0)]
 
 
 

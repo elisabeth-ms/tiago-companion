@@ -90,7 +90,7 @@ public:
     groupRightArmTorsoPtr_->setPlanningTime(1.5);
     groupRightArmTorsoPtr_->setPlannerId("RRTConnectkConfigDefault");
     groupRightArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
-    groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.4);
+    groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.6);
 
     groupRightArmPtr_->setPlanningTime(1.5);
     groupRightArmPtr_->setPlannerId("SBLkConfigDefault");
@@ -219,28 +219,39 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       int index_grasp = 0;
       for (index_grasp = 0; index_grasp < pregrasp_poses.size(); index_grasp++)
       {
-        ROS_INFO("Moving to pregrasp pose %d", index_grasp);
-        geometry_msgs::Pose pose = pregrasp_poses[index_grasp];
-        groupRightArmPtr_->setPoseTarget(pose);
-        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+        geometry_msgs::Pose grasp_pose = goal->grasping_poses.poses[index_grasp];
+        groupRightArmPtr_->setPoseTarget(grasp_pose);
 
-        moveit::planning_interface::MoveItErrorCode code = groupRightArmPtr_->plan(my_plan);
-        bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        bool successExecution = false;
-        if (successPlanning)
+        moveit::planning_interface::MoveGroupInterface::Plan grasp_plan;
+        moveit::planning_interface::MoveItErrorCode grasp_plan_code = groupRightArmPtr_->plan(grasp_plan);
+
+        if (grasp_plan_code == moveit::planning_interface::MoveItErrorCode::SUCCESS)
         {
-          moveit::planning_interface::MoveItErrorCode codeExecute = groupRightArmPtr_->execute(my_plan);
-          successExecution = (codeExecute == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-          if (successExecution)
+          ROS_INFO("Found a valid grasp pose at index: %d", index_grasp);
+
+          ROS_INFO("Moving to pregrasp pose %d", index_grasp);
+          geometry_msgs::Pose pose = pregrasp_poses[index_grasp];
+          groupRightArmPtr_->setPoseTarget(pose);
+          moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+
+          moveit::planning_interface::MoveItErrorCode code = groupRightArmPtr_->plan(my_plan);
+          bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+          bool successExecution = false;
+          if (successPlanning)
           {
-            ROS_INFO("Successfully moved to the grasping pose %d", index_grasp);
+            moveit::planning_interface::MoveItErrorCode codeExecute = groupRightArmPtr_->execute(my_plan);
+            successExecution = (codeExecute == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+            if (successExecution)
+            {
+              ROS_INFO("Successfully moved to the grasping pose %d", index_grasp);
+            }
+            break;
           }
-          break;
-        }
-        else
-        {
-          ROS_INFO("Failed to plan to the grasping pose %d", index_grasp);
-        }
+          else
+          {
+            ROS_INFO("Failed to plan to the grasping pose %d", index_grasp);
+          }
+      }
       }
 
       if (index_grasp == pregrasp_poses.size())

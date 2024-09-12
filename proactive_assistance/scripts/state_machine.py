@@ -24,6 +24,8 @@ from std_msgs.msg import String, Bool
 from sensor_msgs.msg import JointState
 from companion_msgs.srv import ObjectDetection, ObjectDetectionResponse
 import tf
+from moveit_msgs.msg import CollisionObject
+
 def find_package_path(package_name):
     rospack = rospkg.RosPack()
     try:
@@ -42,7 +44,7 @@ def load_config(config_file):
 
 class InitializeDemoState(smach.State):
     def __init__(self, config):
-        smach.State.__init__(self, outcomes=['succeeded', 'aborted'])
+        smach.State.__init__(self, outcomes=['succeeded', 'aborted'], input_keys=['objects_on_user_table'], output_keys=['objects_on_user_table'])
         self.head_client = actionlib.SimpleActionClient('/head_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
         self.torso_client = actionlib.SimpleActionClient('/torso_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
         self.pub_robot_executing_task = rospy.Publisher('proactive_assistance/robot_executing_task', Bool, queue_size=10)
@@ -88,6 +90,7 @@ class InitializeDemoState(smach.State):
         if self.torso_client.get_state() == actionlib.GoalStatus.SUCCEEDED and self.head_client.get_state() == actionlib.GoalStatus.SUCCEEDED:
             rospy.loginfo("Robot initialized to starting state.")
             self.pub_robot_executing_task.publish(Bool(data=False))
+            userdata.objects_on_user_table = userdata.objects_on_user_table
             return 'succeeded'
         else:
             rospy.logwarn("Failed to initialize robot to starting state.")
@@ -95,8 +98,8 @@ class InitializeDemoState(smach.State):
 
 class WaitToPick(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['new_goal', 'aborted', 'preempted'],
-                             output_keys=['task_navigation_goal'])
+        smach.State.__init__(self, outcomes=['new_goal', 'aborted', 'preempted'], input_keys=['objects_on_user_table'],
+                             output_keys=['task_navigation_goal', 'objects_on_user_table'])
         self.goal_pose = PoseStamped()
         self.goal_received = False
         self.pub_robot_executing_task = rospy.Publisher('proactive_assistance/robot_executing_task', Bool, queue_size=10)
@@ -135,6 +138,7 @@ class WaitToPick(smach.State):
         if self.goal_received:
             self.goal_received = False
             userdata.task_navigation_goal = self.task_navigation_goal
+            userdata.objects_on_user_table = userdata.objects_on_user_table
             self.task_navigation_goal = TaskNavigationGoal()
             self.pub_robot_executing_task.publish(Bool(data=True))
             return 'new_goal'
@@ -142,7 +146,7 @@ class WaitToPick(smach.State):
 class NavToPick(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['goal_reached', 'goal_unreachable', 'update_goal', 'preempted', 'aborted'],
-                             input_keys=['task_navigation_goal'], output_keys=['task_navigation_goal'])
+                             input_keys=['task_navigation_goal', 'objects_on_user_table'], output_keys=['task_navigation_goal', 'objects_on_user_table'])
         self._ac = actionlib.SimpleActionClient('navigate_waypoint', NavigateWaypointAction)
         
     def execute(self, userdata):
@@ -186,7 +190,7 @@ class NavToPick(smach.State):
 class ObjectBasedGoal(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['goal_updated', 'goal_not_updated', 'close_enough'],
-                             input_keys=['task_navigation_goal'], output_keys=['task_navigation_goal'])
+                             input_keys=['task_navigation_goal', 'objects_on_user_table'], output_keys=['task_navigation_goal', 'objects_on_user_table'])
         self._goal_update_client = actionlib.SimpleActionClient('goal_update', NewWaypointAction)
         self._goal_update_client.wait_for_server()
         # self.activate_object_detection_name = '/object_detection/activate'
@@ -279,7 +283,8 @@ class ObjectBasedGoal(smach.State):
 
 class MoveHeadState(smach.State):
     def __init__(self, head_pan, head_tilt):
-        smach.State.__init__(self, input_keys=['task_navigation_goal'], output_keys=['task_navigation_goal'], outcomes=['succeeded', 'aborted'])
+        smach.State.__init__(self, input_keys=['task_navigation_goal', 'objects_on_user_table'],
+                             output_keys=['task_navigation_goal', 'objects_on_user_table'], outcomes=['succeeded', 'aborted'])
         self.head_client = actionlib.SimpleActionClient('/head_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
 
         rospy.loginfo("Waiting for head action server...")
@@ -319,8 +324,8 @@ class MoveHeadState(smach.State):
 class IdentifyObjectsState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['object_identified', 'object_not_identified'],
-                                   input_keys=['task_navigation_goal'],
-                                   output_keys=['task_navigation_goal', 'superquadrics', 'object_superquadric_id'])
+                                   input_keys=['task_navigation_goal', 'objects_on_user_table'],
+                                   output_keys=['task_navigation_goal', 'superquadrics', 'object_superquadric_id', 'objects_on_user_table'])
         
         # Two services to call for object shape and pose identification using python client
         self.client_activate_object_shape_computation_ =rospy.ServiceProxy("/grasp_objects/activate_superquadrics_computation", ActivateSupercuadricsComputation)
@@ -442,8 +447,8 @@ class IdentifyObjectsState(smach.State):
 class GraspObjectState(smach.State):
     def __init__(self, config):
         smach.State.__init__(self, outcomes=['object_grasped', 'object_not_grasped'],
-                                   input_keys=['task_navigation_goal', 'superquadrics', 'object_superquadric_id'],
-                                   output_keys=['task_navigation_goal', 'manipulation_goal'])
+                                   input_keys=['task_navigation_goal', 'superquadrics', 'object_superquadric_id', 'objects_on_user_table'],
+                                   output_keys=['task_navigation_goal', 'manipulation_goal', 'objects_on_user_table'])
         self.config = config
         self.client_get_grasp_poses = rospy.ServiceProxy("/grasp_objects/compute_grasp_poses", ComputeGraspPoses)
         self.client_object_manipulation = actionlib.SimpleActionClient('object_manipulation', ObjectManipulationAction)
@@ -530,7 +535,7 @@ class GraspObjectState(smach.State):
             
             obstacle_pose = Pose()
             obstacle_pose.position.x = 0.6
-            obstacle_pose.position.y = -0.8
+            obstacle_pose.position.y = -0.9
             obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
             obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
             goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
@@ -545,9 +550,11 @@ class GraspObjectState(smach.State):
             
             grasp_poses.width = list(grasp_poses.width)  # Convert tuple to list
             
-            rest_width = 0.025
+            rest_width = 0.022
             if userdata.task_navigation_goal.object_name == 'whole milk' or userdata.task_navigation_goal.object_name == 'semi milk':
-                rest_width = 0.035
+                rest_width = 0.032
+            elif userdata.task_navigation_goal.object_name == 'butter':
+                rest_width = 0.018
             
             for i in range(len(grasp_poses.width)):
                 grasp_poses.width[i] = grasp_poses.width[i] - rest_width
@@ -578,8 +585,8 @@ class GraspObjectState(smach.State):
 class SafetyArmPositionState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['arm_positioned', 'arm_not_positioned'],
-                                   input_keys=['task_navigation_goal', 'manipulation_goal'],
-                                   output_keys=['task_navigation_goal'])
+                                   input_keys=['task_navigation_goal', 'manipulation_goal', 'objects_on_user_table'],
+                                   output_keys=['task_navigation_goal', 'objects_on_user_table'])
         self.client_object_manipulation = actionlib.SimpleActionClient('object_manipulation', ObjectManipulationAction)
         
     def execute(self, userdata):
@@ -735,7 +742,8 @@ def create_grasp_object_sm():
 class NavToPlace(smach.State):
     def __init__(self, pose):
         smach.State.__init__(self, outcomes=['goal_reached', 'goal_unreachable', 'preempted'],
-                             input_keys=['task_navigation_goal', 'max_attempts', 'maximum_distance'], output_keys=['task_navigation_goal'])
+                             input_keys=['task_navigation_goal', 'max_attempts', 'maximum_distance', 'objects_on_user_table'],
+                             output_keys=['task_navigation_goal', 'objects_on_user_table'])
         self._ac = actionlib.SimpleActionClient('navigate_waypoint', NavigateWaypointAction)
         self.pose = pose
 
@@ -804,7 +812,8 @@ class NavToPlace(smach.State):
 
 class RecognizeEmotion(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['positive', 'negative', 'preempted'], input_keys=['task_navigation_goal'], output_keys=['task_navigation_goal'])
+        smach.State.__init__(self, outcomes=['positive', 'negative', 'preempted'], input_keys=['task_navigation_goal', 'objects_on_user_table'], 
+                             output_keys=['task_navigation_goal', 'objects_on_user_table'])
         self._emotion_detected = False
         self._emotion = 'neutral'
         
@@ -846,8 +855,8 @@ def outcome_cb(outcome_map):
 class PlaceObject(smach.State):
     def __init__(self, config):
         smach.State.__init__(self, outcomes=['object_placed', 'object_not_placed'],
-                                   input_keys=['task_navigation_goal'],
-                                   output_keys=['task_navigation_goal', 'manipulation_goal'])
+                                   input_keys=['task_navigation_goal', 'objects_on_user_table'],
+                                   output_keys=['task_navigation_goal', 'manipulation_goal', 'objects_on_user_table'])
         self.config = config
         self.client_get_grasp_poses = rospy.ServiceProxy("/grasp_objects/compute_grasp_poses", ComputeGraspPoses)
         self.client_object_manipulation = actionlib.SimpleActionClient('object_manipulation', ObjectManipulationAction)
@@ -863,7 +872,7 @@ class PlaceObject(smach.State):
         # Define obstacles
         obstacle = SolidPrimitive()
         obstacle.type = SolidPrimitive.BOX
-        obstacle.dimensions = self.config['robot_table']['dimensions']
+        obstacle.dimensions = self.config['user_table']['dimensions']
         print("dimensions: ", obstacle.dimensions)
         goal.obstacles.append(obstacle)
             
@@ -877,25 +886,34 @@ class PlaceObject(smach.State):
             
                 
         obstacle_pose = Pose()
-        obstacle_pose.position.x = self.config['robot_table']['pose']['position']['x']
-        obstacle_pose.position.y = self.config['robot_table']['pose']['position']['y']
-        obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
-        obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
+        obstacle_pose.position.x = self.config['user_table']['pose']['position']['x']
+        obstacle_pose.position.y = self.config['user_table']['pose']['position']['y']
+        obstacle_pose.position.z = self.config['user_table']['pose']['position']['z']
+        obstacle_pose.orientation.w = self.config['user_table']['pose']['orientation']['w']
         goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
             
         obstacle_pose = Pose()
-        obstacle_pose.position.x = self.config['robot_table']['pose']['position']['x']
+        obstacle_pose.position.x = self.config['user_table']['pose']['position']['x']
         obstacle_pose.position.y = -0.7
-        obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
-        obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
+        obstacle_pose.position.z = self.config['user_table']['pose']['position']['z']
+        obstacle_pose.orientation.w = self.config['user_table']['pose']['orientation']['w']
         goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
                 
         goal.reference_frames_of_obstacles.append('base_footprint')
         goal.reference_frames_of_obstacles.append('base_footprint')
         
-        
+        if userdata.objects_on_user_table != None:
+            for i in range(len(userdata.objects_on_user_table.primitives)):
+                obstacle = userdata.objects_on_user_table.primitives[i]
+                goal.obstacles.append(obstacle)
+                
+                obstacle_pose = userdata.objects_on_user_table.primitive_poses[i]
+                goal.obstacle_poses.append(obstacle_pose)
+                
+                goal.reference_frames_of_obstacles.append('base_footprint')
+            
         # Lets define the height of placing
-        height_place = 0.82
+        height_place = 0.83
         if userdata.task_navigation_goal.object_name == 'whole milk' or userdata.task_navigation_goal.object_name == 'semi milk':
             height_place = 0.88
         goal.zone_place = []
@@ -951,7 +969,8 @@ class PlaceObject(smach.State):
 class MoveToJointState(smach.State):
     def __init__(self, config):
         smach.State.__init__(self, outcomes=['succeeded', 'failed'],
-                                   input_keys=['task_navigation_goal'])
+                                   input_keys=['task_navigation_goal', 'objects_on_user_table'], 
+                                   output_keys=['task_navigation_goal','objects_on_user_table'])
         self.config = config
         self.client_get_grasp_poses = rospy.ServiceProxy("/grasp_objects/compute_grasp_poses", ComputeGraspPoses)
         self.client_object_manipulation = actionlib.SimpleActionClient('object_manipulation', ObjectManipulationAction)
@@ -967,7 +986,7 @@ class MoveToJointState(smach.State):
         # Define obstacles
         obstacle = SolidPrimitive()
         obstacle.type = SolidPrimitive.BOX
-        obstacle.dimensions = self.config['robot_table']['dimensions']
+        obstacle.dimensions = self.config['user_table']['dimensions']
         print("dimensions: ", obstacle.dimensions)
         goal.obstacles.append(obstacle)
             
@@ -987,24 +1006,24 @@ class MoveToJointState(smach.State):
             
                 
         obstacle_pose = Pose()
-        obstacle_pose.position.x = self.config['robot_table']['pose']['position']['x']
-        obstacle_pose.position.y = self.config['robot_table']['pose']['position']['y']
-        obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
-        obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
+        obstacle_pose.position.x = self.config['user_table']['pose']['position']['x']
+        obstacle_pose.position.y = self.config['user_table']['pose']['position']['y']
+        obstacle_pose.position.z = self.config['user_table']['pose']['position']['z']
+        obstacle_pose.orientation.w = self.config['user_table']['pose']['orientation']['w']
         goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
             
         obstacle_pose = Pose()
-        obstacle_pose.position.x = self.config['robot_table']['pose']['position']['x']
+        obstacle_pose.position.x = self.config['user_table']['pose']['position']['x']
         obstacle_pose.position.y = -0.7
-        obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
-        obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
+        obstacle_pose.position.z = self.config['user_table']['pose']['position']['z']
+        obstacle_pose.orientation.w = self.config['user_table']['pose']['orientation']['w']
         goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
         
         obstacle_pose = Pose()
         obstacle_pose.position.x = 0
-        obstacle_pose.position.y = -1.3
-        obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
-        obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
+        obstacle_pose.position.y = -1.2
+        obstacle_pose.position.z = self.config['user_table']['pose']['position']['z']
+        obstacle_pose.orientation.w = self.config['user_table']['pose']['orientation']['w']
         goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
                 
         goal.reference_frames_of_obstacles.append('base_footprint')
@@ -1037,6 +1056,68 @@ class MoveToJointState(smach.State):
           
     def feedback_cb(self,feedback):
         print('[Feedback] Current Status: %s' % feedback.status)
+
+
+class DetectObjectsUserTable(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['succeeded', 'failed'],
+                                   input_keys=['task_navigation_goal', 'objects_on_user_table'],
+                                   output_keys=['task_navigation_goal', 'objects_on_user_table'])
+        
+        # Two services to call for object shape and pose identification using python client
+        self.client_activate_object_shape_computation_ =rospy.ServiceProxy("/grasp_objects/activate_superquadrics_computation", ActivateSupercuadricsComputation)
+        # rospy.wait_for_service('/grasp_objects/activate_object_shape_computation')
+        self.client_get_superquadrics_ = rospy.ServiceProxy("/grasp_objects/get_superquadrics", GetSuperquadrics)
+        
+        
+        # wait for a message to be published
+
+    def execute(self, userdata):
+        # Identify objects logic here
+        rospy.loginfo('Detect objects user table...')
+        
+
+        
+        activateRequest = ActivateSupercuadricsComputationRequest()
+        activateRequest.activate = True
+        self.client_activate_object_shape_computation_.call(activateRequest)
+        
+        srvSq = GetSuperquadricsRequest()
+        superquadrics_msg = self.client_get_superquadrics_.call(srvSq)
+        print("superquadrics_msg: ", superquadrics_msg)
+        
+        collision_objects = CollisionObject()
+      
+        if len(superquadrics_msg.superquadrics.superquadrics) != 0:
+            for i in range(len(superquadrics_msg.superquadrics.superquadrics)):
+                print("we need to add the other objects as obstacles")
+                collision_objects.id = i
+                collision_objects.header.frame_id = 'base_footprint'
+                obstacle = SolidPrimitive()
+                obstacle.type = SolidPrimitive.BOX
+                obstacle.dimensions = [superquadrics_msg.superquadrics.superquadrics[i].a1*2*1.2, superquadrics_msg.superquadrics.superquadrics[i].a2*2*1.2, superquadrics_msg.superquadrics.superquadrics[i].a3*1.2]
+                collision_objects.primitives.append(obstacle)
+                
+                obstacle_pose = Pose()
+                obstacle_pose.position.x = superquadrics_msg.superquadrics.superquadrics[i].x
+                obstacle_pose.position.y = superquadrics_msg.superquadrics.superquadrics[i].y
+                obstacle_pose.position.z = superquadrics_msg.superquadrics.superquadrics[i].z
+                
+                
+                # the orientation is roll, pitch, yaw, trasnform to quaternion
+                q = tf.transformations.quaternion_from_euler(superquadrics_msg.superquadrics.superquadrics[i].roll, superquadrics_msg.superquadrics.superquadrics[i].pitch, superquadrics_msg.superquadrics.superquadrics[i].yaw)
+                obstacle_pose.orientation.x = q[0]
+                obstacle_pose.orientation.y = q[1]
+                obstacle_pose.orientation.z = q[2]
+                obstacle_pose.orientation.w = q[3]
+                
+                collision_objects.primitive_poses.append(obstacle_pose)
+        userdata.objects_on_user_table = collision_objects    
+        return 'succeeded'
+            
+          
+
+
 
 
 
@@ -1220,6 +1301,7 @@ def outcome_nav_pick_cb(outcome_map):
 class ProactiveAssistanceStateMachine:
     def __init__(self, package_path):
         self.sm = smach.StateMachine(outcomes=['succeeded', 'aborted', 'preempted'])
+        self.sm.userdata.objects_on_user_table = None  # Initialize with an empty list or other default value
         self.package_path = package_path
         initialize_demo_config = load_config(self.package_path+'/config/initialize_demo_config.yaml')
         
@@ -1232,44 +1314,49 @@ class ProactiveAssistanceStateMachine:
         with self.sm:
             smach.StateMachine.add('INITIALIZE_DEMO', InitializeDemoState(initialize_demo_config),
                                     transitions={'succeeded': 'WAIT_TO_PICK',
-                                                  'aborted': 'aborted'})
+                                                  'aborted': 'aborted',
+                                                  },
+                                    remapping={'objects_on_user_table':'objects_on_user_table'})
                   
             smach.StateMachine.add('WAIT_TO_PICK', WaitToPick(),
                                    transitions={'new_goal': 'NAV_TO_VIEW_ROBOT_TABLE',
                                                 'aborted': 'aborted',
-                                                'preempted': 'preempted'})
+                                                'preempted': 'preempted'},
+                                   remapping={'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('NAV_TO_VIEW_ROBOT_TABLE', NavToPick(),
                                    transitions={'goal_reached': 'CONCURRENT_OBJECT_NAV',#'CONCURRENT_OBJECT_NAV',
                                                 'update_goal': 'preempted', 
                                                 'goal_unreachable': 'aborted',
-                                                'preempted': 'preempted'})
+                                                'preempted': 'preempted'},
+                                   remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
 
             sm_nav_pick_con = smach.Concurrence(outcomes=['succeeded', 'goal_unreachable','goal_updated', 'goal_not_updated','preempted'],
                                    default_outcome='goal_unreachable',
-                                   input_keys=['task_navigation_goal'],
-                                   output_keys=['task_navigation_goal'],
+                                   input_keys=['task_navigation_goal', 'objects_on_user_table'],
+                                   output_keys=['task_navigation_goal', 'objects_on_user_table'],
                                   child_termination_cb=lambda outcome_map: True,
                                    outcome_cb=outcome_nav_pick_cb)
 
             with sm_nav_pick_con:
                 smach.Concurrence.add('NAV_TO_PICK', NavToPick(),
-                                      remapping={'task_navigation_goal':'task_navigation_goal'})
+                                      remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
                 smach.Concurrence.add('OBJECT_BASED_GOAL', ObjectBasedGoal(),
-                                      remapping={'task_navigation_goal':'task_navigation_goal'})
+                                      remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
 
             smach.StateMachine.add('CONCURRENT_OBJECT_NAV', sm_nav_pick_con,
                                       transitions={'succeeded':'MOVE_HEAD',
                                                     'goal_unreachable':'aborted',
                                                     'preempted':'preempted',
                                                     'goal_updated':'CONCURRENT_OBJECT_NAV',
-                                                    'goal_not_updated':'CONCURRENT_OBJECT_NAV'})
+                                                    'goal_not_updated':'CONCURRENT_OBJECT_NAV'},
+                                      remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('MOVE_HEAD', MoveHeadState(0.0, -0.7),  # Adjust pan and tilt values as needed
                                    transitions={'succeeded': 'IDENTIFY_OBJECTS',
                                                 'aborted': 'aborted'},
-                                   remapping={'task_navigation_goal':'task_navigation_goal'})
+                                   remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
 
 
             smach.StateMachine.add('IDENTIFY_OBJECTS', IdentifyObjectsState(),
@@ -1277,22 +1364,23 @@ class ProactiveAssistanceStateMachine:
                                                 'object_not_identified': 'WAIT_TO_PICK'},
                                    remapping={'task_navigation_goal':'task_navigation_goal',
                                               'superquadrics':'superquadrics',
-                                              'object_superquadric_id':'object_superquadric_id'})
+                                              'object_superquadric_id':'object_superquadric_id',
+                                              'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('GRASP_OBJECT', GraspObjectState(initialize_demo_config),
                                     transitions={'object_grasped': 'SAFETY_ARM_POSITION', #'SAFETY_ARM_POSITION',
                                                   'object_not_grasped': 'WAIT_TO_PICK'},
-                                    remapping={'task_navigation_goal':'task_navigation_goal'})
+                                    remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('SAFETY_ARM_POSITION', SafetyArmPositionState(),
                                     transitions={'arm_positioned': 'MOVE_HEAD_USER_FACE',
                                                   'arm_not_positioned': 'aborted'},
-                                    remapping={'task_navigation_goal':'task_navigation_goal'})
+                                    remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('MOVE_HEAD_USER_FACE', MoveHeadState(0.0, -0.35),  # Adjust pan and tilt values as needed
                                    transitions={'succeeded': 'NAV_PLACE_EMOTION', #NAV_PLACE_EMOTION',
                                                 'aborted': 'aborted'},
-                                   remapping={'task_navigation_goal':'task_navigation_goal'})
+                                   remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
             pose_place = PoseStamped()
             pose_place.header.frame_id = 'map'
@@ -1333,33 +1421,45 @@ class ProactiveAssistanceStateMachine:
                                                                 },
                                       
                                                             },
-                                                            input_keys=['task_navigation_goal', 'max_attempts', 'maximum_distance'],
-                                                            output_keys=['task_navigation_goal'])
+                                                            input_keys=['task_navigation_goal', 'max_attempts', 'maximum_distance', 'objects_on_user_table'],
+                                                            output_keys=['task_navigation_goal', 'objects_on_user_table'])
 
             
           
             
             with sm_nav_place_emotion_con:
-                smach.Concurrence.add('NAV_TO_PLACE', NavToPlace(pose_place), remapping={'task_navigation_goal':'task_navigation_goal', 'max_attempts':'max_attempts', 'maximum_distance':'maximum_distance'})
-                smach.Concurrence.add('RECOGNIZE_EMOTION', RecognizeEmotion(), remapping={'task_navigation_goal':'task_navigation_goal'})
+                smach.Concurrence.add('NAV_TO_PLACE', NavToPlace(pose_place), remapping={'task_navigation_goal':'task_navigation_goal',
+                                                                                         'max_attempts':'max_attempts', 
+                                                                                         'maximum_distance':'maximum_distance',
+                                                                                         'objects_on_user_table':'objects_on_user_table'})
+                smach.Concurrence.add('RECOGNIZE_EMOTION', RecognizeEmotion(), remapping={'task_navigation_goal':'task_navigation_goal',
+                                                                                          'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('NAV_PLACE_EMOTION', sm_nav_place_emotion_con,
                        transitions={'correct_object_nav_reached': 'PLACE_OBJECT', #'PlaceObject'
                                     'incorrect_object_nav_reached': 'WAIT_TO_PICK',
                                     'correct_object_nav_unreachable': 'aborted',
-                                    'incorrect_object_nav_unreachable': 'WAIT_TO_PICK'})
+                                    'incorrect_object_nav_unreachable': 'WAIT_TO_PICK'},
+                       remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('PLACE_OBJECT', PlaceObject(initialize_demo_config),
                                     transitions={'object_placed': 'MOVE_TO_JOINT_STATE', #'SAFETY_ARM_POSITION',
                                                   'object_not_placed': 'WAIT_TO_PICK'},
-                                    remapping={'task_navigation_goal':'task_navigation_goal'})
+                                    remapping={'task_navigation_goal':'task_navigation_goal', 
+                                               'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('MOVE_TO_JOINT_STATE', MoveToJointState(initialize_demo_config),
-                                   transitions={'succeeded':'INITIALIZE_DEMO',
+                                   transitions={'succeeded':'DETECT_OBJECTS_USER_TABLE',
                                                 'failed': 'aborted'},
+                                   remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'}
                                    )
-            
-                                                          
+            smach.StateMachine.add('DETECT_OBJECTS_USER_TABLE', DetectObjectsUserTable(),
+                                   transitions={'succeeded': 'INITIALIZE_DEMO',
+                                                'failed': 'aborted'},
+                                   remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
+                                        
+
+                              
         sis = smach_ros.IntrospectionServer('proactive_assistance_introspection', self.sm, '/SM_ROOT')
         sis.start()
 
