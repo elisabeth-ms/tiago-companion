@@ -45,6 +45,8 @@ class InitializeDemoState(smach.State):
         smach.State.__init__(self, outcomes=['succeeded', 'aborted'])
         self.head_client = actionlib.SimpleActionClient('/head_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
         self.torso_client = actionlib.SimpleActionClient('/torso_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
+        self.pub_robot_executing_task = rospy.Publisher('proactive_assistance/robot_executing_task', Bool, queue_size=10)
+
         self.config = config
         rospy.loginfo("Waiting for head and torso action servers...")
         self.head_client.wait_for_server()
@@ -61,7 +63,7 @@ class InitializeDemoState(smach.State):
         torso_point = JointTrajectoryPoint()
         initial_state = self.config['initial_state']
         torso_point.positions = [initial_state['torso_controller']['height']]  
-        torso_point.time_from_start = rospy.Duration(3.0)
+        torso_point.time_from_start = rospy.Duration(1.5)
         torso_trajectory.points.append(torso_point)
         torso_goal.trajectory = torso_trajectory
         
@@ -71,7 +73,7 @@ class InitializeDemoState(smach.State):
         
         head_point = JointTrajectoryPoint()
         head_point.positions = [initial_state['head_controller']['pan'], initial_state['head_controller']['tilt']]
-        head_point.time_from_start = rospy.Duration(2.0)
+        head_point.time_from_start = rospy.Duration(1.0)
         head_trajectory.points.append(head_point)
         head_goal.trajectory = head_trajectory
 
@@ -85,6 +87,7 @@ class InitializeDemoState(smach.State):
 
         if self.torso_client.get_state() == actionlib.GoalStatus.SUCCEEDED and self.head_client.get_state() == actionlib.GoalStatus.SUCCEEDED:
             rospy.loginfo("Robot initialized to starting state.")
+            self.pub_robot_executing_task.publish(Bool(data=False))
             return 'succeeded'
         else:
             rospy.logwarn("Failed to initialize robot to starting state.")
@@ -118,11 +121,10 @@ class WaitToPick(smach.State):
             rospy.sleep(0.1)
             self.task_navigation_goal = rospy.wait_for_message('/proactive_assistance/task_navigation_goal', TaskNavigationGoal)
             self.goal_received = True
-            self.pub_robot_executing_task.publish(Bool(data=True))
             if self.preempt_requested():
                 self.service_preempt()
                 return 'preempted'
-            self.pub_robot_executing_task.publish(Bool(data=False))
+            # self.pub_robot_executing_task.publish(Bool(data=False))
             # self._goal_update_client.send_goal(NewWaypointGoal())
             # if self._goal_update_client.wait_for_result(rospy.Duration(0.5)):
             #     new_goal_result = self._goal_update_client.get_result()
@@ -134,6 +136,7 @@ class WaitToPick(smach.State):
             self.goal_received = False
             userdata.task_navigation_goal = self.task_navigation_goal
             self.task_navigation_goal = TaskNavigationGoal()
+            self.pub_robot_executing_task.publish(Bool(data=True))
             return 'new_goal'
 
 class NavToPick(smach.State):
@@ -295,7 +298,7 @@ class MoveHeadState(smach.State):
         
         head_point = JointTrajectoryPoint()
         head_point.positions = [self.head_pan, self.head_tilt]
-        head_point.time_from_start = rospy.Duration(3.0)
+        head_point.time_from_start = rospy.Duration(0.5)
         head_trajectory.points.append(head_point)
         head_goal.trajectory = head_trajectory
 
@@ -503,7 +506,7 @@ class GraspObjectState(smach.State):
             
             obstacle = SolidPrimitive()
             obstacle.type = SolidPrimitive.BOX
-            obstacle.dimensions = [0.6, 0.8, 1.5]
+            obstacle.dimensions = [0.8, 0.7, 2.0]
             
             goal.obstacles.append(obstacle)
             
@@ -512,6 +515,22 @@ class GraspObjectState(smach.State):
             obstacle_pose = Pose()
             obstacle_pose.position.x = 0
             obstacle_pose.position.y = -1.2
+            obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
+            obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
+            goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
+            goal.reference_frames_of_obstacles.append('base_footprint')
+            
+            obstacle = SolidPrimitive()
+            obstacle.type = SolidPrimitive.BOX
+            obstacle.dimensions = [0.4, 0.4, 1.2]
+            
+            goal.obstacles.append(obstacle)
+            
+            
+            
+            obstacle_pose = Pose()
+            obstacle_pose.position.x = 0.6
+            obstacle_pose.position.y = -0.8
             obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
             obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
             goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
@@ -526,8 +545,12 @@ class GraspObjectState(smach.State):
             
             grasp_poses.width = list(grasp_poses.width)  # Convert tuple to list
             
+            rest_width = 0.025
+            if userdata.task_navigation_goal.object_name == 'whole milk' or userdata.task_navigation_goal.object_name == 'semi milk':
+                rest_width = 0.035
+            
             for i in range(len(grasp_poses.width)):
-                grasp_poses.width[i] = grasp_poses.width[i] -0.03
+                grasp_poses.width[i] = grasp_poses.width[i] - rest_width
             
             goal.width = grasp_poses.width
             
@@ -846,7 +869,7 @@ class PlaceObject(smach.State):
             
         obstacle = SolidPrimitive()
         obstacle.type = SolidPrimitive.BOX
-        obstacle.dimensions = [0.6, 0.4, 1.5]
+        obstacle.dimensions = [0.9, 0.5, 1.8]
             
         goal.obstacles.append(obstacle)
             
@@ -870,29 +893,34 @@ class PlaceObject(smach.State):
         goal.reference_frames_of_obstacles.append('base_footprint')
         goal.reference_frames_of_obstacles.append('base_footprint')
         
+        
+        # Lets define the height of placing
+        height_place = 0.82
+        if userdata.task_navigation_goal.object_name == 'whole milk' or userdata.task_navigation_goal.object_name == 'semi milk':
+            height_place = 0.88
         goal.zone_place = []
         p1 = Point()
         p1.x = 0.62
         p1.y = -0.368
-        p1.z = 0.880
+        p1.z = height_place
         goal.zone_place.append(p1)
 
         p2 = Point()
         p2.x = 0.708
         p2.y = -0.318
-        p2.z = 0.880
+        p2.z = height_place
         goal.zone_place.append(p2)
 
         p3 = Point()
         p3.x = 0.708
         p3.y = -0.065
-        p3.z = 0.880
+        p3.z = height_place
         goal.zone_place.append(p3)
 
         p4 = Point()
         p4.x = 0.62
         p4.y = -0.065
-        p4.z = 0.880
+        p4.z = height_place
             
         
         goal.zone_place.append(p4)

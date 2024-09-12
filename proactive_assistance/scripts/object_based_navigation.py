@@ -62,7 +62,7 @@ class ObjectBasedNavigationServer:
         self.point_cloud = None
         self.desired_class = ""  # Desired object class
         # Offset to position the object near the robot's arm (adjust based on your robot's configuration)
-        self.arm_offset = Point(0.0, -0.1, 0.0)
+        self.arm_offset = Point(0.0, -0.15, 0.0)
         
         self.closest_border_point = None
         self.previous_closest_border_point = None
@@ -75,8 +75,8 @@ class ObjectBasedNavigationServer:
         self.cloud_msg = PointCloud2()
         
         self.table_border_points = [
-            Point(x=0.45, y= 0.577332573952, z=0.0), 
-            Point(x=0.45, y= -0.371430256809, z=0.0)]
+            Point(x=0.42, y= 0.577332573952, z=0.0), 
+            Point(x=0.42, y= -0.371430256809, z=0.0)]
 
 
 
@@ -325,8 +325,9 @@ class ObjectBasedNavigationServer:
             new_goal.target_pose.pose.position.z = 0.0
             new_goal.target_pose.pose.orientation.x = 0.0
             new_goal.target_pose.pose.orientation.y = 0.0
-            new_goal.target_pose.pose.orientation.z = 0.00529691433162
-            new_goal.target_pose.pose.orientation.w = 0.999985971251
+            new_goal.target_pose.pose.orientation.z = 0.0367949234162
+            new_goal.target_pose.pose.orientation.w = 0.999322837531
+
 
 
             new_goal.current_pose = self.amcl_pose

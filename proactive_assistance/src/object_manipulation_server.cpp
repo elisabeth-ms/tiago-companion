@@ -59,6 +59,7 @@ protected:
   geometry_msgs::Pose comfortablePoseLeft_;
 
   ros::Publisher target_pose_pub_; 
+  float current_gripper_positions_[2 ] = {0.0, 0.0};
   
 
 
@@ -87,7 +88,7 @@ public:
     ROS_INFO("[BasicDemoAsr] Move group interface %s", nameLeftArmGroup_.c_str());
 
     groupRightArmTorsoPtr_->setPlanningTime(1.5);
-    groupRightArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
+    groupRightArmTorsoPtr_->setPlannerId("RRTConnectkConfigDefault");
     groupRightArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
     groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.4);
 
@@ -119,8 +120,14 @@ public:
 
     target_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("target_poses", 10); // Add this line
 
+    // SUbscriber to joint_states
+    ros::Subscriber sub = nh_.subscribe("/joint_states", 1000, &ObjectManipulationAction::jointStatesCallback, this);
+
+
     as_.start();
     ROS_INFO("[ObjectManipulation] Action server started");
+
+
   }
 
   ~ObjectManipulationAction(void)
@@ -609,6 +616,109 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     ROS_INFO("[ObjectManipulationServer] Gripper set to position: (%f, %f)", positions[0], positions[1]);
   }
 
+//   void moveGripper(const float positions[2], std::string name)
+// {
+//     follow_joint_control_client_Ptr auxGripperClient;
+
+//     if (name == "right")
+//     {
+//         auxGripperClient = rightGripperClient_;
+//     }
+//     else if (name == "left")
+//     {
+//         auxGripperClient = leftGripperClient_;
+//     }
+
+//     control_msgs::FollowJointTrajectoryGoal gripperGoal;
+//     ROS_INFO("[ObjectManipulationServer] Setting gripper %s position: (%f ,%f)", name.c_str(), positions[0], positions[1]);
+//     waypointGripperGoal(name, gripperGoal, positions, 0.5);
+
+//     // Sends the command to start the given trajectory now
+//     gripperGoal.trajectory.header.stamp = ros::Time(0);
+//     auxGripperClient->sendGoal(gripperGoal);
+
+//     ros::Time start_time = ros::Time::now();
+//     ros::Duration max_duration(1.0);  // Set a time limit of 1 second
+
+//     // Define a tolerance value
+//     const float tolerance = 0.01;
+//     float current_position[2];
+
+//     while (ros::ok())
+//     {
+//         // Check if the goal state is done
+//         if (auxGripperClient->getState().isDone())
+//         {
+//             ROS_INFO("[ObjectManipulationServer] Gripper goal state is done, checking if goal is reached.");
+
+//             // Get the current position of the gripper (replace this with actual implementation)
+//             getCurrentGripperPose(name, current_position);
+
+//             // Check if the current position is close to the goal
+//             if (std::abs(current_position[0] - positions[0]) < tolerance && 
+//                 std::abs(current_position[1] - positions[1]) < tolerance)
+//             {
+//                 ROS_INFO("[ObjectManipulationServer] Gripper position reached the goal: (%f, %f)", current_position[0], current_position[1]);
+//                 break;  // Exit the loop if the goal is reached
+//             }
+//             else
+//             {
+//                 ROS_WARN("[ObjectManipulationServer] Gripper did not reach goal yet. Resending current pose as goal.");
+//                 waypointGripperGoal(name, gripperGoal, current_position, 0.5);
+//                 gripperGoal.trajectory.header.stamp = ros::Time(0);
+//                 auxGripperClient->sendGoal(gripperGoal);
+//             }
+//         }
+
+//         // Check if the timeout is reached
+//         if (ros::Time::now() - start_time > max_duration)
+//         {
+//             ROS_INFO("[ObjectManipulationServer] Timeout reached, sending current pose as goal.");
+
+//             // Get the current position of the gripper
+//             getCurrentGripperPose(name, current_position);
+
+//             // Send current position as a goal
+//             waypointGripperGoal(name, gripperGoal, current_position, 0.5);
+//             gripperGoal.trajectory.header.stamp = ros::Time(0);
+//             auxGripperClient->sendGoal(gripperGoal);
+
+//             // Reset the timer
+//             start_time = ros::Time::now();
+//         }
+
+//         ros::Duration(0.1).sleep();  // sleep for 0.1 seconds
+//     }
+
+//     ROS_INFO("[ObjectManipulationServer] Gripper set to position: (%f, %f)", positions[0], positions[1]);
+// }
+// // Callback function for the joint states topic
+void jointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg)
+{
+    // Assuming the gripper joints are named "gripper_right_left_finger_joint" and "gripper_right_right_finger_joint"
+    for (size_t i = 0; i < msg->name.size(); ++i)
+    {
+        if (msg->name[i] == "gripper_right_left_finger_joint")
+        {
+            current_gripper_positions_[0] = msg->position[i];  // Update left finger position
+        }
+        else if (msg->name[i] == "gripper_right_right_finger_joint")
+        {
+            current_gripper_positions_[1] = msg->position[i];  // Update right finger position
+        }
+    }
+}
+
+// Function to get the current gripper pose
+void getCurrentGripperPose(std::string name, float positions[2])
+{
+    // Copy the current gripper positions to the output array
+    positions[0] = current_gripper_positions_[0];
+    positions[1] = current_gripper_positions_[1];
+
+    ROS_INFO("[ObjectManipulationServer] Current gripper %s position: (%f, %f)", name.c_str(), positions[0], positions[1]);
+}
+
   bool moveToConfortablePose(const geometry_msgs::Pose &pose)
   {
 
@@ -627,7 +737,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     geometry_msgs::Pose comfortable_pose = grasp_pose;
     // comfortable_pose.position.x = 0.527;
     // comfortable_pose.position.y = -0.325;
-    comfortable_pose.position.z +=0.25;
+    comfortable_pose.position.z +=0.3;
     
     // Set orientation to be the same as the grasp pose to maintain level
     comfortable_pose.orientation = grasp_pose.orientation;

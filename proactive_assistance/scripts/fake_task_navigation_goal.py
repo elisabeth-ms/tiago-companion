@@ -36,7 +36,7 @@ def publish_fake_goals():
 
 
 
-        task_goal.target_pose.pose.position = Point(-0.35, -0.0043135567279, 0.0)
+        task_goal.target_pose.pose.position = Point(-0.35, -0.1043135567279, 0.0)
         task_goal.target_pose.pose.orientation = Quaternion(0.0, 0.0, 0, 1)
         # Set the position and orientation far from the objects table looking at the table, so that we can see all the objects
         #task_goal.target_pose.pose.position = Point(-0.56,  0.336918167052, 0.0) 
@@ -49,7 +49,7 @@ def publish_fake_goals():
 
         # Set the zone and object
         task_goal.zone = 'robot_table'
-        task_goal.object_name = "tomato sauce"
+        task_goal.object_name = "appricot jam"
 
             # Publish the TaskNavigationGoal
         rospy.loginfo("Publishing fake TaskNavigationGoal")
