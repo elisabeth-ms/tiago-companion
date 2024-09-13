@@ -216,6 +216,11 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       std::vector<geometry_msgs::Pose> pregrasp_poses;
       getPregrasp(goal->grasping_poses, pregrasp_poses, reachingDistance_);
 
+
+      groupRightArmPtr_->setMaxVelocityScalingFactor(0.8);
+      groupRightArmPtr_->setMaxAccelerationScalingFactor(0.8);
+
+
       int index_grasp = 0;
       for (index_grasp = 0; index_grasp < pregrasp_poses.size(); index_grasp++)
       {
@@ -290,7 +295,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
         // Pose of the object
         geometry_msgs::Pose pose;
-        pose.position.z = -0.2;
+        pose.position.z = -0.22;
         pose.orientation.w = 1.0;  // Default quaternion (no rotation)
         // tf2::Quaternion q;
         // q.setRPY(0, M_PI / 2, 0);  // 90-degree rotation around the y-axis
@@ -359,6 +364,12 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
       moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
       groupAuxArmTorsoPtr_ = groupRightArmPtr_;
+
+
+      groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.8);
+      groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.8);
+
+
       std::vector<double> rightArmPositions;
       for(int i = 0; i < goal->joint_states.position.size(); i++){
         rightArmPositions.push_back(goal->joint_states.position[i]);

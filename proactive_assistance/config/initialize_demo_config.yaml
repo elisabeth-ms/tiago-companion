@@ -29,7 +29,7 @@ robot_table:
             y: 0.0
             z: 0.0
             w: 1.0
-
+            
 user_table:
     dimensions: [1.48, 3.0, 0.72]
     pose:

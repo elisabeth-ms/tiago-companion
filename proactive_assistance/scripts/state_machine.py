@@ -48,7 +48,8 @@ class InitializeDemoState(smach.State):
         self.head_client = actionlib.SimpleActionClient('/head_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
         self.torso_client = actionlib.SimpleActionClient('/torso_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
         self.pub_robot_executing_task = rospy.Publisher('proactive_assistance/robot_executing_task', Bool, queue_size=10)
-
+        self.client_object_manipulation = actionlib.SimpleActionClient('object_manipulation', ObjectManipulationAction)
+        self.client_object_manipulation.wait_for_server()
         self.config = config
         rospy.loginfo("Waiting for head and torso action servers...")
         self.head_client.wait_for_server()
@@ -64,6 +65,8 @@ class InitializeDemoState(smach.State):
         torso_trajectory.joint_names = ['torso_lift_joint']
         torso_point = JointTrajectoryPoint()
         initial_state = self.config['initial_state']
+        user_table = self.config['user_table']
+        print("USER TABLE ", self.config['user_table']['dimensions'])
         torso_point.positions = [initial_state['torso_controller']['height']]  
         torso_point.time_from_start = rospy.Duration(1.5)
         torso_trajectory.points.append(torso_point)
@@ -86,8 +89,51 @@ class InitializeDemoState(smach.State):
 
         self.torso_client.wait_for_result()
         self.head_client.wait_for_result()
+        
+        goal = ObjectManipulationGoal()
+        
+        goal.task = 'move_to_joint_state'
+        
+        
+        # Define obstacles
+        obstacle = SolidPrimitive()
+        obstacle.type = SolidPrimitive.BOX
+        obstacle.dimensions = self.config['user_table']['dimensions']
+        print("dimensions: ", obstacle.dimensions)
+        goal.obstacles.append(obstacle)
+            
+                
+            
+        obstacle_pose = Pose()
+        obstacle_pose.position.x = -1.0
+        obstacle_pose.position.y = 0
+        obstacle_pose.position.z = self.config['user_table']['pose']['position']['z']+1.0
+        obstacle_pose.orientation.w = self.config['user_table']['pose']['orientation']['w']
+        goal.obstacle_poses.append(obstacle_pose)  # Assuming same pose for simplicity
+        
+        goal.reference_frames_of_obstacles.append('base_footprint')
 
-        if self.torso_client.get_state() == actionlib.GoalStatus.SUCCEEDED and self.head_client.get_state() == actionlib.GoalStatus.SUCCEEDED:
+        
+        goal_joint_state = JointState()
+        goal_joint_state.name = ['arm_right_1_joint', 'arm_right_2_joint', 'arm_right_3_joint',
+                                 'arm_right_4_joint', 'arm_right_5_joint', 'arm_right_6_joint', 'arm_right_7_joint']
+        
+        # goal_joint_state.position = [-1.1, 1.46, 2.71, 1.7, -1.57, 1.37, 0.0]
+        # -0.22416089039822668, -0.4657241678258602, 1.9782654139594102, 2.286273045998558, 0.07727207691988469, 0.5379018357639893
+        goal_joint_state.position = [-0.22416089039822668, -0.4657241678258602, 1.9782654139594102, 2.286273045998558, 0.07727207691988469, 0.5379018357639893,  -0.005651391328190397]
+
+        goal.joint_states = goal_joint_state
+        # Sends the goal to the action server
+        self.client_object_manipulation.send_goal(goal, feedback_cb=self.feedback_cb)
+
+        # Waits for the server to finish performing the action
+        self.client_object_manipulation.wait_for_result()
+
+        # Prints out the result of executing the action
+        result = self.client_object_manipulation.get_result()
+                
+
+        if self.torso_client.get_state() == actionlib.GoalStatus.SUCCEEDED and self.head_client.get_state() == actionlib.GoalStatus.SUCCEEDED and result.success:
             rospy.loginfo("Robot initialized to starting state.")
             self.pub_robot_executing_task.publish(Bool(data=False))
             userdata.objects_on_user_table = userdata.objects_on_user_table
@@ -95,6 +141,9 @@ class InitializeDemoState(smach.State):
         else:
             rospy.logwarn("Failed to initialize robot to starting state.")
             return 'aborted'
+          
+    def feedback_cb(self,feedback):
+        print('[Feedback] Current Status: %s' % feedback.status)
 
 class WaitToPick(smach.State):
     def __init__(self):
@@ -534,7 +583,7 @@ class GraspObjectState(smach.State):
             
             
             obstacle_pose = Pose()
-            obstacle_pose.position.x = 0.6
+            obstacle_pose.position.x = 0.8
             obstacle_pose.position.y = -0.9
             obstacle_pose.position.z = self.config['robot_table']['pose']['position']['z']
             obstacle_pose.orientation.w = self.config['robot_table']['pose']['orientation']['w']
@@ -552,9 +601,9 @@ class GraspObjectState(smach.State):
             
             rest_width = 0.022
             if userdata.task_navigation_goal.object_name == 'whole milk' or userdata.task_navigation_goal.object_name == 'semi milk':
-                rest_width = 0.032
+                rest_width = 0.034
             elif userdata.task_navigation_goal.object_name == 'butter':
-                rest_width = 0.018
+                rest_width = 0.02
             
             for i in range(len(grasp_poses.width)):
                 grasp_poses.width[i] = grasp_poses.width[i] - rest_width
@@ -1034,7 +1083,10 @@ class MoveToJointState(smach.State):
         goal_joint_state.name = ['arm_right_1_joint', 'arm_right_2_joint', 'arm_right_3_joint',
                                  'arm_right_4_joint', 'arm_right_5_joint', 'arm_right_6_joint', 'arm_right_7_joint']
         
-        goal_joint_state.position = [-1.1, 1.46, 2.71, 1.7, -1.57, 1.37, 0.0]
+        # goal_joint_state.position = [-1.1, 1.46, 2.71, 1.7, -1.57, 1.37, 0.0]
+        
+        goal_joint_state.position = [-0.22416089039822668, -0.4657241678258602, 1.9782654139594102, 2.286273045998558, 0.07727207691988469, 0.5379018357639893,  -0.005651391328190397]
+
         goal.joint_states = goal_joint_state
         # Sends the goal to the action server
         self.client_object_manipulation.send_goal(goal, feedback_cb=self.feedback_cb)
