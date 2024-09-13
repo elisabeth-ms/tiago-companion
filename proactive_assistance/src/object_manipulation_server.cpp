@@ -759,7 +759,7 @@ void getCurrentGripperPose(std::string name, float positions[2])
     geometry_msgs::Pose comfortable_pose = grasp_pose;
     // comfortable_pose.position.x = 0.527;
     // comfortable_pose.position.y = -0.325;
-    comfortable_pose.position.z +=0.3;
+    comfortable_pose.position.z +=0.1;
     
     // Set orientation to be the same as the grasp pose to maintain level
     comfortable_pose.orientation = grasp_pose.orientation;

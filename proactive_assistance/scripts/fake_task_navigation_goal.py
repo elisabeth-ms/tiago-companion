@@ -49,7 +49,7 @@ def publish_fake_goals():
 
         # Set the zone and object
         task_goal.zone = 'robot_table'
-        task_goal.object_name = "tomato sauce"
+        task_goal.object_name = "appricot jam"
 
             # Publish the TaskNavigationGoal
         rospy.loginfo("Publishing fake TaskNavigationGoal")

@@ -16,7 +16,7 @@ from companion_msgs.msg import TaskNavigationGoal, BoundingBoxesLabels
 from companion_msgs.srv import ActivateSupercuadricsComputation, ActivateSupercuadricsComputationRequest, GetSuperquadrics, GetSuperquadricsRequest, GetSuperquadricsResponse
 from companion_msgs.srv import GetBboxes, GetBboxesRequest, GetBboxesResponse, ComputeGraspPoses, ComputeGraspPosesRequest
 from proactive_assistance.msg import ObjectManipulationAction, ObjectManipulationGoal
-from geometry_msgs.msg import Pose, PoseArray, Point
+from geometry_msgs.msg import Pose, PoseArray, Point, Quaternion
 from shape_msgs.msg import SolidPrimitive
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from darknet_ros_msgs.msg import BoundingBox, BoundingBoxes
@@ -25,6 +25,8 @@ from sensor_msgs.msg import JointState
 from companion_msgs.srv import ObjectDetection, ObjectDetectionResponse
 import tf
 from moveit_msgs.msg import CollisionObject
+from geometry_msgs.msg import Twist
+
 
 def find_package_path(package_name):
     rospack = rospkg.RosPack()
@@ -55,10 +57,34 @@ class InitializeDemoState(smach.State):
         self.head_client.wait_for_server()
         self.torso_client.wait_for_server()
         rospy.loginfo("Head and torso action servers are up.")
+        
+        self._ac = actionlib.SimpleActionClient('navigate_waypoint', NavigateWaypointAction)
+
 
     def execute(self, userdata):
         rospy.loginfo("Initializing demo state...")
 
+        goal = NavigateWaypointGoal()
+        goal.object_name = 'none'
+        goal.target_pose =  PoseStamped()
+        goal.target_pose.pose.position = Point(-0.35, -0.1043135567279, 0.0)
+        goal.target_pose.pose.orientation = Quaternion(0.0, 0.0, 0, 1)
+        goal.target_pose.header.frame_id = "map"
+        # self._ac.send_goal(goal, feedback_cb=self.feedback_cb)
+        self._ac.send_goal(goal)
+
+        state = self._ac.wait_for_result()
+        result = self._ac.get_result()
+
+        
+
+        if result.result == 'failed':
+            print("aborted")
+            return 'goal_unreachable'
+        elif result.result == "preempted":
+            print("preempted")
+            return 'preempted'
+        
         # Torso position goal
         torso_goal = FollowJointTrajectoryGoal()
         torso_trajectory = JointTrajectory()
@@ -493,6 +519,8 @@ class IdentifyObjectsState(smach.State):
     #         rospy.logerr("Service call failed: ", e)
     #         return False, str(e)
 
+
+
 class GraspObjectState(smach.State):
     def __init__(self, config):
         smach.State.__init__(self, outcomes=['object_grasped', 'object_not_grasped'],
@@ -520,7 +548,7 @@ class GraspObjectState(smach.State):
               print("we need to add the other objects as obstacles")
               obstacle = SolidPrimitive()
               obstacle.type = SolidPrimitive.BOX
-              obstacle.dimensions = [userdata.superquadrics.superquadrics[i].a1*2, userdata.superquadrics.superquadrics[i].a2*2, userdata.superquadrics.superquadrics[i].a3*2]
+              obstacle.dimensions = [userdata.superquadrics.superquadrics[i].a1*2.2, userdata.superquadrics.superquadrics[i].a2*2.2, userdata.superquadrics.superquadrics[i].a3*2.2]
               goal.obstacles.append(obstacle)
               
               obstacle_pose = Pose()
@@ -664,7 +692,51 @@ class SafetyArmPositionState(smach.State):
         else:
             return 'arm_not_positioned'
         
-        
+class MoveBackwardState(smach.State):
+    def __init__(self, distance, speed):
+        smach.State.__init__(self,input_keys=['task_navigation_goal', 'objects_on_user_table'],
+                             output_keys=['task_navigation_goal', 'objects_on_user_table'], outcomes=['succeeded', 'aborted'])
+        self.distance = distance
+        self.speed = speed
+
+        # Publisher to the /cmd_vel topic to send velocity commands
+        self.cmd_vel_pub = rospy.Publisher('/mobile_base_controller/cmd_vel', Twist, queue_size=10)
+
+    def move_backward(self):
+        """
+        Moves the robot backward by a specified distance at a given speed.
+        """
+        rate = rospy.Rate(60)  # 60 Hz
+
+        # Create a Twist message and set the linear velocity in the x-axis to move backward
+        move_cmd = Twist()
+        move_cmd.linear.x = -abs(self.speed)  # Negative speed to move backward
+
+        # Calculate the duration for which the command should be sent
+        duration = self.distance / self.speed
+
+        # Get the current time
+        start_time = rospy.Time.now().to_sec()
+
+        while rospy.Time.now().to_sec() - start_time < duration:
+            # Publish the velocity command
+            self.cmd_vel_pub.publish(move_cmd)
+            rate.sleep()
+
+        # Stop the robot after moving the desired distance
+        move_cmd.linear.x = 0.0
+        self.cmd_vel_pub.publish(move_cmd)
+
+    def execute(self, userdata):
+        rospy.loginfo("Executing move backward state...")
+        try:
+            self.move_backward()
+            rospy.loginfo("Robot moved backward successfully.")
+            return 'succeeded'
+        except Exception as e:
+            rospy.logerr("Failed to move backward: %s",str(e))
+            return 'aborted'
+  
         
         
 
@@ -1430,9 +1502,13 @@ class ProactiveAssistanceStateMachine:
                                     remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
             smach.StateMachine.add('MOVE_HEAD_USER_FACE', MoveHeadState(0.0, -0.35),  # Adjust pan and tilt values as needed
-                                   transitions={'succeeded': 'NAV_PLACE_EMOTION', #NAV_PLACE_EMOTION',
+                                   transitions={'succeeded': 'MOVE_BACKWARD', #NAV_PLACE_EMOTION',
                                                 'aborted': 'aborted'},
                                    remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
+            
+            smach.StateMachine.add('MOVE_BACKWARD', MoveBackwardState(distance=0.5, speed=0.4),
+                               transitions={'succeeded': 'NAV_PLACE_EMOTION', 'aborted': 'aborted'},
+                               remapping={'task_navigation_goal':'task_navigation_goal', 'objects_on_user_table':'objects_on_user_table'})
             
             pose_place = PoseStamped()
             pose_place.header.frame_id = 'map'

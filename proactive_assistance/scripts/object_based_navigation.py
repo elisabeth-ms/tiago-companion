@@ -76,7 +76,7 @@ class ObjectBasedNavigationServer:
         
         self.table_border_points = [
             Point(x=0.4, y= 0.677332573952, z=0.0), 
-            Point(x=0.42, y= -0.481430256809, z=0.0)]
+            Point(x=0.4, y= -0.481430256809, z=0.0)]
 
 
 
