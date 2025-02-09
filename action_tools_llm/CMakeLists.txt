@@ -20,7 +20,6 @@ tf
 tf_conversions
 message_generation
 moveit_ros_planning_interface
-proactive_assistance
 )
 
 ## System dependencies are found with CMake's conventions
@@ -57,11 +56,11 @@ proactive_assistance
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  ArucoObject.msg
+  ArucoObjectArray.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(

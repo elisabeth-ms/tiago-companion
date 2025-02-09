@@ -16,7 +16,10 @@
 #include <moveit_msgs/AllowedCollisionMatrix.h>
 #include <moveit_msgs/AllowedCollisionEntry.h>
 #include <moveit_msgs/GetPlanningScene.h>
+#include <geometry_msgs/PoseArray.h>
 
+#define GRIPPER_MAX_WIDTH 0.08
+#include <math.h>
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> follow_joint_control_client;
 typedef boost::shared_ptr<follow_joint_control_client> follow_joint_control_client_Ptr;
 
@@ -46,8 +49,8 @@ protected:
   robot_state::RobotStatePtr kinematicState_;
   const robot_state::JointModelGroup *jointModelGroupTorsoRightArm_;
   const robot_state::JointModelGroup *jointModelGroupTorsoLeftArm_;
-  float reachingDistance_ = 0.12;    // TODO: Define the reaching distance as a rosparam
-  float gripperLinkDistance_ = 0.18; // TODO: Define the distance between the gripper link and the tool link as a rosparam
+  float reachingDistance_ = 0.09;    // TODO: Define the reaching distance as a rosparam
+  float gripperLinkDistance_ = 0.19; // TODO: Define the distance between the gripper link and the tool link as a rosparam
 
   follow_joint_control_client_Ptr rightGripperClient_;
   follow_joint_control_client_Ptr leftGripperClient_;
@@ -61,7 +64,14 @@ protected:
   ros::Publisher target_pose_pub_; 
   float current_gripper_positions_[2 ] = {0.0, 0.0};
   
-
+  ros::Publisher grasp_pub_;
+  ros::Publisher pregrasp_pub_;
+  ros::Publisher top_object_pub_;
+  ros::Publisher pouring_pose_top_pub_;
+  ros::Publisher new_grasping_pose_pub_;
+  ros::Publisher trajectory_pub_;
+  std::vector<double> initRightArmPositions_ = {-47*M_PI/180.0, 4*M_PI/180.0, 115*M_PI/180.0, 117*M_PI/180.0, -87*M_PI/180.0, 48.0*M_PI/180.0, -48*M_PI/180.0};
+  std::vector<double> initLeftArmPositions_ = {-47*M_PI/180.0, 4*M_PI/180.0, 115*M_PI/180.0, 117*M_PI/180.0, -87*M_PI/180.0, 48.0*M_PI/180.0, -48*M_PI/180.0};
 
 
 public:
@@ -87,24 +97,28 @@ public:
     groupLeftArmPtr_ = new moveit::planning_interface::MoveGroupInterface(nameLeftArmGroup_);
     ROS_INFO("[BasicDemoAsr] Move group interface %s", nameLeftArmGroup_.c_str());
 
-    groupRightArmTorsoPtr_->setPlanningTime(1.5);
-    groupRightArmTorsoPtr_->setPlannerId("RRTConnectkConfigDefault");
-    groupRightArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
+    groupRightArmTorsoPtr_->setPlanningTime(4.5);
+    groupRightArmTorsoPtr_->setPlannerId("RRTConnectConfigDefault");
+    groupRightArmTorsoPtr_->setPoseReferenceFrame("aruco_base");
     groupRightArmTorsoPtr_->setMaxVelocityScalingFactor(0.6);
-
-    groupRightArmPtr_->setPlanningTime(1.5);
-    groupRightArmPtr_->setPlannerId("SBLkConfigDefault");
-    groupRightArmPtr_->setPoseReferenceFrame("base_footprint");
+    groupRightArmTorsoPtr_->setGoalPositionTolerance(0.02);   // Allow 2 cm position error
+    groupRightArmTorsoPtr_->setGoalOrientationTolerance(0.1); 
+    
+    groupRightArmPtr_->setPlanningTime(2.5);
+    groupRightArmPtr_->setPlannerId("RRTConnectConfigDefault");
+    groupRightArmPtr_->setPoseReferenceFrame("aruco_base");
     groupRightArmPtr_->setMaxVelocityScalingFactor(0.4);
-
+    groupRightArmPtr_->setGoalPositionTolerance(0.02);   // Allow 2 cm position error
+    groupRightArmPtr_->setGoalOrientationTolerance(0.1); 
+    
     groupLeftArmTorsoPtr_->setPlanningTime(1.5);
     groupLeftArmTorsoPtr_->setPlannerId("SBLkConfigDefault");
-    groupLeftArmTorsoPtr_->setPoseReferenceFrame("base_footprint");
+    groupLeftArmTorsoPtr_->setPoseReferenceFrame("aruco_base");
     groupLeftArmTorsoPtr_->setMaxVelocityScalingFactor(0.4);
 
     groupLeftArmPtr_->setPlanningTime(1.5);
     groupLeftArmPtr_->setPlannerId("SBLkConfigDefault");
-    groupLeftArmPtr_->setPoseReferenceFrame("base_footprint");
+    groupLeftArmPtr_->setPoseReferenceFrame("aruco_base");
     groupLeftArmPtr_->setMaxVelocityScalingFactor(0.4);
 
     createClient(rightGripperClient_, std::string("gripper_right"));
@@ -122,6 +136,13 @@ public:
 
     // SUbscriber to joint_states
     ros::Subscriber sub = nh_.subscribe("/joint_states", 1000, &ObjectManipulationAction::jointStatesCallback, this);
+
+    grasp_pub_ = nh_.advertise<geometry_msgs::PoseArray>("grasp_poses", 10);
+    pregrasp_pub_ = nh_.advertise<geometry_msgs::PoseArray>("pregrasp_poses", 10);
+    top_object_pub_ = nh_.advertise<geometry_msgs::PoseArray>("top_object_poses", 10);
+    pouring_pose_top_pub_ =  nh_.advertise<geometry_msgs::PoseStamped>("pouring_pose_top", 10);
+    new_grasping_pose_pub_= nh_.advertise<geometry_msgs::PoseStamped>("new_grasping_pose", 10);
+    trajectory_pub_ = nh_.advertise<geometry_msgs::PoseArray>("trajectory_pouring", 10);
 
 
     as_.start();
@@ -210,234 +231,113 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     // addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
     bool success = true; // example processing result
 
-    if (goal->task == "pickplace")
+    if (goal->task == "hand_over_to_person")
     {
-      ROS_INFO("Processing the manipulation task");
-      ROS_INFO("Number of obstacles: %d", goal->obstacles.size());
-      ROS_INFO("Number of obstacle poses: %d", goal->obstacle_poses.size());
-      ROS_INFO("Number of reference frames of obstacles: %d", goal->reference_frames_of_obstacles.size());
-      ROS_INFO("Number of grasping poses: %d", goal->grasping_poses.poses.size());
-      
-      addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
+      bool init_right_arm = initializeArmPosition(groupRightArmPtr_,initRightArmPositions_);
+      ROS_INFO("[ObjectManipulation] Right arm initialized: %d", init_right_arm);
+      bool init_left_arm = initializeArmPosition(groupLeftArmPtr_ ,initLeftArmPositions_);
+      ROS_INFO("[ObjectManipulation] Left arm initialized: %d", init_right_arm);
 
-      float closeGripperPositions[2] = {0.0, 0.0};
-      moveGripper(closeGripperPositions, "right");
-      // Lets plan the motion of the robot to the grasping poses
-      std::vector<geometry_msgs::Pose> pregrasp_poses;
-      getPregrasp(goal->grasping_poses, pregrasp_poses, reachingDistance_);
-
-
-      groupRightArmPtr_->setMaxVelocityScalingFactor(0.8);
-      groupRightArmPtr_->setMaxAccelerationScalingFactor(0.8);
-
-
-      int index_grasp = 0;
-      for (index_grasp = 0; index_grasp < pregrasp_poses.size(); index_grasp++)
+      ROS_INFO("Processing the hand_over_to_person task");
+      ROS_INFO("The object to hand over is: %s", goal->object_for_task_name1.c_str());
+      ROS_INFO("The person to hand over to is: %s", goal->object_for_task_name2.c_str());
+      std::vector<std::string> reference_frames;
+      int index_object = -1;
+      for (int i=0; i<goal->object_names.size(); i++)
       {
-          ROS_INFO("Moving to pregrasp pose %d", index_grasp);
-          geometry_msgs::Pose pose = pregrasp_poses[index_grasp];
-          groupRightArmPtr_->setPoseTarget(pose);
+        ROS_INFO("Object %d: %s", i, goal->object_names[i].c_str());
+        ROS_INFO("Pose of object %d: x=%f, y=%f, z=%f", i, goal->object_poses[i].position.x, goal->object_poses[i].position.y, goal->object_poses[i].position.z);
+        ROS_INFO("Shape of object %d: type=%d", i, goal->object_shapes[i].type);
+        reference_frames.push_back("aruco_base");
+        if (goal->object_names[i] == goal->object_for_task_name1)
+        {
+          index_object = i;              
+        }
 
-          moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-
-          moveit::planning_interface::MoveItErrorCode code = groupRightArmPtr_->plan(my_plan);
-          bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-
-          if (successPlanning)
-          {
-            // Last point of the trajectory
-            std::vector<double> rightArmPositions = my_plan.trajectory_.joint_trajectory.points.back().positions;
-              // Get the current robot state
-            robot_state::RobotState start_state(*groupRightArmPtr_->getCurrentState());
-
-            // (1) Option A: Directly set joint values:
-            const robot_state::JointModelGroup* joint_model_group =
-                start_state.getJointModelGroup("arm_right");
-            start_state.setJointGroupPositions(joint_model_group, rightArmPositions);
-
-            groupRightArmPtr_->setStartState(start_state);
-
-            geometry_msgs::Pose pose_grasp = goal->grasping_poses.poses[index_grasp];
-            groupRightArmPtr_->setPoseTarget(pose_grasp);
-
-            moveit::planning_interface::MoveGroupInterface::Plan aprox_plan;
-
-            moveit::planning_interface::MoveItErrorCode code = groupRightArmPtr_->plan(aprox_plan);
-
-            bool successPlanningAprox = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-
-            if (successPlanningAprox)
-            {
-
-              ROS_INFO("Found a valid grasp pose at index: %d", index_grasp);
-              // Here we need to add the object to the gripper
-              // Lets attach the object to the robot
-              // moveit_msgs::AttachedCollisionObject attached_object;
-              // attached_object.link_name = "gripper_right_tool_link";
-              // attached_object.object.id = "object";
-              // attached_object.object.header.frame_id = "gripper_right_tool_link";
-
-              // // Check the superquadric shape of the object
-              // attached_object.object.primitives.resize(1);
-              // attached_object.object.primitives[0] = goal->desired_object_shape;
-              // attached_object.object.primitive_poses.push_back(pose);
-              // attached_object.object.operation = attached_object.object.ADD;
-
-              // // Add object to the planning scene
-              // planningSceneInterface_.applyAttachedCollisionObject(attached_object);
-              std::vector<geometry_msgs::Point> bounding_zone = goal->zone_place;
-              for (int i = 0; i < bounding_zone.size(); i++)
-              {
-                ROS_INFO("Bounding zone %d: x=%f, y=%f, z=%f", i, bounding_zone[i].x, bounding_zone[i].y, bounding_zone[i].z);
-              }
-              moveit::planning_interface::MoveGroupInterface* groupAuxArmTorsoPtr_;
-              groupAuxArmTorsoPtr_ = groupRightArmPtr_;
-
-              groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.3);
-              groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.3);
-
-              // Last point of the trajectory
-              std::vector<double> rightArmPositionsAprox = aprox_plan.trajectory_.joint_trajectory.points.back().positions;
-      
-
-              // (1) Option A: Directly set joint values:
-              start_state.setJointGroupPositions(joint_model_group, rightArmPositionsAprox);
-
-              groupRightArmPtr_->setStartState(start_state);
-
-              geometry_msgs::Pose grasp_pose =  goal->grasping_poses.poses[index_grasp];
-
-              // Calculate the center of the bounding zone
-              geometry_msgs::Point center;
-              center.x = (bounding_zone[0].x + bounding_zone[1].x + bounding_zone[2].x + bounding_zone[3].x) / 4.0;
-              center.y = (bounding_zone[0].y + bounding_zone[1].y + bounding_zone[2].y + bounding_zone[3].y) / 4.0;
-              center.z = (bounding_zone[0].z + bounding_zone[1].z + bounding_zone[2].z + bounding_zone[3].z) / 4.0;
+      }
+      ROS_INFO("INDEX OBJECT %d", index_object);
+      if (index_object==-1){
+        success = false;
+      }else{
 
 
-
-              bool success = false;
-              // Test points within the bounding zone starting from the center
-              for (double step = 0.1; step <= 1.0; step += 0.1) {  // Start from a small positive step
-                  for (double alpha = std::max(0.0, 0.5 - step); alpha <= std::min(1.0, 0.5 + step); alpha += step) {
-                      for (double beta = std::max(0.0, 0.5 - step); beta <= std::min(1.0, 0.5 + step); beta += step) {
-                          geometry_msgs::Pose target_pose_place = interpolate(alpha, beta, grasp_pose.orientation, bounding_zone);
-
-                          groupAuxArmTorsoPtr_->setPoseTarget(target_pose_place);
-
-                          geometry_msgs::PoseStamped target_pose_stamped;
-                          target_pose_stamped.header.frame_id = "base_footprint"; // Change to your reference frame
-                          target_pose_stamped.header.stamp = ros::Time::now();
-                          target_pose_stamped.pose = target_pose_place;
-                          target_pose_pub_.publish(target_pose_stamped);
-
-                          moveit::planning_interface::MoveGroupInterface::Plan my_plan_place;
-                          bool successPlace = (groupAuxArmTorsoPtr_->plan(my_plan_place) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-                          ROS_INFO("Alpha: %f, Beta: %f", alpha, beta);
-                          ROS_INFO("SUCCESS: %d", successPlace);
-                          ROS_INFO("Target pose: x=%f, y=%f, z=%f", target_pose_place.position.x, target_pose_place.position.y, target_pose_place.position.z);
-                          
-                          if (successPlace) {                              
-                              moveit::planning_interface::MoveItErrorCode e = groupRightArmPtr_->execute(my_plan);
-                              moveGripper(openGripperPositions_, "right");
-                              moveit::planning_interface::MoveItErrorCode e2 = groupRightArmPtr_->execute(aprox_plan);
-                              float close[2] = {0,0};
-                              moveGripper(close, "right");
-                              moveit::planning_interface::MoveItErrorCode e3 = groupRightArmPtr_->execute(my_plan_place);
-                              moveGripper(openGripperPositions_, "right");
-                              success = true; // Exit the function after the first successful motion
-                              break;
-                          }
-                      
-                      }
-                      if (success) {
-                          break;
-                      }
-                  }
-                  if (success) {
-                      break;
-                  }
-              }
-
-
-              goToDistancedPose(0.2);
-              moveGripper(closeGripperPositions_, "right");
-
-              success = true;
-
-              break;
-            }
-            else
-            {
-              ROS_INFO("Failed to plan to the grasping pose %d", index_grasp);
-            }
+          geometry_msgs::PoseArray grasping_poses;
+          geometry_msgs::PoseArray top_object_poses;
+          int index_grasp = 0;
+          moveit::planning_interface::MoveGroupInterface *groupPtr;
+          if(goal->object_poses[index_object].position.y<0){
+              groupPtr = groupRightArmPtr_;
           }
-          else
-          {
-            ROS_INFO("Failed to plan to the grasping pose %d", index_grasp);
+          else{
+              groupPtr = groupLeftArmPtr_;
+          }
+
+          bool grasp_ok = graspObject(groupPtr, &planningSceneInterface_, goal->object_names, goal->object_poses, goal->object_shapes, 
+                          reference_frames, index_object, goal->object_for_task_name1, grasping_poses, top_object_poses, index_grasp);
+          if(grasp_ok){
+              ROS_INFO("GRASP OK: ", grasp_ok);
+              success = aproachGraspedObjectToUser(groupPtr, &planningSceneInterface_, goal->object_for_task_name1, grasping_poses, index_grasp, goal->zone_place);
           }
 
 
       }
-
-     
-        
-
     }
-    else if (goal->task == "comfortable")
-    {
-      ROS_INFO("Moving to comfortable pose");
-      moveToConfortablePose(comfortablePoseRight_);
-    }
-    else if (goal->task == "place")
-    {
-      ROS_INFO("Placing the object");
-      addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
-      placeObject(goal->zone_place);
-      moveGripper(openGripperPositions_, "right");
-      moveit_msgs::AttachedCollisionObject attached_object;
-      attached_object.object.id = "object";
-      attached_object.object.operation = attached_object.object.REMOVE;
-      planningSceneInterface_.applyAttachedCollisionObject(attached_object);
-      goToDistancedPose(0.2);
-      removeCollisionObjectsPlanningScene();
-      moveGripper(closeGripperPositions_, "right");
-    }
-    else if(goal->task == "add_remove_obstacles"){
-        ROS_INFO("Removing obstacles");
-        removeCollisionObjectsPlanningScene();
-        ROS_INFO("Removed all objects in the planning scene");
-    }
-    else if (goal->task == "move_to_joint_state"){
-      ROS_INFO("Moving to joint state");
-      addObstaclesToPlanningScene(goal->obstacles, goal->obstacle_poses, goal->reference_frames_of_obstacles);
-      moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
-      groupAuxArmTorsoPtr_ = groupRightArmPtr_;
+    else if (goal->task == "pour_into"){
+      bool init_right_arm = initializeArmPosition(groupRightArmPtr_,initRightArmPositions_);
+      ROS_INFO("[ObjectManipulation] Right arm initialized: %d", init_right_arm);
+      bool init_left_arm = initializeArmPosition(groupLeftArmPtr_ ,initLeftArmPositions_);
+      ROS_INFO("[ObjectManipulation] Left arm initialized: %d", init_right_arm);
 
+      ROS_INFO("Processing the pour_into task");
+      ROS_INFO("The container to pour from is: %s", goal->object_for_task_name1.c_str());
+      ROS_INFO("The container to pour into is: %s", goal->object_for_task_name2.c_str());
+      std::vector<std::string> reference_frames;
+      int index_object_from = -1, index_object_to = -1;
+      for (int i=0; i<goal->object_names.size(); i++)
+      {
+        ROS_INFO("Object %d: %s", i, goal->object_names[i].c_str());
+        ROS_INFO("Pose of object %d: x=%f, y=%f, z=%f", i, goal->object_poses[i].position.x, goal->object_poses[i].position.y, goal->object_poses[i].position.z);
+        ROS_INFO("Shape of object %d: type=%d", i, goal->object_shapes[i].type);
+        reference_frames.push_back("aruco_base");
+        if (goal->object_names[i] == goal->object_for_task_name1)
+        {
+          index_object_from = i;              
+        }
+        if (goal->object_names[i] == goal->object_for_task_name2){
+          index_object_to = i;
+        }
 
-      groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.8);
-      groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.8);
-
-
-      std::vector<double> rightArmPositions;
-      for(int i = 0; i < goal->joint_states.position.size(); i++){
-        rightArmPositions.push_back(goal->joint_states.position[i]);
-        ROS_INFO("Joint %d: %f", i, goal->joint_states.position[i]);
       }
-      ROS_INFO("Moving to joint state");
+      ROS_INFO("INDEX OBJECT FROM %d", index_object_from);
+      ROS_INFO("INDEX OBJECT TO %d", index_object_to);
+      if (index_object_from == -1 && index_object_to == -1){
+          success = false;
+      }else{
+          geometry_msgs::PoseArray grasping_poses;
+          geometry_msgs::PoseArray top_pouring_poses;
 
-      groupAuxArmTorsoPtr_->setJointValueTarget(rightArmPositions);
-      groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+          // For each grasping pose we also compute the pouring pose of the top of the object
 
-      moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-      success = (groupAuxArmTorsoPtr_->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-      if (success) {
-          moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(my_plan);
+          int index_grasp = 0;
+          moveit::planning_interface::MoveGroupInterface *groupPtr;
+          if(goal->object_poses[index_object_from].position.y<0){
+              groupPtr = groupRightArmPtr_;
+          }
+          else{
+              groupPtr = groupLeftArmPtr_;
+          }
 
-      } else {
-          ROS_WARN("Planning to the joint state failed.");
+          bool grasp_ok = graspObject(groupPtr, &planningSceneInterface_, goal->object_names, goal->object_poses, goal->object_shapes, 
+                          reference_frames, index_object_from, goal->object_for_task_name1, grasping_poses, top_pouring_poses, index_grasp);
+          
+          // Compute pouring pose
+          geometry_msgs::Pose grasping_pose = grasping_poses.poses[index_grasp];
+          geometry_msgs::Pose top_pouring_pose = top_pouring_poses.poses[index_grasp];
+
+          bool pour_ok = pourInto(groupPtr, &planningSceneInterface_, goal->object_names, goal->object_poses, goal->object_shapes,
+                          reference_frames, index_object_from, goal->object_for_task_name1, index_object_to, goal->object_for_task_name2, grasping_pose, top_pouring_pose);
+
       }
-      removeCollisionObjectsPlanningScene();
-
     }
     else
     {
@@ -456,6 +356,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
     if (success)
     {
+      ROS_INFO("success: %d", success);
       result_.success = true;
       result_.message = "Successfully processed the manipulation task";
       ROS_INFO("%s: Succeeded", action_name_.c_str());
@@ -464,6 +365,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     }
     else
     {
+      ROS_INFO("success: %d", success);
       result_.success = false;
       result_.message = "Failed to process the manipulation task";
       ROS_INFO("%s: Failed", action_name_.c_str());
@@ -472,8 +374,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     }
   }
   // Create a ROS action client to move TIAGo's head
-  void
-  createClient(follow_joint_control_client_Ptr &actionClient, std::string name)
+  void createClient(follow_joint_control_client_Ptr &actionClient, std::string name)
   {
     ROS_INFO("[ObjectManipulation] Creating action client to %s controller ...", name.c_str());
 
@@ -493,6 +394,26 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       ROS_ERROR("[ObjectManipulation] createClient: %s controller action server not available", name.c_str());
   }
 
+  void removeAllAttachedObjects()
+  {
+      moveit::planning_interface::PlanningSceneInterface planningSceneInterface_;
+      
+      // Get list of currently attached objects
+      std::map<std::string, moveit_msgs::AttachedCollisionObject> attached_objects = planningSceneInterface_.getAttachedObjects();
+
+      // Loop through and detach each object
+      for (const auto& pair : attached_objects)
+      {
+          moveit_msgs::AttachedCollisionObject detach_object;
+          detach_object.object.id = pair.first;  // Object ID
+          detach_object.object.operation = moveit_msgs::CollisionObject::REMOVE;
+          planningSceneInterface_.applyAttachedCollisionObject(detach_object);
+      }
+
+      ROS_INFO("All attached objects removed.");
+  }
+
+
   void removeCollisionObjectsPlanningScene()
   {
     ROS_INFO("[ObjectManipulation] Removing objects in the planningScene");
@@ -500,27 +421,378 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     planningSceneInterface_.removeCollisionObjects(objectIds);
   }
 
-  void addObstaclesToPlanningScene(const std::vector<shape_msgs::SolidPrimitive> &obstacles, const std::vector<geometry_msgs::Pose> &obstacle_poses,
+  void addObstaclesToPlanningScene(const std::vector<std::string> &names, const std::vector<shape_msgs::SolidPrimitive> &obstacles, const std::vector<geometry_msgs::Pose> &obstacle_poses,
                                    const std::vector<std::string> &reference_frames_of_obstacles)
   {
     for (int i = 0; i < obstacles.size(); i++)
     {
       ROS_INFO("Adding Collision object %d", i);
       moveit_msgs::CollisionObject collisionObject;
-      collisionObject.id = i;
+      collisionObject.id = names[i];
       collisionObject.header.frame_id = reference_frames_of_obstacles[i];
       collisionObject.operation = moveit_msgs::CollisionObject::ADD;
       collisionObject.primitives.push_back(obstacles[i]);
       collisionObject.primitive_poses.push_back(obstacle_poses[i]);
       collisionObject.header.stamp = ros::Time::now();
-
+      ROS_INFO("Object pose: x=%f, y=%f, z=%f", obstacle_poses[i].position.x, obstacle_poses[i].position.y, obstacle_poses[i].position.z);
+      ROS_INFO("Object orientation: x=%f, y=%f, z=%f, w=%f", obstacle_poses[i].orientation.x, obstacle_poses[i].orientation.y, obstacle_poses[i].orientation.z, obstacle_poses[i].orientation.w);
       planningSceneInterface_.applyCollisionObject(collisionObject);
     }
   }
 
-  void getPregrasp(const geometry_msgs::PoseArray &grasping_poses, std::vector<geometry_msgs::Pose> &pregrasp_poses, double pregrasp_distance)
+  bool graspObject(moveit::planning_interface::MoveGroupInterface *groupPtr, moveit::planning_interface::PlanningSceneInterface *planningSceneInterfacePtr,
+    const std::vector<std::string>& object_names,
+    const std::vector<geometry_msgs::Pose>& object_poses,
+    const std::vector<shape_msgs::SolidPrimitive>& object_shapes,
+    const std::vector<std::string>& reference_frames,
+    int index_object,
+    std::string object_for_task_name1,
+    geometry_msgs::PoseArray& grasping_poses,  
+    geometry_msgs::PoseArray& top_object_poses,// Output grasp poses
+    int& index_grasp)  // Output index of successful grasp pose 
   {
-    pregrasp_poses.clear();
+      // Compute the grasping poses for the object
+      ROS_INFO("Computing grasping poses for the object index: %d", index_object);
+      std::string group_name = groupPtr->getName();
+      std::string arm;
+      if (group_name.find("left") != std::string::npos)
+      {
+          arm = "left";
+      }else if(group_name.find("right") != std::string::npos){
+          arm = "right";
+      }
+      else{
+        ROS_ERROR("No valid group interface. No left or right arm.");
+      }
+      grasping_poses = computeGraspPoses(object_poses[index_object], object_shapes[index_object], top_object_poses, arm);
+
+      top_object_pub_.publish(top_object_poses);
+
+      grasp_pub_.publish(grasping_poses);
+
+      // Close gripper
+      float closeGripperPositions[2] = {0.0, 0.0};
+      moveGripper(closeGripperPositions, "right");
+      
+      geometry_msgs::PoseArray pregrasp_poses;
+      getPregrasp(grasping_poses, pregrasp_poses, reachingDistance_);
+
+      pregrasp_pub_.publish(pregrasp_poses);
+
+
+      moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+      moveit::planning_interface::MoveGroupInterface::Plan aprox_plan;
+
+      
+
+      for (index_grasp = 0; index_grasp < pregrasp_poses.poses.size(); index_grasp++)
+      {
+
+          removeAllAttachedObjects();
+
+          removeCollisionObjectsPlanningScene();
+      
+          addObstaclesToPlanningScene(object_names,object_shapes, object_poses,reference_frames);
+          groupPtr->setStartStateToCurrentState();
+
+          
+          ROS_INFO("Moving to pregrasp pose %d", index_grasp);
+          geometry_msgs::Pose pose = pregrasp_poses.poses[index_grasp];
+          bool valid = groupPtr->setPoseTarget(pose);
+          ROS_INFO("Setting pregrasp pose target: %d", valid);
+          ROS_INFO("Position: x=%f, y=%f, z=%f", pose.position.x, pose.position.y, pose.position.z);
+          ROS_INFO("Orientation: x=%f, y=%f, z=%f, w=%f", pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+
+
+          moveit::planning_interface::MoveItErrorCode code = groupPtr->plan(my_plan);
+
+          bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+          ROS_INFO("Planning result: %d", successPlanning);
+          if (successPlanning)
+          {
+              ROS_INFO("Found a valid pregrasp pose at index: %d", index_grasp);
+              disableCollisionChecking(planningSceneInterface_,  object_for_task_name1, "gripper_right_left_finger_link");
+              disableCollisionChecking(planningSceneInterface_,  object_for_task_name1, "gripper_right_right_finger_link");
+
+            
+              // Last point of the trajectory
+              std::vector<double> rightArmPositions = my_plan.trajectory_.joint_trajectory.points.back().positions;
+              // Get the current robot state
+              robot_state::RobotState start_state(*groupPtr->getCurrentState());
+
+              const robot_state::JointModelGroup* joint_model_group = start_state.getJointModelGroup("arm_right");
+              start_state.setJointGroupPositions(joint_model_group, rightArmPositions);
+
+              groupPtr->setStartState(start_state);
+
+              geometry_msgs::Pose pose_grasp = grasping_poses.poses[index_grasp];
+              groupPtr->setPoseTarget(pose_grasp);
+
+
+              moveit::planning_interface::MoveItErrorCode code = groupPtr->plan(aprox_plan);
+
+              bool successPlanningAprox = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+              ROS_INFO("Aprox Planning result: %d", successPlanningAprox);
+              if (successPlanningAprox)
+              {
+                  // We have the path from the pregrasp to the grasping pose. I need to attach the object to the gripper
+                  // and move the arm to the pregrasp pose
+                  // Now we need to execute the plan
+                  moveGripper(closeGripperPositions, "right");
+                  // execute the pregrasp plan
+                  ROS_INFO("Updating MoveIt start state...");
+                  groupPtr->setStartStateToCurrentState();
+
+                  groupPtr->execute(my_plan);
+                  // open gripper
+                  moveGripper(openGripperPositions_, "right");
+
+                  groupPtr->execute(aprox_plan);
+                  // // close gripper
+                  moveGripper(closeGripperPositions, "right");
+                  break;
+              }
+          }
+      }
+      if (index_grasp< grasping_poses.poses.size())
+      {
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+
+
+  }
+
+  double computeSignedAngle(const tf2::Vector3& reference_axis,const tf2::Vector3& x_axis) {
+
+    // Compute dot and cross product
+    double dot = reference_axis.dot(x_axis);
+    tf2::Vector3 cross = reference_axis.cross(x_axis);
+
+    // Compute the angle (acos gives absolute value)
+    double angle = std::atan2(cross.z(), dot);  // atan2 provides a signed angle in radians
+
+    return angle;  // Signed angle
+}
+
+
+  geometry_msgs::PoseArray computeGraspPoses(const geometry_msgs::Pose &object_pose, const shape_msgs::SolidPrimitive &object_shape, geometry_msgs::PoseArray& top_object_poses,
+                                             const std::string &arm)
+  {
+    geometry_msgs::PoseArray local_grasp_poses;
+    geometry_msgs::PoseArray global_grasp_poses;
+    geometry_msgs::PoseArray local_top_object_poses;
+    if(object_shape.type == shape_msgs::SolidPrimitive::CYLINDER)
+    {
+      local_grasp_poses = computeGraspPosesCylinder(object_pose, object_shape, local_top_object_poses);
+    }
+    else if(object_shape.type == shape_msgs::SolidPrimitive::BOX)
+    {
+      local_grasp_poses = computeGraspPosesBox(object_pose, object_shape);
+    }
+    else
+    {
+      ROS_ERROR("Object shape not supported");
+    }
+
+    global_grasp_poses = transformToGlobalFrame(local_grasp_poses, object_pose);
+    geometry_msgs::PoseArray  all_top_object_poses = transformToGlobalFrame(local_top_object_poses, object_pose);
+    geometry_msgs::PoseArray valid_global_grasp_poses;
+    valid_global_grasp_poses.header = global_grasp_poses.header;
+    top_object_poses.header = all_top_object_poses.header;
+
+    for(int i=0; i<global_grasp_poses.poses.size(); i++){
+        // Convert quaternion to rotation matrix
+        geometry_msgs::Pose pose = global_grasp_poses.poses[i];
+        tf2::Quaternion q(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+        tf2::Matrix3x3 rotation_matrix(q);
+
+        // Extract the x-axis (first column of rotation matrix)
+        tf2::Vector3 x_axis(rotation_matrix[0][0], rotation_matrix[1][0], rotation_matrix[2][0]);
+        tf2::Vector3 reference_axis(1,0,0);
+        // Compute the signed angle with respect to (1,0,0)
+        double angle = computeSignedAngle(reference_axis,x_axis);
+        ROS_INFO("ANGLE: %f", angle);
+        if (arm == "right" && angle<=(M_PI/2.0+0.1) && angle>=-0.1)
+        {
+          valid_global_grasp_poses.poses.push_back(pose);
+          top_object_poses.poses.push_back(all_top_object_poses.poses[i]);
+        }
+        else if (arm == "left" && angle>=-(M_PI/2.0+0.1) && angle<=0.1){
+          valid_global_grasp_poses.poses.push_back(pose);
+          top_object_poses.poses.push_back(all_top_object_poses.poses[i]);
+        }
+
+    }
+
+
+
+    return valid_global_grasp_poses;
+  }
+
+  geometry_msgs::PoseArray computeGraspPosesCylinder(const geometry_msgs::Pose &object_pose, const shape_msgs::SolidPrimitive &object_shape, geometry_msgs::PoseArray& local_top_object_poses)
+  {
+    geometry_msgs::PoseArray local_grasp_poses;
+    // Compute the grasping poses for a cylinder
+     ROS_INFO("Computing grasping poses for a cylinder");
+
+    // Cylinder dimensions
+    double radius = object_shape.dimensions[0] / 2.0; // Diameter is stored in dimensions[0]
+    double height = object_shape.dimensions[1];       // Height is stored in dimensions[1]
+
+    ROS_INFO("Radius: %f", radius);
+    ROS_INFO("Height: %f", height);
+
+    int num_side_grasps = 8; // Define how many grasp points around the cylinder
+    for (int i = 0; i < num_side_grasps; i++)
+    {
+        double angle = (i * 2.0 * M_PI) / num_side_grasps; // Evenly distribute around the circle
+
+        for (float h = 0.5*height; h<=1.5*height; h += height) // Grasping along the height
+        {
+            for (int j = -1; j <= 1; j += 2) // Grasping from both sides
+            {
+                geometry_msgs::Pose local_grasp_pose;
+                geometry_msgs::Pose local_top_object_pose;
+
+                // **Positioning: Grasp from different Y positions around the cylinder**
+                local_grasp_pose.position.x = (radius+gripperLinkDistance_/2.0) * cos(angle); // Circle X coordinate
+                local_grasp_pose.position.y = (radius+gripperLinkDistance_/2.0) * sin(angle); // Circle Y coordinate
+                local_grasp_pose.position.z = h;                   // Vary height
+
+                // **Orientation: X always towards object, Z is the gripper opening**
+                tf2::Quaternion q;
+                q.setRPY(0, 0, angle+M_PI); // Rotate to align with grasp approach
+                tf2::Quaternion q2;
+                q2.setRPY(j*M_PI/2.0, 0, 0);   // Flip for better stability
+
+                q = q * q2; // Combine rotations
+                // q2.setRPY(0, M_PI/2.0, 0);   // Flip for better stability
+                // q = q2 * q2; // Combine rotations
+
+                local_grasp_pose.orientation.x = q.x();
+                local_grasp_pose.orientation.y = q.y();
+                local_grasp_pose.orientation.z = q.z();
+                local_grasp_pose.orientation.w = q.w();
+
+                local_top_object_pose.position.x = 0;
+                local_top_object_pose.position.y = 0;
+                local_top_object_pose.position.z = 2.5*height;
+
+                local_top_object_pose.orientation = local_grasp_pose.orientation;
+                // Validate quaternion before using it
+                if (fabs(q.x()) < 1e-6 && fabs(q.y()) < 1e-6 && fabs(q.z()) < 1e-6 && fabs(q.w()) < 1e-6)
+                {
+                  ROS_WARN("Invalid quaternion detected in grasp pose %d! Setting to identity.", i);
+                  q.setRPY(0, 0, 0);
+                }
+                q.normalize();
+                local_grasp_poses.poses.push_back(local_grasp_pose);
+                local_top_object_poses.poses.push_back(local_top_object_pose);
+            }
+        }
+            
+        }
+    
+    return local_grasp_poses;
+  }
+
+  geometry_msgs::PoseArray computeGraspPosesBox(const geometry_msgs::Pose &object_pose, const shape_msgs::SolidPrimitive &object_shape)
+  {
+    ROS_INFO("Computing grasping poses for a box");
+    geometry_msgs::PoseArray local_grasp_poses;
+    // Compute the grasping poses for a box
+    // I need to check the dimensions of the primitive
+    double length = object_shape.dimensions[0];
+    double width = object_shape.dimensions[1];
+    double height = object_shape.dimensions[2];
+
+    ROS_INFO("Length: %f", length);
+    ROS_INFO("Width: %f", width);
+    ROS_INFO("Height: %f", height);
+    // Define the grasping poses
+    if (length<= GRIPPER_MAX_WIDTH){
+      for(int i = -1; i<=1; i+=2){
+          for( float h=-height/5; h<=height/5; h+=0.25*height/5){
+              geometry_msgs::Pose local_grasp_pose;
+
+              local_grasp_pose.position.x =  0;
+              local_grasp_pose.position.y = i*(width/2+gripperLinkDistance_);
+              
+              local_grasp_pose.position.z = h;
+              for(int j=-1; j<=1; j+=2){
+                tf2::Quaternion q;
+                q.setRPY(0, 0, -i * M_PI / 2.0);  // Rotate to align gripper with Y-axis
+                tf2::Quaternion q2;
+                q2.setRPY(j * M_PI / 2.0, 0, 0);
+                q = q*q2;
+                local_grasp_pose.orientation.x = q.x();
+                local_grasp_pose.orientation.y = q.y();
+                local_grasp_pose.orientation.z = q.z();
+                local_grasp_pose.orientation.w = q.w();
+                local_grasp_poses.poses.push_back(local_grasp_pose);
+              }
+              
+          }
+
+      }
+    }
+    return local_grasp_poses;
+  }
+
+  geometry_msgs::PoseArray transformToGlobalFrame(const geometry_msgs::PoseArray &local_grasp_poses, const geometry_msgs::Pose &object_pose)
+  {
+    geometry_msgs::PoseArray global_grasp_poses;
+    global_grasp_poses.header.frame_id = "aruco_base";
+    global_grasp_poses.header.stamp = ros::Time::now();
+    tf2::Transform obj_transform;
+    tf2::Quaternion obj_orientation(
+        object_pose.orientation.x,
+        object_pose.orientation.y,
+        object_pose.orientation.z,
+        object_pose.orientation.w
+    );
+    obj_transform.setOrigin(tf2::Vector3(object_pose.position.x, object_pose.position.y, object_pose.position.z));
+    obj_transform.setRotation(obj_orientation);
+
+    for (const auto &local_grasp_pose : local_grasp_poses.poses)
+    {
+      tf2::Transform grasp_transform;
+      tf2::Quaternion grasp_orientation(
+          local_grasp_pose.orientation.x,
+          local_grasp_pose.orientation.y,
+          local_grasp_pose.orientation.z,
+          local_grasp_pose.orientation.w
+      );
+      grasp_transform.setOrigin(tf2::Vector3(local_grasp_pose.position.x, local_grasp_pose.position.y, local_grasp_pose.position.z));
+      grasp_transform.setRotation(grasp_orientation);
+
+      tf2::Transform global_grasp_transform = obj_transform * grasp_transform;
+
+      geometry_msgs::Pose global_grasp_pose;
+      global_grasp_pose.position.x = global_grasp_transform.getOrigin().getX();
+      global_grasp_pose.position.y = global_grasp_transform.getOrigin().getY();
+      global_grasp_pose.position.z = global_grasp_transform.getOrigin().getZ();
+      tf2::Quaternion q = global_grasp_transform.getRotation();
+      global_grasp_pose.orientation.x = q.x();
+      global_grasp_pose.orientation.y = q.y();
+      global_grasp_pose.orientation.z = q.z();
+      global_grasp_pose.orientation.w = q.w();
+
+      global_grasp_poses.poses.push_back(global_grasp_pose);
+    }
+
+    return global_grasp_poses;
+  }
+
+  void getPregrasp(const geometry_msgs::PoseArray &grasping_poses, geometry_msgs::PoseArray &pregrasp_poses, double pregrasp_distance)
+  {
+    pregrasp_poses.poses.clear();
+    pregrasp_poses.header.frame_id = grasping_poses.header.frame_id;
+    pregrasp_poses.header.stamp = grasping_poses.header.stamp;
 
     for (const auto &pose : grasping_poses.poses)
     {
@@ -529,7 +801,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       tf2::fromMsg(pose, transform);
 
       // Define the translation along the local negative x-axis
-      tf2::Vector3 pregrasp_translation(-pregrasp_distance - gripperLinkDistance_, 0.0, 0.0);
+      tf2::Vector3 pregrasp_translation(-pregrasp_distance, 0.0, 0.0);
 
       // Apply the translation to the transform
       transform.setOrigin(transform.getOrigin() + transform.getBasis() * pregrasp_translation);
@@ -538,99 +810,530 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       geometry_msgs::Pose pregrasp_pose;
       tf2::toMsg(transform, pregrasp_pose);
 
-      pregrasp_poses.push_back(pregrasp_pose);
+      pregrasp_poses.poses.push_back(pregrasp_pose);
     }
   }
 
-  bool goToGraspingPose(const geometry_msgs::Pose &graspingPose)
+  bool pourInto(moveit::planning_interface::MoveGroupInterface *groupPtr, moveit::planning_interface::PlanningSceneInterface *planningSceneInterfacePtr,
+    const std::vector<std::string>& object_names,
+    const std::vector<geometry_msgs::Pose>& object_poses,
+    const std::vector<shape_msgs::SolidPrimitive>& object_shapes,
+    const std::vector<std::string>& reference_frames,
+    const int& index_object_from,
+    const std::string& object_for_task_name1,
+    const int& index_object_to,
+    const std::string& object_for_task_name2,
+    geometry_msgs::Pose grasping_pose,  
+    geometry_msgs::Pose top_object_pose)
   {
+    bool success = false;
+    moveit::planning_interface::MoveGroupInterface::Plan move_to_start_pouring_plan, pour_plan, pour2_plan;
+    ROS_INFO("POUR %s INTO % s", object_for_task_name1.c_str(), object_for_task_name2.c_str());
+    if (object_shapes[index_object_to].type == shape_msgs::SolidPrimitive::CYLINDER)
+    {
+      double radius = object_shapes[index_object_to].dimensions[0] / 2.0; // Diameter is stored in dimensions[0]
+      double height = object_shapes[index_object_to].dimensions[1];       // Height is stored in dimensions[1]
 
-    moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+      ROS_INFO("Radius: %f", radius);
+      ROS_INFO("Height: %f", height);
 
-    groupAuxArmTorsoPtr_ = groupRightArmPtr_;
+      geometry_msgs::PoseStamped pouring_pose;
+      pouring_pose.header.frame_id = reference_frames[index_object_to];
+      pouring_pose.header.stamp = ros::Time::now();
+      pouring_pose.pose.position.x = object_poses[index_object_to].position.x;
+      pouring_pose.pose.position.y = object_poses[index_object_to].position.y;
 
-    groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
-    groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
+      pouring_pose.pose.position.z = object_poses[index_object_to].position.z + 2*height+0.15;
 
-    geometry_msgs::PoseStamped currentPose = groupAuxArmTorsoPtr_->getCurrentPose();
-    KDL::Frame frameEndWrtBase;
-    tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
-    KDL::Frame frameToolWrtEnd;
-    frameToolWrtEnd.p[0] = +reachingDistance_;
-    KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
 
-    geometry_msgs::Pose toolPose;
-    tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+      // Orientation of the top pose when grasping
+      
+      pouring_pose.pose.orientation = top_object_pose.orientation;
 
-    std::vector<geometry_msgs::Pose> waypoints;
-    waypoints.push_back(toolPose);
+      pouring_pose.pose = rotatePoseAroundLocalZ(pouring_pose.pose, 30); // Maybe is not always positive 
+      pouring_pose_top_pub_.publish(pouring_pose);
 
-    groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+      tf2::Transform T_top_grasp = computeRelativeTransform(grasping_pose, top_object_pose);
 
-    moveit_msgs::RobotTrajectory trajectory;
-    const double jump_threshold = 0.00;
-    const double eef_step = 0.001;
-    double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-    ROS_INFO("ObjectManipulationServer] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+      geometry_msgs::PoseStamped new_grasping_pose;
+      new_grasping_pose.header = pouring_pose.header;
 
-    moveit::planning_interface::MoveGroupInterface::Plan planAproach;
+      new_grasping_pose.pose = computeNewPose(pouring_pose.pose, T_top_grasp);
 
-    planAproach.trajectory_ = trajectory;
+      new_grasping_pose_pub_.publish(new_grasping_pose);
 
-    sleep(1.0);
+      moveit_msgs::AttachedCollisionObject attached_object;
+      attached_object.link_name = "gripper_right_tool_link";
+      attached_object.object.id = object_for_task_name1;
+      attached_object.object.header.frame_id = "aruco_base";
+      attached_object.object.operation = attached_object.object.ADD;
+      planningSceneInterface_.applyAttachedCollisionObject(attached_object);
+                  
+      ROS_INFO("Attached object");
 
-    moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
 
-    // check if there is an error
-    if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS){
-      return true;
-    }
-    else{
-      return false;
+      groupPtr->setMaxVelocityScalingFactor(0.3);
+      groupPtr->setMaxAccelerationScalingFactor(0.3);
+
+      ros::Duration(0.1).sleep();
+      groupPtr->setStartStateToCurrentState();
+
+      geometry_msgs::Pose last_computed_pose;
+
+      bool success_move_to_pour = computeSmoothCartesianPath(groupPtr, grasping_pose, new_grasping_pose.pose, 30, move_to_start_pouring_plan, last_computed_pose);
+
+      if (success_move_to_pour) 
+      {  // If the path is successfully planned
+          groupPtr->execute(move_to_start_pouring_plan);
+          geometry_msgs::PoseStamped pouring_pose2;
+          pouring_pose2.header.frame_id = reference_frames[index_object_to];
+          pouring_pose2.header.stamp = ros::Time::now();
+          pouring_pose2.pose.position.x = object_poses[index_object_to].position.x;
+          pouring_pose2.pose.position.y = object_poses[index_object_to].position.y;
+          pouring_pose2.pose.position.z = object_poses[index_object_to].position.z + 2*height;    
+          pouring_pose2.pose.orientation = top_object_pose.orientation;
+          pouring_pose2.pose = rotatePoseAroundLocalZ(pouring_pose2.pose, 90); 
+          pouring_pose_top_pub_.publish(pouring_pose2);
+          geometry_msgs::PoseStamped new_grasping_pose2;
+          new_grasping_pose2.header = pouring_pose.header;
+          new_grasping_pose2.pose = computeNewPose(pouring_pose2.pose, T_top_grasp);
+          new_grasping_pose_pub_.publish(new_grasping_pose2);
+
+
+          geometry_msgs::Pose start_pose;
+          start_pose.position.x = last_computed_pose.position.x;
+          start_pose.position.y = last_computed_pose.position.y;
+          start_pose.position.z = last_computed_pose.position.z;
+
+          start_pose.orientation.x = last_computed_pose.orientation.x;
+          start_pose.orientation.y = last_computed_pose.orientation.y;
+          start_pose.orientation.z = last_computed_pose.orientation.z;
+          start_pose.orientation.w = last_computed_pose.orientation.w;
+
+          ROS_INFO("%f %f %f", new_grasping_pose.pose.position.x, new_grasping_pose.pose.position.y, new_grasping_pose.pose.position.z);
+
+
+          geometry_msgs::Pose last_computed_pose2;
+
+
+
+          bool success_pouring_first_phase = computeSmoothCartesianPath(groupPtr, start_pose, new_grasping_pose2.pose, 25, pour_plan, last_computed_pose2);
+
+          if (success_pouring_first_phase) {  // If the path is successfully planned
+              groupPtr->execute(pour_plan);
+              geometry_msgs::PoseStamped pouring_pose3;
+              pouring_pose3.header.frame_id = reference_frames[index_object_to];
+              pouring_pose3.header.stamp = ros::Time::now();
+              pouring_pose3.pose.position.x = object_poses[index_object_to].position.x;
+              pouring_pose3.pose.position.y = object_poses[index_object_to].position.y;
+              pouring_pose3.pose.position.z = object_poses[index_object_to].position.z + 2.0*height;    
+              pouring_pose3.pose.orientation = top_object_pose.orientation;
+              pouring_pose3.pose = rotatePoseAroundLocalZ(pouring_pose3.pose, 105); // Maybe is not always positive 
+              pouring_pose_top_pub_.publish(pouring_pose3);
+              geometry_msgs::PoseStamped new_grasping_pose3;
+              new_grasping_pose3.header = pouring_pose.header;
+              new_grasping_pose3.pose = computeNewPose(pouring_pose3.pose, T_top_grasp);
+              new_grasping_pose_pub_.publish(new_grasping_pose3);
+              
+              geometry_msgs::Pose last_computed_pose3;
+
+              bool success_pouring_second_phase = computeSmoothCartesianPath(groupPtr, last_computed_pose2, new_grasping_pose3.pose, 3, pour2_plan, last_computed_pose3);
+              if (success_pouring_second_phase) {  // If the path is successfully planned
+                groupPtr->execute(pour2_plan);
+              }
+
+          }
+      }
     }
   }
 
-  bool goToDistancedPose(double distanced)
+
+
+  geometry_msgs::Pose rotatePoseAroundLocalZ(const geometry_msgs::Pose& pose, double angle_degrees) {
+    geometry_msgs::Pose new_pose = pose;  // Copy input pose
+
+    // Convert input orientation to a quaternion
+    tf2::Quaternion current_orientation(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+
+    // Convert desired rotation angle from degrees to radians
+    double angle_radians = angle_degrees * M_PI / 180.0;
+
+    // Create a quaternion representing the rotation around the local Z-axis
+    tf2::Quaternion rotation;
+    rotation.setRPY(0, 0, angle_radians);  // Roll = 0, Pitch = 0, Yaw = rotation around Z-axis
+
+    // Apply the rotation (multiplication applies rotation in local frame)
+    tf2::Quaternion new_orientation = current_orientation * rotation;
+    new_orientation.normalize();  // Normalize to avoid numerical errors
+
+    // Update the pose with the new orientation
+    new_pose.orientation.x = new_orientation.x();
+    new_pose.orientation.y = new_orientation.y();
+    new_pose.orientation.z = new_orientation.z();
+    new_pose.orientation.w = new_orientation.w();
+
+    return new_pose;
+  }
+
+  // Function to compute the relative transform from pose_top_aruco to pose_center_aruco
+  tf2::Transform computeRelativeTransform(const geometry_msgs::Pose& pose_ref_center, const geometry_msgs::Pose& pose_ref_top) {
+    // Convert poses to tf2::Transform
+    tf2::Transform T_ref_center, T_ref_top;
+    T_ref_center.setOrigin(tf2::Vector3(pose_ref_center.position.x, pose_ref_center.position.y, pose_ref_center.position.z));
+    T_ref_center.setRotation(tf2::Quaternion(pose_ref_center.orientation.x, pose_ref_center.orientation.y, pose_ref_center.orientation.z, pose_ref_center.orientation.w));
+
+    T_ref_top.setOrigin(tf2::Vector3(pose_ref_top.position.x, pose_ref_top.position.y, pose_ref_top.position.z));
+    T_ref_top.setRotation(tf2::Quaternion(pose_ref_top.orientation.x, pose_ref_top.orientation.y, pose_ref_top.orientation.z, pose_ref_top.orientation.w));
+
+    // Compute relative transform: T_top_center = T_ref_center * T_ref_top⁻¹
+    tf2::Transform T_top_center = T_ref_top.inverse() * T_ref_center;
+    return T_top_center;
+  }
+
+  // Function to compute new pose of pose_center_aruco given new pose_top_aruco and relative transformation
+  geometry_msgs::Pose computeNewPose(const geometry_msgs::Pose& new_pose_top, const tf2::Transform& T_top_center) {
+      tf2::Transform T_ref_new_top;
+      T_ref_new_top.setOrigin(tf2::Vector3(new_pose_top.position.x, new_pose_top.position.y, new_pose_top.position.z));
+      T_ref_new_top.setRotation(tf2::Quaternion(new_pose_top.orientation.x, new_pose_top.orientation.y, new_pose_top.orientation.z, new_pose_top.orientation.w));
+
+      // Compute new pose of center: T_ref_new_center = T_ref_new_top * T_top_center
+      tf2::Transform T_ref_new_center = T_ref_new_top * T_top_center;
+
+      // Convert back to geometry_msgs::Pose
+      geometry_msgs::Pose new_pose_center;
+      new_pose_center.position.x = T_ref_new_center.getOrigin().x();
+      new_pose_center.position.y = T_ref_new_center.getOrigin().y();
+      new_pose_center.position.z = T_ref_new_center.getOrigin().z();
+      new_pose_center.orientation.x = T_ref_new_center.getRotation().x();
+      new_pose_center.orientation.y = T_ref_new_center.getRotation().y();
+      new_pose_center.orientation.z = T_ref_new_center.getRotation().z();
+      new_pose_center.orientation.w = T_ref_new_center.getRotation().w();
+
+      return new_pose_center;
+  }
+
+  bool computeSmoothCartesianPath(moveit::planning_interface::MoveGroupInterface* groupPtr, const geometry_msgs::Pose& pose1, const geometry_msgs::Pose& pose2, const int &steps, 
+                          moveit::planning_interface::MoveGroupInterface::Plan& result_plan, geometry_msgs::Pose &last_computed_pose) 
   {
+    if (!groupPtr) {
+        ROS_ERROR("MoveGroup pointer is null!");
+        return false;
+    }
 
-    moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+    tf2::Quaternion q_start, q_target;
+    tf2::convert(pose1.orientation, q_start);
+    tf2::convert(pose2.orientation, q_target);
 
-    groupAuxArmTorsoPtr_ = groupRightArmPtr_;
 
-    groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
-    groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
-
-    geometry_msgs::PoseStamped currentPose = groupAuxArmTorsoPtr_->getCurrentPose();
-    KDL::Frame frameEndWrtBase;
-    tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
-    KDL::Frame frameToolWrtEnd;
-    frameToolWrtEnd.p[0] = - distanced;
-    KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
-
-    geometry_msgs::Pose toolPose;
-    tf::poseKDLToMsg(frameToolWrtBase, toolPose);
-
+    // Generate waypoints with interpolated position and orientation
     std::vector<geometry_msgs::Pose> waypoints;
-    waypoints.push_back(toolPose);
+    geometry_msgs::PoseArray pour_trajectory;
+    pour_trajectory.header.frame_id = "aruco_base";
+    pour_trajectory.header.stamp = ros::Time::now();
+    double alpha;
+    for (int i = 0; i <= steps; i++) {
+        alpha = static_cast<double>(i) / steps;
 
-    groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+        geometry_msgs::Pose intermediate_pose;
+        
+        // Linearly interpolate position
+        intermediate_pose.position.x = pose1.position.x + alpha * (pose2.position.x - pose1.position.x);
+        intermediate_pose.position.y = pose1.position.y + alpha * (pose2.position.y - pose1.position.y);
+        intermediate_pose.position.z = pose1.position.z + alpha * (pose2.position.z - pose1.position.z);
 
+        // Slerp for smooth orientation transition
+        tf2::Quaternion q_intermediate = q_start.slerp(q_target, alpha);
+        intermediate_pose.orientation.x = q_intermediate.x();
+        intermediate_pose.orientation.y = q_intermediate.y();
+        intermediate_pose.orientation.z = q_intermediate.z();
+        intermediate_pose.orientation.w = q_intermediate.w();
+        pour_trajectory.poses.push_back(intermediate_pose);
+        waypoints.push_back(intermediate_pose);
+    }
+
+    trajectory_pub_.publish(pour_trajectory);
+
+    // Compute Cartesian path
     moveit_msgs::RobotTrajectory trajectory;
-    const double jump_threshold = 0.00;
-    const double eef_step = 0.001;
-    double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-    ROS_INFO("ObjectManipulationServer] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+    double fraction = groupPtr->computeCartesianPath(waypoints, alpha, 0.0, trajectory);
+    ROS_INFO("Cartesian path computed (%.2f%% achieved)", fraction * 100.0);
+    
+    if (fraction > 0.2) {
+        result_plan.trajectory_ = trajectory;
 
-    moveit::planning_interface::MoveGroupInterface::Plan planAproach;
+        // Extract the last computed pose from the trajectory
+        int last_traj_index = trajectory.joint_trajectory.points.size() - 1;
 
-    planAproach.trajectory_ = trajectory;
+        if (last_traj_index >= 0) {
+            // Get last joint state from the trajectory
+            moveit::core::RobotState last_robot_state(*groupPtr->getCurrentState());
+            last_robot_state.setVariablePositions(trajectory.joint_trajectory.joint_names, 
+                                                  trajectory.joint_trajectory.points[last_traj_index].positions);
 
-    sleep(1.0);
+            // Convert joint state to Cartesian pose
+            const Eigen::Isometry3d& end_effector_state = last_robot_state.getGlobalLinkTransform(groupPtr->getEndEffectorLink());
 
-    moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
+            last_computed_pose.position.x = end_effector_state.translation().x()-0.8; // Make the correct transformation please
+            last_computed_pose.position.y = end_effector_state.translation().y();
+            last_computed_pose.position.z = end_effector_state.translation().z();
 
-    return true;
+            Eigen::Quaterniond quat(end_effector_state.rotation());
+            last_computed_pose.orientation.x = quat.x();
+            last_computed_pose.orientation.y = quat.y();
+            last_computed_pose.orientation.z = quat.z();
+            last_computed_pose.orientation.w = quat.w();
+
+            ROS_INFO("Last computed pose: Position [%f, %f, %f] Orientation [%f, %f, %f, %f]",
+                    last_computed_pose.position.x, last_computed_pose.position.y, last_computed_pose.position.z,
+                    last_computed_pose.orientation.x, last_computed_pose.orientation.y,
+                    last_computed_pose.orientation.z, last_computed_pose.orientation.w);
+          }
+        return true;
+
+    }
+    else {
+        ROS_WARN("Cartesian path planning failed. Only %.2f%% achieved.", fraction * 100.0);
+        return false;
+    }
   }
+
+
+    bool initializeArmPosition( moveit::planning_interface::MoveGroupInterface* groupPtr, const std::vector<double> &initArmPositions)
+    {
+        ROS_INFO("Setting Arm to init position: (%f %f %f %f %f %f %f)", initArmPositions[0], initArmPositions[1], initArmPositions[2],
+                 initArmPositions[3], initArmPositions[4], initArmPositions[5], initArmPositions[6]);
+
+        groupPtr->setStartStateToCurrentState();
+        groupPtr->setJointValueTarget(initArmPositions);
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+        moveit::planning_interface::MoveItErrorCode code = groupPtr->plan(plan);
+        bool successPlanning = (code == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        ROS_INFO("Arm planning result: %d", successPlanning);
+        if (successPlanning)
+        {
+            moveit::planning_interface::MoveItErrorCode e = groupPtr->move();
+            if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+            {
+                ROS_INFO("Arm success in moving to the initial joints position.");
+                return true;
+            }
+            else
+            {
+                ROS_INFO("Arm Error in moving  to the initial joints position.");
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    bool aproachGraspedObjectToUser(moveit::planning_interface::MoveGroupInterface *groupPtr, moveit::planning_interface::PlanningSceneInterface *planningSceneInterfacePtr,
+                                   std::string object_for_task_name1, geometry_msgs::PoseArray grasping_poses, int index_grasp, const std::vector<geometry_msgs::Point> &bounding_zone)
+    {
+      moveit::planning_interface::MoveGroupInterface::Plan handover_plan;
+
+      
+      if (index_grasp < grasping_poses.poses.size())
+      {
+          ROS_INFO("Found a valid grasp pose at index: %d", index_grasp);
+          // Attach the object to the gripper
+          moveit_msgs::AttachedCollisionObject attached_object;
+          attached_object.link_name = "gripper_right_tool_link";
+          attached_object.object.id = object_for_task_name1;
+          attached_object.object.header.frame_id = "aruco_base";
+          attached_object.object.operation = attached_object.object.ADD;
+          planningSceneInterface_.applyAttachedCollisionObject(attached_object);
+                  
+          ROS_INFO("Attached object");
+
+          for (int i = 0; i < bounding_zone.size(); i++)
+          {
+              ROS_INFO("Bounding zone %d: x=%f, y=%f, z=%f", i, bounding_zone[i].x, bounding_zone[i].y, bounding_zone[i].z);
+          }
+
+
+          groupPtr->setMaxVelocityScalingFactor(0.3);
+          groupPtr->setMaxAccelerationScalingFactor(0.3);
+
+      
+          groupPtr->setStartStateToCurrentState();
+
+          geometry_msgs::Pose grasp_pose =  grasping_poses.poses[index_grasp];
+
+          // Calculate the center of the bounding zone
+          geometry_msgs::Point center;
+          center.x = (bounding_zone[0].x + bounding_zone[1].x + bounding_zone[2].x + bounding_zone[3].x) / 4.0;
+          center.y = (bounding_zone[0].y + bounding_zone[1].y + bounding_zone[2].y + bounding_zone[3].y) / 4.0;
+          center.z = (bounding_zone[0].z + bounding_zone[1].z + bounding_zone[2].z + bounding_zone[3].z) / 4.0;
+
+
+
+          bool success = false;
+          for (double step = 0.1; step <= 1.0; step += 0.1) 
+          {  // Start from a small positive step
+              for (double alpha = std::max(0.0, 0.5 - step); alpha <= std::min(1.0, 0.5 + step); alpha += step) 
+              {
+                  for (double beta = std::max(0.0, 0.5 - step); beta <= std::min(1.0, 0.5 + step); beta += step) 
+                  {
+                      geometry_msgs::Pose handover_pose = interpolate(alpha, beta, grasp_pose.orientation, bounding_zone);
+
+                      //Plan a cartesian path to the handover pose
+                      ROS_INFO("Planning cartesian path to handover pose %f %f %f", handover_pose.position.x, handover_pose.position.y, handover_pose.position.z);
+                      std::vector<geometry_msgs::Pose> waypoints;
+                      // waypoints.push_back(grasp_pose);
+                      waypoints.push_back(handover_pose);
+
+                      moveit_msgs::RobotTrajectory trajectory;
+                      const double jump_threshold = 0.0;
+                      const double eef_step = 0.01;
+
+                      double fraction = groupPtr->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+
+                      if (fraction>=0.8)
+                      {
+                          ROS_INFO("Computed Cartesian path successfully. Executing...");
+                          handover_plan.trajectory_ = trajectory;
+                          success = true;
+                          break;
+                      }
+                                  
+                  }
+                  if (success) 
+                  {
+                      break;
+                  }
+                            
+                }
+                if (success) 
+                {
+                    break;
+                }
+          }
+          
+          if (success)
+          {
+              ROS_INFO("Handover successfully planned");
+
+              // execute the handover plan
+              groupPtr->execute(handover_plan);
+              // wait seconds
+              ros::Duration(2.0).sleep();
+
+              removeAllAttachedObjects();
+              // open gripper
+              moveGripper(openGripperPositions_, "right");
+
+              // remove the collision object specific
+              planningSceneInterface_.removeCollisionObjects({object_for_task_name1});                
+
+
+              bool init = initializeArmPosition(groupPtr,initRightArmPositions_);
+
+              if (init){
+                return true;
+              }
+          }
+          else{
+              return false;
+          }
+          
+      }
+    }
+    
+
+
+  // bool goToGraspingPose(const geometry_msgs::Pose &graspingPose)
+  // {
+
+  //   moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+
+  //   groupAuxArmTorsoPtr_ = groupRightArmPtr_;
+
+  //   groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+  //   groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
+
+  //   geometry_msgs::PoseStamped currentPose = groupAuxArmTorsoPtr_->getCurrentPose();
+  //   KDL::Frame frameEndWrtBase;
+  //   tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
+  //   KDL::Frame frameToolWrtEnd;
+  //   frameToolWrtEnd.p[0] = +reachingDistance_;
+  //   KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
+
+  //   geometry_msgs::Pose toolPose;
+  //   tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+
+  //   std::vector<geometry_msgs::Pose> waypoints;
+  //   waypoints.push_back(toolPose);
+
+  //   groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+
+  //   moveit_msgs::RobotTrajectory trajectory;
+  //   const double jump_threshold = 0.00;
+  //   const double eef_step = 0.001;
+  //   double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+  //   ROS_INFO("ObjectManipulationServer] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+
+  //   moveit::planning_interface::MoveGroupInterface::Plan planAproach;
+
+  //   planAproach.trajectory_ = trajectory;
+
+  //   sleep(1.0);
+
+  //   moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
+
+  //   // check if there is an error
+  //   if (e == moveit::planning_interface::MoveItErrorCode::SUCCESS){
+  //     return true;
+  //   }
+  //   else{
+  //     return false;
+  //   }
+  // }
+
+  // bool goToDistancedPose(double distanced)
+  // {
+
+  //   moveit::planning_interface::MoveGroupInterface *groupAuxArmTorsoPtr_;
+
+  //   groupAuxArmTorsoPtr_ = groupRightArmPtr_;
+
+  //   groupAuxArmTorsoPtr_->setMaxVelocityScalingFactor(0.1);
+  //   groupAuxArmTorsoPtr_->setMaxAccelerationScalingFactor(0.1);
+
+  //   geometry_msgs::PoseStamped currentPose = groupAuxArmTorsoPtr_->getCurrentPose();
+  //   KDL::Frame frameEndWrtBase;
+  //   tf::poseMsgToKDL(currentPose.pose, frameEndWrtBase);
+  //   KDL::Frame frameToolWrtEnd;
+  //   frameToolWrtEnd.p[0] = - distanced;
+  //   KDL::Frame frameToolWrtBase = frameEndWrtBase * frameToolWrtEnd;
+
+  //   geometry_msgs::Pose toolPose;
+  //   tf::poseKDLToMsg(frameToolWrtBase, toolPose);
+
+  //   std::vector<geometry_msgs::Pose> waypoints;
+  //   waypoints.push_back(toolPose);
+
+  //   groupAuxArmTorsoPtr_->setStartStateToCurrentState();
+
+  //   moveit_msgs::RobotTrajectory trajectory;
+  //   const double jump_threshold = 0.00;
+  //   const double eef_step = 0.001;
+  //   double fraction = groupAuxArmTorsoPtr_->computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+  //   ROS_INFO("ObjectManipulationServer] plan (Cartesian path) (%.2f%% achieved)", fraction * 100.0);
+
+  //   moveit::planning_interface::MoveGroupInterface::Plan planAproach;
+
+  //   planAproach.trajectory_ = trajectory;
+
+  //   sleep(1.0);
+
+  //   moveit::planning_interface::MoveItErrorCode e = groupAuxArmTorsoPtr_->execute(planAproach);
+
+  //   return true;
+  // }
 
   void waypointGripperGoal(std::string name, control_msgs::FollowJointTrajectoryGoal &goal, const float positions[2], const float &timeToReach)
   {

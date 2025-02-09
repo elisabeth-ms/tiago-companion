@@ -1,17 +1,14 @@
 # ObjectManipulation.action
 
 # Define the goal
-bool gripper_empty  # true if the gripper is empty, false if holding an object
-string task  # "pick" or "place" or "comfortable" or "add_remove_obstacles" or "move_to_joint_state"
-shape_msgs/SolidPrimitive desired_object_shape
-geometry_msgs/Pose desired_object_pose
-geometry_msgs/PoseArray grasping_poses
-float64[] width
-shape_msgs/SolidPrimitive[] obstacles
-geometry_msgs/Pose[] obstacle_poses
-string[] reference_frames_of_obstacles
-geometry_msgs/Point[] zone_place # x, y (Only used for "place" task)
-sensor_msgs/JointState joint_states
+string task  # hand_over_to_person, move_object_next_to_person, pour_into
+string object_for_task_name1
+string object_for_task_name2 # Only used in the pour_into task
+string[] object_names
+geometry_msgs/Pose[] object_poses
+shape_msgs/SolidPrimitive[] object_shapes
+
+geometry_msgs/Point[] zone_place # Only used in the move_object_next_to_person task
 ---
 # Define the result
 bool success
