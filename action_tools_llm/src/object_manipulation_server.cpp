@@ -334,6 +334,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
           geometry_msgs::Pose grasping_pose = grasping_poses.poses[index_grasp];
           geometry_msgs::Pose top_pouring_pose = top_pouring_poses.poses[index_grasp];
 
+
           bool pour_ok = pourInto(groupPtr, &planningSceneInterface_, goal->object_names, goal->object_poses, goal->object_shapes,
                           reference_frames, index_object_from, goal->object_for_task_name1, index_object_to, goal->object_for_task_name2, grasping_pose, top_pouring_pose);
 
@@ -598,7 +599,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     }
     else if(object_shape.type == shape_msgs::SolidPrimitive::BOX)
     {
-      local_grasp_poses = computeGraspPosesBox(object_pose, object_shape);
+      local_grasp_poses = computeGraspPosesBox(object_pose, object_shape, local_top_object_poses);
     }
     else
     {
@@ -707,7 +708,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     return local_grasp_poses;
   }
 
-  geometry_msgs::PoseArray computeGraspPosesBox(const geometry_msgs::Pose &object_pose, const shape_msgs::SolidPrimitive &object_shape)
+  geometry_msgs::PoseArray computeGraspPosesBox(const geometry_msgs::Pose &object_pose, const shape_msgs::SolidPrimitive &object_shape, geometry_msgs::PoseArray& local_top_object_poses)
   {
     ROS_INFO("Computing grasping poses for a box");
     geometry_msgs::PoseArray local_grasp_poses;
@@ -723,11 +724,11 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     // Define the grasping poses
     if (length<= GRIPPER_MAX_WIDTH){
       for(int i = -1; i<=1; i+=2){
-          for( float h=-height/5; h<=height/5; h+=0.25*height/5){
+          for( float h=-height/5+0.5*height/5; h<=height/5; h+=0.25*height/5){
               geometry_msgs::Pose local_grasp_pose;
 
               local_grasp_pose.position.x =  0;
-              local_grasp_pose.position.y = i*(width/2+gripperLinkDistance_);
+              local_grasp_pose.position.y = i*(width/2+gripperLinkDistance_-0.02);
               
               local_grasp_pose.position.z = h;
               for(int j=-1; j<=1; j+=2){
@@ -741,6 +742,14 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
                 local_grasp_pose.orientation.z = q.z();
                 local_grasp_pose.orientation.w = q.w();
                 local_grasp_poses.poses.push_back(local_grasp_pose);
+
+                geometry_msgs::Pose local_top_object_pose;
+                local_top_object_pose.position.x = 0;
+                local_top_object_pose.position.y = -i*width/2.0;
+                local_top_object_pose.position.z = 0.7*height;
+
+                local_top_object_pose.orientation = local_grasp_pose.orientation;
+                local_top_object_poses.poses.push_back(local_top_object_pose);
               }
               
           }
@@ -881,7 +890,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     {
       geometry_msgs::PoseStamped new_gripper_pouring_pose;
       createPouringPose(object_poses, object_shapes, reference_frames, index_object_from, object_for_task_name1, index_object_to, object_for_task_name2,
-                        grasping_pose, top_object_pose, 10, 0.2,new_gripper_pouring_pose);
+                        grasping_pose, top_object_pose, 20, 0.15,new_gripper_pouring_pose);
 
       std::string group_name = groupPtr->getName();
       std::string arm;
@@ -953,11 +962,11 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       groupPtr->setStartState(start_state);
       
       createPouringPose(object_poses, object_shapes, reference_frames, index_object_from, object_for_task_name1, index_object_to, object_for_task_name2,
-                        grasping_pose, top_object_pose, 90, 0, new_gripper_pouring_pose);
+                        grasping_pose, top_object_pose, 90, 0.0, new_gripper_pouring_pose);
       
 
 
-      bool success_pouring_first_phase = computeSmoothCartesianPath(groupPtr, last_computed_pose, new_gripper_pouring_pose.pose, 25, pour_plan, last_computed_pose2, 0.8);
+      bool success_pouring_first_phase = computeSmoothCartesianPath(groupPtr, last_computed_pose, new_gripper_pouring_pose.pose, 30, pour_plan, last_computed_pose2, 0.5);
 
       if (!success_pouring_first_phase)
       {
@@ -971,7 +980,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       groupPtr->setStartState(start_state);
       
       createPouringPose(object_poses, object_shapes, reference_frames, index_object_from, object_for_task_name1, index_object_to, object_for_task_name2,
-                        grasping_pose, top_object_pose, 30, 0.1, new_gripper_pouring_pose);
+                        grasping_pose, top_object_pose, 30, 0.15, new_gripper_pouring_pose);
 
       bool success_up = computeSmoothCartesianPath(groupPtr, last_computed_pose2, new_gripper_pouring_pose.pose, 30, up_plan, last_computed_pose3, 0.8);
 
