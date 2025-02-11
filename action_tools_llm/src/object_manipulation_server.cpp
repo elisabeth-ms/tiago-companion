@@ -538,7 +538,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
               groupPtr->setStartState(start_state);
               geometry_msgs::Pose last_computed_pose;
-              bool success_aprox = computeSmoothCartesianPath(groupPtr, pregrasp_poses.poses[index_grasp],  grasping_poses.poses[index_grasp], 10, aprox_plan, last_computed_pose, 0.8);
+              bool success_aprox = computeSmoothCartesianPath(groupPtr, pregrasp_poses.poses[index_grasp],  grasping_poses.poses[index_grasp], 10, aprox_plan, last_computed_pose, 0.45);
 
 
               if (success_aprox)
@@ -654,7 +654,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     ROS_INFO("Radius: %f", radius);
     ROS_INFO("Height: %f", height);
 
-    int num_side_grasps = 8; // Define how many grasp points around the cylinder
+    int num_side_grasps = 16; // Define how many grasp points around the cylinder
     for (int i = 0; i < num_side_grasps; i++)
     {
         double angle = (i * 2.0 * M_PI) / num_side_grasps; // Evenly distribute around the circle
@@ -667,8 +667,8 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
                 geometry_msgs::Pose local_top_object_pose;
 
                 // **Positioning: Grasp from different Y positions around the cylinder**
-                local_grasp_pose.position.x = (radius+gripperLinkDistance_/2.0) * cos(angle); // Circle X coordinate
-                local_grasp_pose.position.y = (radius+gripperLinkDistance_/2.0) * sin(angle); // Circle Y coordinate
+                local_grasp_pose.position.x = (radius+gripperLinkDistance_) * cos(angle); // Circle X coordinate
+                local_grasp_pose.position.y = (radius+gripperLinkDistance_) * sin(angle); // Circle Y coordinate
                 local_grasp_pose.position.z = h;                   // Vary height
 
                 // **Orientation: X always towards object, Z is the gripper opening**
@@ -1203,7 +1203,13 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
         intermediate_pose.position.z = pose1.position.z + alpha * (pose2.position.z - pose1.position.z);
 
         // Slerp for smooth orientation transition
-        tf2::Quaternion q_intermediate = q_start.slerp(q_target, alpha);
+        
+        tf2::Quaternion q_intermediate;
+        if(q_start == q_target){
+          q_intermediate = q_start;
+        }else{
+         q_intermediate = q_start.slerp(q_target, alpha);
+        }
         intermediate_pose.orientation.x = q_intermediate.x();
         intermediate_pose.orientation.y = q_intermediate.y();
         intermediate_pose.orientation.z = q_intermediate.z();
@@ -1304,7 +1310,21 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
           ROS_INFO("Found a valid grasp pose at index: %d", index_grasp);
           // Attach the object to the gripper
           moveit_msgs::AttachedCollisionObject attached_object;
-          attached_object.link_name = "gripper_right_tool_link";
+
+          std::string group_name = groupPtr->getName();
+          std::string link_name;
+          std::string arm;
+
+          if (group_name.find("left") != std::string::npos)
+          {
+            link_name = "gripper_left_tool_link";
+            arm = "left";
+          }else if(group_name.find("right") != std::string::npos){
+            link_name = "gripper_right_tool_link";
+            arm = "right";
+          }
+
+          attached_object.link_name = link_name;
           attached_object.object.id = object_for_task_name1;
           attached_object.object.header.frame_id = "aruco_base";
           attached_object.object.operation = attached_object.object.ADD;
@@ -1387,7 +1407,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
 
               removeAllAttachedObjects();
               // open gripper
-              moveGripper(openGripperPositions_, "right");
+              moveGripper(openGripperPositions_, arm);
 
               // remove the collision object specific
               planningSceneInterface_.removeCollisionObjects({object_for_task_name1});                
