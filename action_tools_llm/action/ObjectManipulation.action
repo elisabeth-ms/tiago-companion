@@ -1,7 +1,7 @@
 # ObjectManipulation.action
 
 # Define the goal
-string task  # hand_over_to_person, move_object_next_to_person, pour_into
+string task  # hand_over_to_person, move_object_next_to_person, pour_into, push_object_to_person
 string object_for_task_name1
 string object_for_task_name2 # Only used in the pour_into task
 string[] object_names

@@ -225,6 +225,8 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     // Check for objects, obstacles, and calculate grasping poses
     // Publish feedback and result
     ROS_INFO("%s: Processing the manipulation task", action_name_.c_str());
+        robot_state::RobotState start_state(*groupRightArmTorsoPtr_->getCurrentState());
+
     // Remove all objects in the planning scene
     // removeCollisionObjectsPlanningScene();
     // ROS_INFO("Removed all objects in the planning scene");
@@ -648,7 +650,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
      ROS_INFO("Computing grasping poses for a cylinder");
 
     // Cylinder dimensions
-    double radius = object_shape.dimensions[0] / 2.0; // Diameter is stored in dimensions[0]
+    double radius = object_shape.dimensions[0] / 2.0-0.05; // Diameter is stored in dimensions[0]
     double height = object_shape.dimensions[1];       // Height is stored in dimensions[1]
 
     ROS_INFO("Radius: %f", radius);
@@ -890,7 +892,7 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
     {
       geometry_msgs::PoseStamped new_gripper_pouring_pose;
       createPouringPose(object_poses, object_shapes, reference_frames, index_object_from, object_for_task_name1, index_object_to, object_for_task_name2,
-                        grasping_pose, top_object_pose, 20, 0.15,new_gripper_pouring_pose);
+                        grasping_pose, top_object_pose, 20, 0.2,new_gripper_pouring_pose);
 
       std::string group_name = groupPtr->getName();
       std::string arm;
@@ -934,8 +936,8 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       const Eigen::Isometry3d& end_effector_state = last_robot_state.getGlobalLinkTransform(groupPtr->getEndEffectorLink());
 
       geometry_msgs::Pose last_computed_pose0;
-      last_computed_pose0.position.x = end_effector_state.translation().x()-0.8; // Make the correct transformation please
-      last_computed_pose0.position.y = end_effector_state.translation().y();
+      last_computed_pose0.position.x = end_effector_state.translation().x()-1.25; // Make the correct transformation please
+      last_computed_pose0.position.y = end_effector_state.translation().y()-0.025;
       last_computed_pose0.position.z = end_effector_state.translation().z();
 
       Eigen::Quaterniond quat(end_effector_state.rotation());
@@ -944,7 +946,8 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
       last_computed_pose0.orientation.z = quat.z();
       last_computed_pose0.orientation.w = quat.w();
 
-      bool success_move_to_pour = computeSmoothCartesianPath(groupPtr, last_computed_pose0, new_gripper_pouring_pose.pose, 10, move_to_start_pouring_plan, last_computed_pose, 0.8);
+
+      bool success_move_to_pour = computeSmoothCartesianPath(groupPtr, grasping_pose, new_gripper_pouring_pose.pose, 4, move_to_start_pouring_plan, last_computed_pose, 0.8);
       
       if (!success_move_to_pour)
       {
@@ -1242,8 +1245,8 @@ void disableCollisionChecking(moveit::planning_interface::PlanningSceneInterface
             // Convert joint state to Cartesian pose
             const Eigen::Isometry3d& end_effector_state = last_robot_state.getGlobalLinkTransform(groupPtr->getEndEffectorLink());
 
-            last_computed_pose.position.x = end_effector_state.translation().x()-0.8; // Make the correct transformation please
-            last_computed_pose.position.y = end_effector_state.translation().y();
+            last_computed_pose.position.x = end_effector_state.translation().x()-1.25; // Make the correct transformation please
+            last_computed_pose.position.y = end_effector_state.translation().y()-0.025;
             last_computed_pose.position.z = end_effector_state.translation().z();
 
             Eigen::Quaterniond quat(end_effector_state.rotation());
